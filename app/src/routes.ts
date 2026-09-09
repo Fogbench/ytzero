@@ -45,6 +45,8 @@ import { registerChannelPlaylistRoutes } from "./routes/channelPlaylistRoutes";
 import { playlistChannelSyncIsDisabled, registerChannelRoutes } from "./routes/channelRoutes";
 import { registerVideoActionRoutes } from "./routes/videoActionRoutes";
 import { registerPlaybackRoutes } from "./routes/playbackRoutes";
+import { registerNativePlaybackRoutes } from "./routes/nativePlaybackRoutes";
+import { serveMediaTicket } from "./nativePlayback";
 import { registerVideoRoutes } from "./routes/videoRoutes";
 import { registerTranscriptRoutes } from "./routes/transcriptRoutes";
 import {
@@ -208,6 +210,7 @@ export async function revalidateCurrentRequestUser(c: any, expectedUserId: numbe
 
 // Resolve the active profile for every API request, honouring the auth method.
 api.use("*", async (c, next) => {
+  if (c.req.query("media_ticket") !== undefined) return serveMediaTicket(c, next);
   const method = authMethod();
   const path = new URL(c.req.url).pathname.replace(/^\/api/, "");
   const bearerAuth = await authenticateBearerRequest(c, { profileFromCookie, setDelegatedProfileAdmin });
@@ -353,6 +356,7 @@ registerTranscriptRoutes(api, currentUserId);
 
 registerVideoActionRoutes(api, currentUserId);
 registerPlaybackRoutes(api, currentUserId);
+registerNativePlaybackRoutes(api, currentUserId);
 
 registerHistoryRoutes(api, { currentUserId, attachTags });
 registerBookmarkRoutes(api, { currentUserId, attachTags });

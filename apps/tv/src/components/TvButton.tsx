@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
+import { forwardRef, useState } from "react";
+import { StyleSheet, Text, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
 import { colors } from "../theme";
+import { TvPressable } from "./TvPressable";
 
 type Variant = "default" | "primary" | "danger" | "ghost";
 
@@ -8,15 +9,23 @@ type Props = Omit<PressableProps, "children" | "style"> & {
   label: string;
   variant?: Variant;
   preferredFocus?: boolean;
+  focusScale?: number;
   style?: StyleProp<ViewStyle>;
 };
 
-export function TvButton({ label, variant = "default", preferredFocus = false, disabled, style, onFocus, onBlur, ...props }: Props) {
+export const TvButton = forwardRef<View, Props>(function TvButton(
+  { label, variant = "default", preferredFocus = false, focusScale, disabled, style, onFocus, onBlur, ...props },
+  ref,
+) {
   const [focused, setFocused] = useState(false);
   return (
-    <Pressable
+    <TvPressable
       {...props}
+      ref={ref}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ ...props.accessibilityState, disabled: Boolean(disabled) }}
+      focusScale={focusScale}
       hasTVPreferredFocus={preferredFocus}
       onFocus={(event) => { setFocused(true); onFocus?.(event); }}
       onBlur={(event) => { setFocused(false); onBlur?.(event); }}
@@ -30,23 +39,23 @@ export function TvButton({ label, variant = "default", preferredFocus = false, d
       ]}
     >
       <Text style={[styles.label, labelStyles[variant], focused && styles.focusedLabel, disabled && styles.disabledLabel]}>{label}</Text>
-    </Pressable>
+    </TvPressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  base: { minHeight: 52, paddingHorizontal: 23, borderRadius: 26, borderWidth: 0, backgroundColor: colors.surfaceRaised, alignItems: "center", justifyContent: "center" },
+  base: { minHeight: 58, paddingHorizontal: 26, borderRadius: 29, borderWidth: 0, backgroundColor: colors.surfaceRaised, alignItems: "center", justifyContent: "center" },
   default: {},
-  primary: { backgroundColor: colors.surfaceSelected },
+  primary: { backgroundColor: colors.accent },
   danger: { backgroundColor: colors.surfaceRaised },
   ghost: { backgroundColor: "transparent" },
-  focused: { backgroundColor: colors.white, transform: [{ scale: 1.08 }], shadowColor: colors.black, shadowOpacity: 0.62, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
-  pressed: { opacity: 0.72, transform: [{ scale: 0.98 }] },
+  focused: { backgroundColor: colors.white, shadowColor: colors.black, shadowOpacity: 0.62, shadowRadius: 18, shadowOffset: { width: 0, height: 10 } },
+  pressed: { opacity: 0.8 },
   disabled: { opacity: 0.42 },
   label: { color: colors.text, fontSize: 19, fontWeight: "600" },
   defaultLabel: { color: colors.text },
   primaryLabel: { color: colors.text },
-  dangerLabel: { color: colors.text },
+  dangerLabel: { color: colors.danger },
   ghostLabel: { color: colors.textMuted },
   focusedLabel: { color: colors.black },
   disabledLabel: { color: colors.textMuted },

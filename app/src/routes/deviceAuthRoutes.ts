@@ -15,6 +15,7 @@ type Api = Hono<ApiEnvironment>;
 type ApiContext = Context<ApiEnvironment>;
 
 interface DeviceAuthRouteAccess {
+  canSwitchProfiles: () => boolean;
   currentUserId: (context: ApiContext) => number;
 }
 
@@ -69,8 +70,9 @@ export function registerDeviceAuthRoutes(api: Api, access: DeviceAuthRouteAccess
     const authorization = await exchangeDeviceAuthorization(device_code);
     if (authorization.kind === "pending") return c.json({ error: "authorization_pending" }, 428);
     if (authorization.kind === "expired") return c.json({ error: "expired_token" }, 400);
-    const accessToken = await createSession(authorization.userId, "profile");
-    log.info("auth.device_login", { scope: "profile", id: authorization.userId });
+    const scope = access.canSwitchProfiles() ? "account" : "profile";
+    const accessToken = await createSession(authorization.userId, scope);
+    log.info("auth.device_login", { scope, id: authorization.userId });
     return c.json({ access_token: accessToken, token_type: "Bearer", expires_in: AUTH_SESSION_TTL_SECONDS });
   });
 }

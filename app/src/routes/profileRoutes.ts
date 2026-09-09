@@ -16,6 +16,7 @@ import { invalidateAudioSources, removeDownload, removeDownloadCookies } from ".
 import { log } from "../logger";
 import { generateTemporaryPassword, uniqueProfileUsername } from "../profileCredentials";
 import { assignDefaultPermissionGroup } from "../accessControl";
+import { persistSessionProfile } from "../deviceSessionAuth";
 import {
   commitStagedProfileAvatar,
   optimizeProfileAvatar,
@@ -43,7 +44,6 @@ interface ProfileRouteAccess {
   profileCookie: (userId: number) => string;
   verifyChildLockPin: (pin: string) => Promise<boolean>;
 }
-
 export function registerProfileRoutes(api: Api, access: ProfileRouteAccess): void {
   const {
     canDelegateProfileAdmins,
@@ -427,7 +427,7 @@ api.post("/profiles/switch", async (c) => {
       return c.json({ error: "invalid PIN" }, 401);
     }
   }
-  c.header("Set-Cookie", profileCookie(user.id));
+  if (!await persistSessionProfile(c, user.id, profileCookie(user.id))) return c.json({ requires_relogin: true, logout_url: methodLogoutUrl() });
   log.info("profile.switched", { id: user.id });
   return c.json({ ok: true, active_id: user.id });
 });

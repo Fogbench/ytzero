@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
@@ -15,11 +15,13 @@ type Props = {
   onAuthorized: (accessToken: string) => void;
   onRetry: () => Promise<void>;
   onChangeInstance: () => void;
+  onBack?: () => void;
 };
 
-export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeInstance }: Props) {
+export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeInstance, onBack }: Props) {
   const [expired, setExpired] = useState(false);
   const [networkError, setNetworkError] = useState(false);
+  const displayCode = pairing.userCode.split("-").join("  ");
 
   useEffect(() => {
     let cancelled = false;
@@ -47,22 +49,23 @@ export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeIns
   }, [api, onAuthorized, pairing]);
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}><Logo compact /></View>
+    <TVFocusGuideView autoFocus style={styles.screen}>
+      <View style={styles.header}>
+        {onBack && <TvButton label={t("back")} variant="ghost" onPress={onBack} />}
+        <Logo compact />
+      </View>
       <View style={styles.content}>
-        <View style={styles.qrPanel}>
-          <View style={styles.qr}><QRCode value={pairing.verificationUriComplete} size={270} backgroundColor={colors.white} color={colors.black} /></View>
-          <Text style={styles.uri}>{pairing.verificationUri}</Text>
-        </View>
         <View style={styles.instructions}>
           <Text style={styles.title}>{t("pairTitle")}</Text>
           <Text style={styles.description}>{t("pairDescription")}</Text>
-          <Text style={styles.codeLabel}>{t("enterCode")}</Text>
-          <Text style={styles.code}>{pairing.userCode}</Text>
+          <View style={styles.codePanel}>
+            <Text style={styles.codeLabel}>{t("enterCode")}</Text>
+            <Text style={styles.code} numberOfLines={1}>{displayCode}</Text>
+          </View>
           {!expired ? (
             <View style={styles.waiting}>
-              <ActivityIndicator color={colors.textMuted} size="small" />
-              <Text style={styles.waitingText}>{networkError ? t("cannotConnect") : t("waiting")}</Text>
+              <ActivityIndicator color={networkError ? colors.danger : colors.textMuted} size="small" />
+              <Text style={[styles.waitingText, networkError && styles.error]}>{networkError ? t("cannotConnect") : t("waiting")}</Text>
             </View>
           ) : (
             <View style={styles.expired}>
@@ -72,26 +75,36 @@ export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeIns
           )}
           <TvButton label={t("changeInstance")} variant="ghost" onPress={onChangeInstance} style={styles.changeButton} />
         </View>
+        <View style={styles.qrPanel}>
+          <View style={styles.qrFrame}>
+            <View style={styles.qr}>
+              <QRCode value={pairing.verificationUriComplete} size={286} backgroundColor={colors.white} color={colors.black} />
+            </View>
+          </View>
+          <Text style={styles.uri} numberOfLines={1}>{pairing.verificationUri}</Text>
+        </View>
       </View>
-    </View>
+    </TVFocusGuideView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background, padding: screenPadding },
-  header: { height: 52, justifyContent: "center" },
-  content: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 76 },
-  qrPanel: { width: 380, alignItems: "center" },
-  qr: { backgroundColor: colors.white, borderRadius: 24, padding: 22 },
-  uri: { color: colors.textMuted, fontSize: 16, marginTop: 18, textAlign: "center" },
-  instructions: { width: 700 },
-  title: { color: colors.text, fontSize: 50, lineHeight: 58, fontWeight: "800", letterSpacing: -1.5 },
-  description: { color: colors.textMuted, fontSize: 22, lineHeight: 31, marginTop: 14, maxWidth: 680 },
-  codeLabel: { color: colors.textMuted, fontSize: 18, fontWeight: "700", marginTop: 38, textTransform: "uppercase", letterSpacing: 1.5 },
-  code: { color: colors.text, fontSize: 58, lineHeight: 70, fontWeight: "800", letterSpacing: 8, marginTop: 4 },
-  waiting: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 24 },
+  screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: screenPadding + 20, paddingVertical: 52 },
+  header: { minHeight: 58, flexDirection: "row", alignItems: "center", gap: 28 },
+  content: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 76, paddingBottom: 18 },
+  instructions: { flex: 1, maxWidth: 790 },
+  title: { color: colors.text, fontSize: 56, lineHeight: 64, fontWeight: "800", letterSpacing: -1.8 },
+  description: { color: colors.textMuted, fontSize: 22, lineHeight: 31, marginTop: 16, maxWidth: 720 },
+  codePanel: { alignSelf: "flex-start", minWidth: 560, backgroundColor: colors.surface, borderRadius: 26, paddingHorizontal: 30, paddingVertical: 23, marginTop: 34 },
+  codeLabel: { color: colors.textMuted, fontSize: 15, lineHeight: 20, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1.7 },
+  code: { color: colors.text, fontSize: 52, lineHeight: 64, fontWeight: "800", letterSpacing: 6, marginTop: 2 },
+  waiting: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: colors.surface, borderRadius: 24, paddingHorizontal: 18, minHeight: 46, marginTop: 20 },
   waitingText: { color: colors.textMuted, fontSize: 19 },
-  expired: { alignItems: "flex-start", gap: 18, marginTop: 22 },
+  expired: { flexDirection: "row", alignItems: "center", gap: 22, marginTop: 20 },
   error: { color: colors.danger, fontSize: 19, fontWeight: "700" },
-  changeButton: { alignSelf: "flex-start", marginTop: 26 },
+  changeButton: { alignSelf: "flex-start", marginTop: 14 },
+  qrPanel: { width: 430, alignItems: "center" },
+  qrFrame: { backgroundColor: colors.surface, borderRadius: 40, padding: 18, shadowColor: colors.black, shadowOpacity: 0.7, shadowRadius: 34, shadowOffset: { width: 0, height: 18 } },
+  qr: { backgroundColor: colors.white, borderRadius: 27, padding: 25, overflow: "hidden" },
+  uri: { color: colors.textMuted, fontSize: 17, lineHeight: 23, fontWeight: "600", marginTop: 20, textAlign: "center", maxWidth: 420 },
 });

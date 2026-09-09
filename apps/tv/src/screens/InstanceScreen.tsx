@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TextInput, TVFocusGuideView, View } from "react-native";
 import type { Translate } from "../i18n";
 import { isCleartextInstance, normalizeInstanceUrl } from "../instanceUrl";
 import { colors, screenPadding } from "../theme";
@@ -10,9 +10,10 @@ type Props = {
   initialValue: string;
   t: Translate;
   onConnect: (instanceUrl: string) => Promise<void>;
+  onBack?: () => void;
 };
 
-export function InstanceScreen({ initialValue, t, onConnect }: Props) {
+export function InstanceScreen({ initialValue, t, onConnect, onBack }: Props) {
   const [value, setValue] = useState(initialValue);
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -38,9 +39,12 @@ export function InstanceScreen({ initialValue, t, onConnect }: Props) {
   };
 
   return (
-    <View style={styles.screen}>
+    <TVFocusGuideView autoFocus style={styles.screen}>
       <View style={styles.panel}>
-        <Logo />
+        <View style={styles.header}>
+          {onBack && <TvButton label={t("back")} variant="ghost" onPress={onBack} />}
+          <Logo />
+        </View>
         <View style={styles.heading}>
           <Text style={styles.title}>{t("instanceTitle")}</Text>
           <Text style={styles.description}>{t("instanceDescription")}</Text>
@@ -74,13 +78,14 @@ export function InstanceScreen({ initialValue, t, onConnect }: Props) {
           {busy && <ActivityIndicator color={colors.white} size="small" />}
         </View>
       </View>
-    </View>
+    </TVFocusGuideView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, padding: screenPadding, alignItems: "center", justifyContent: "center" },
   panel: { width: "64%", maxWidth: 920 },
+  header: { flexDirection: "row", alignItems: "center", gap: 28 },
   heading: { marginTop: 48, marginBottom: 34 },
   title: { color: colors.text, fontSize: 48, lineHeight: 56, fontWeight: "800", letterSpacing: -1.4 },
   description: { color: colors.textMuted, fontSize: 22, lineHeight: 31, marginTop: 12, maxWidth: 760 },

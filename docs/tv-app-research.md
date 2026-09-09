@@ -39,23 +39,32 @@ Kod aplikacji znajduje się w `apps/tv` i zawiera:
 - utworzenie jednorazowego kodu, QR prowadzący do przeglądarkowego `/tv/pair`
   i kod do ręcznego przepisania,
 - zatwierdzenie konkretnego profilu w istniejącym UI YT Zero,
-- jednorazową wymianę kodu urządzenia na 30-dniową, profilową sesję Bearer,
-  zapisaną w bezpiecznym magazynie systemu,
+- jednorazową wymianę kodu urządzenia na sesję Bearer, która wygasa
+  po 30 dniach bezczynności i odnawia ten termin przy każdym użyciu, zapisaną
+  w bezpiecznym magazynie systemu,
 - natywny feed z paginacją, sortowaniem po publikacji/dodaniu, przełącznikiem
   nieobejrzane/wszystkie, focusami pilota, natywnym paralaksem miniatur na tvOS
-  i widokiem szczegółów,
-- sidebar zachowujący kolejność i widoczność obsługiwanych pozycji z ustawienia
-  `sidebar_nav`,
-- oznaczenie filmu jako obejrzanego, odrzucenie oraz osobny ekran ustawień
-  urządzenia z wylogowaniem i zmianą instancji,
+  i przejściem do pełnego Watch Page,
+- natywny sidebar TV zachowujący kolejność i widoczność pozycji z ustawienia
+  `sidebar_nav`, z ikonami w stanie zwiniętym i pełnymi widokami YT Zero poza
+  nieobsługiwanymi na TV sekcjami Social i Puls,
+- avatar i nazwę aktywnego profilu oraz natywny picker respektujący metodę
+  logowania, ukrywanie innych profili, PIN profilu i blokadę rodzicielską,
+- pełny Watch Page dociągający kanoniczny stan materiału i aktywnego profilu:
+  pionowy wariant dla Shorts, neutralne tagi, kanał, postęp, polubienie,
+  obejrzane, planowanie na dziś, odrzucenie/przywrócenie, podobne materiały oraz
+  komentarze zgodne z `watch_show_comments` i `watch_show_related`,
+- osobny ekran ustawień urządzenia z wylogowaniem i zmianą instancji,
 - komplet tekstów dla tych samych dziewięciu języków co główne UI.
 
-To jest działający pionowy przekrój, nie kompletna aplikacja. Widok szczegółów
-świadomie nie udaje gotowego playera.
+To jest działający pionowy przekrój, nie kompletna aplikacja. Watch Page ma już
+docelową, natywną strukturę treści i akcji, ale jego hero świadomie nie udaje
+gotowego playera przed wprowadzeniem krótkotrwałych media-ticketów.
 
 Prototyp został uruchomiony i sprawdzony na symulatorze Apple TV 4K z tvOS
 26.5: odtworzenie zapisanej sesji, pobranie 40-elementowego feedu, miniatury,
-nawigacja fokusem, wejście w szczegóły oraz powrót Menu/Back działają. W
+nawigacja fokusem, przejście przez akcje i półkę podobnych na Watch Page,
+otwieranie zwykłego filmu i Shortsa oraz powrót Menu/Back działają. W
 `react-native-tvos` 0.86.2-0 z Fabric wielokolumnowy `FlatList` potrafił po
 załadowaniu danych zwinąć wysokość do jednego punktu mimo `flex: 1`; ekran feedu
 ustala więc jawnie wymiar okna i blokuje kurczenie listy. To była przyczyna
@@ -79,10 +88,15 @@ TV: POST /api/auth/device/token (polling) → jednorazowy Bearer → /api/feed
 
 Kod parowania żyje 10 minut, jest jednorazowy i ma 32⁸ możliwych wartości.
 Serwer nie zwraca tokenu przeglądarce zatwierdzającej; odbiera go wyłącznie TV,
-który zna losowy `device_code`. Powstała sesja jest związana z zatwierdzonym
-profilem, nie umożliwia przełączania profili i może zostać unieważniona przez
-`/auth/logout`. Kod urządzenia jest stanem przejściowym, a sesja TV jest lokalnym
-stanem uwierzytelnienia — oba są wyłączone z backupu przenośnego.
+który zna losowy `device_code`. Dla `none`, logowania współdzielonego i OIDC
+gateway sesja ma zakres konta, zaczyna od zatwierdzonego profilu i pozwala
+przełączać profile z zachowaniem PIN-ów oraz blokady rodzicielskiej. Dla
+`per_profile`, proxy i OIDC mapped pozostaje przypięta do zatwierdzonego profilu.
+Może zostać unieważniona przez `/auth/logout`. Wygasa po 30 dniach bezczynności,
+ale każde uwierzytelnione żądanie z telewizora przesuwa termin wygaśnięcia o
+kolejne 30 dni. Kod
+urządzenia jest stanem przejściowym, a sesja TV jest lokalnym stanem
+uwierzytelnienia — oba są wyłączone z backupu przenośnego.
 
 Adres instancji oraz token są konfiguracją konkretnego urządzenia i trafiają do
 `expo-secure-store`. Token nie trafia do logów, QR ani query stringów. Android

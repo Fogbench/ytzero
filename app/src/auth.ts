@@ -119,7 +119,8 @@ export async function createSession(userId: number | null, scope: SessionScope, 
 }
 
 export async function validateSession(
-  token: string | undefined
+  token: string | undefined,
+  options: { renew?: boolean } = {},
 ): Promise<{ user_id: number | null; scope: SessionScope; is_admin: boolean; permission_group_uuid: string | null } | null> {
   if (!token) return null;
   const row = await database
@@ -130,7 +131,12 @@ export async function validateSession(
     await database.prepare("DELETE FROM auth_sessions WHERE token = ?").run(token);
     return null;
   }
-  await database.prepare("UPDATE auth_sessions SET last_seen = datetime('now') WHERE token = ?").run(token);
+  if (options.renew) {
+    const expires = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+    await database.prepare("UPDATE auth_sessions SET expires_at = ?, last_seen = datetime('now') WHERE token = ?").run(expires, token);
+  } else {
+    await database.prepare("UPDATE auth_sessions SET last_seen = datetime('now') WHERE token = ?").run(token);
+  }
   return { user_id: row.user_id, scope: row.scope, is_admin: row.is_admin === 1, permission_group_uuid: row.permission_group_uuid ?? null };
 }
 

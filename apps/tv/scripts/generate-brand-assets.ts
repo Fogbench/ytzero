@@ -29,16 +29,12 @@ function launcher(size: number): string {
 }
 
 function tvTile(width: number, height: number): string {
-  const markSize = Math.round(height * 0.46);
+  const playSize = Math.round(height * 0.36);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <defs>
-      <radialGradient id="glow" cx="50%" cy="47%" r="64%">
-        <stop offset="0" stop-color="#202023"/>
-        <stop offset="1" stop-color="${background}"/>
-      </radialGradient>
-    </defs>
-    <rect width="${width}" height="${height}" fill="url(#glow)"/>
-    ${mark(markSize, (width - markSize) / 2, (height - markSize) / 2)}
+    <rect width="${width}" height="${height}" fill="${blue}"/>
+    <svg x="${(width - playSize) / 2}" y="${(height - playSize) / 2}" width="${playSize}" height="${playSize}" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="${playPath}"/>
+    </svg>
   </svg>`;
 }
 

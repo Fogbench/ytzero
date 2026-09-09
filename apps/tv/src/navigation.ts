@@ -1,19 +1,45 @@
 import type { TranslationKey } from "./i18n";
 
-export type TvDestination = "feed" | "settings";
-export type TvNavigationIcon = "home" | "settings";
+export type TvDestination =
+  | "/"
+  | "/recommendations"
+  | "/shorts"
+  | "/live"
+  | "/watchlist"
+  | "/followed-playlists"
+  | "/downloads"
+  | "/liked"
+  | "/history"
+  | "/bookmarks"
+  | "/archive"
+  | "/settings";
+export type TvBrowseDestination = Exclude<TvDestination, "/settings">;
+export type TvNavigationIcon = "home" | "recommendations" | "shorts" | "live" | "watchlist" | "playlists" | "downloads" | "liked" | "history" | "bookmarks" | "archive" | "settings";
 
 export type TvNavigationItem = {
-  key: "/" | "/settings";
+  key: TvDestination;
   destination: TvDestination;
   labelKey: TranslationKey;
   icon: TvNavigationIcon;
 };
 
 const items: TvNavigationItem[] = [
-  { key: "/", destination: "feed", labelKey: "feedTitle", icon: "home" },
-  { key: "/settings", destination: "settings", labelKey: "deviceSettingsTitle", icon: "settings" },
+  { key: "/", destination: "/", labelKey: "navToday", icon: "home" },
+  { key: "/recommendations", destination: "/recommendations", labelKey: "navRecommendations", icon: "recommendations" },
+  { key: "/shorts", destination: "/shorts", labelKey: "navShorts", icon: "shorts" },
+  { key: "/live", destination: "/live", labelKey: "navLive", icon: "live" },
+  { key: "/watchlist", destination: "/watchlist", labelKey: "navWatchlist", icon: "watchlist" },
+  { key: "/followed-playlists", destination: "/followed-playlists", labelKey: "navFollowedPlaylists", icon: "playlists" },
+  { key: "/downloads", destination: "/downloads", labelKey: "navDownloads", icon: "downloads" },
+  { key: "/liked", destination: "/liked", labelKey: "navLiked", icon: "liked" },
+  { key: "/history", destination: "/history", labelKey: "navHistory", icon: "history" },
+  { key: "/bookmarks", destination: "/bookmarks", labelKey: "navBookmarks", icon: "bookmarks" },
+  { key: "/archive", destination: "/archive", labelKey: "navArchive", icon: "archive" },
+  { key: "/settings", destination: "/settings", labelKey: "navSettings", icon: "settings" },
 ];
+
+const browseDestinations = new Set<TvDestination>(items.filter((item) => item.destination !== "/settings").map((item) => item.destination));
+const hiddenByDefault = new Set<TvDestination>(["/recommendations", "/shorts", "/followed-playlists"]);
 
 type StoredEntry = { key: string; hidden: boolean; disabled?: boolean };
 
@@ -33,12 +59,8 @@ function parseStoredEntries(raw: string | null | undefined): StoredEntry[] {
     return [];
   }
 }
-/**
- * Applies the same persisted order/hidden/disabled model as the browser
- * sidebar, then narrows it to destinations implemented by the TV client.
- * Device settings always remain visible because they contain the only local
- * sign-out and instance-switching controls.
- */
+
+/** Mirrors the browser sidebar order and visibility, excluding Social and Pulse. */
 export function resolveTvNavigation(raw: string | null | undefined): {
   visible: TvNavigationItem[];
   hidden: TvNavigationItem[];
@@ -48,24 +70,29 @@ export function resolveTvNavigation(raw: string | null | undefined): {
   const seen = new Set<string>();
 
   for (const entry of parseStoredEntries(raw)) {
-    if (!byKey.has(entry.key as TvNavigationItem["key"]) || seen.has(entry.key)) continue;
+    if (!byKey.has(entry.key as TvDestination) || seen.has(entry.key)) continue;
     seen.add(entry.key);
     ordered.push(entry);
   }
   for (const item of items) {
-    if (!seen.has(item.key)) ordered.push({ key: item.key, hidden: false });
+    if (!seen.has(item.key)) ordered.push({ key: item.key, hidden: hiddenByDefault.has(item.key) });
   }
 
   const visible: TvNavigationItem[] = [];
   const hidden: TvNavigationItem[] = [];
   for (const entry of ordered) {
-    const item = byKey.get(entry.key as TvNavigationItem["key"]);
+    const item = byKey.get(entry.key as TvDestination);
     if (!item) continue;
-    if (item.destination === "settings") {
-      visible.push(item);
-    } else if (!entry.disabled) {
-      (entry.hidden ? hidden : visible).push(item);
-    }
+    if (item.destination === "/settings") visible.push(item);
+    else if (!entry.disabled) (entry.hidden ? hidden : visible).push(item);
   }
   return { visible, hidden };
+}
+
+export function isTvBrowseDestination(value: string): value is TvBrowseDestination {
+  return browseDestinations.has(value as TvDestination);
+}
+
+export function navigationLabelKey(destination: TvDestination): TranslationKey {
+  return items.find((item) => item.destination === destination)?.labelKey ?? "navToday";
 }

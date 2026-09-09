@@ -25,12 +25,13 @@ export function registerAuthStatusRoute(api: Api, access: AuthStatusRouteAccess)
     };
     if (c.req.header("authorization")?.match(/^Bearer\s/i)) {
       const deviceSession = await validateSession(access.sessionToken(c));
+      const canSwitch = Boolean(deviceSession && access.canSwitchProfiles());
       return c.json({
         method,
         authenticated: Boolean(deviceSession),
         scope: deviceSession?.scope ?? null,
-        can_switch: false,
-        hide_other_profiles: true,
+        can_switch: canSwitch,
+        hide_other_profiles: canSwitch ? access.hideOtherProfilesInPicker() : true,
         is_admin: access.isAdmin(c),
         ...ownerCapabilities,
       });

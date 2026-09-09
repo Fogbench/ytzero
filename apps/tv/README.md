@@ -6,9 +6,11 @@ scope.
 
 The current vertical slice supports instance setup, QR/manual device pairing,
 secure session storage, a profile-configured TV sidebar, a remote-focusable feed
-with native tvOS thumbnail parallax, basic feed filters, video details,
-mark-watched/reject actions, and device settings for sign-out and instance
-switching. Native playback is the next milestone.
+with native tvOS thumbnail parallax, backend tag filters, channel and Shorts
+views, a full remote-first Watch Page with profile actions, related videos and
+instance-configured comments, and device settings for sign-out and instance
+switching. Native playback behind short-lived media tickets is the next
+milestone.
 
 ```sh
 bun install

@@ -1,51 +1,64 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { ScrollView, StyleSheet, Text, TVFocusGuideView, View, type FocusDestination } from "react-native";
 import type { Translate } from "../i18n";
 import { colors, screenPadding } from "../theme";
 import { TvButton } from "../components/TvButton";
 
 type Props = {
+  focusRequest: number;
   instanceUrl: string;
+  profileFocusTarget: FocusDestination;
   onBack: () => void;
   onChangeInstance: () => Promise<void>;
   onSignOut: () => Promise<void>;
   t: Translate;
 };
 
-export function SettingsScreen({ instanceUrl, onBack, onChangeInstance, onSignOut, t }: Props) {
+export function SettingsScreen({ focusRequest, instanceUrl, profileFocusTarget, onBack, onChangeInstance, onSignOut, t }: Props) {
+  const firstActionRef = useRef<View>(null);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => firstActionRef.current?.requestTVFocus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusRequest]);
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{t("deviceSettingsTitle")}</Text>
-      <Text style={styles.description}>{t("deviceSettingsDescription")}</Text>
+    <TVFocusGuideView autoFocus style={styles.focusGuide}>
+      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <Text style={styles.title}>{t("deviceSettingsTitle")}</Text>
+        <Text style={styles.description}>{t("deviceSettingsDescription")}</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t("connection")}</Text>
-        <View style={styles.row}>
-          <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>{t("currentInstance")}</Text>
-            <Text numberOfLines={1} style={styles.instance}>{instanceUrl}</Text>
-            <Text style={styles.rowDescription}>{t("changeInstanceHint")}</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t("connection")}</Text>
+          <View style={styles.row}>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>{t("currentInstance")}</Text>
+              <Text numberOfLines={1} style={styles.instance}>{instanceUrl}</Text>
+              <Text style={styles.rowDescription}>{t("changeInstanceHint")}</Text>
+            </View>
+            <TvButton ref={firstActionRef} preferredFocus label={t("changeInstance")} nextFocusUp={profileFocusTarget} onPress={() => void onChangeInstance()} />
           </View>
-          <TvButton label={t("changeInstance")} onPress={() => void onChangeInstance()} />
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t("session")}</Text>
-        <View style={styles.row}>
-          <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>{t("signOut")}</Text>
-            <Text style={styles.rowDescription}>{t("signOutHint")}</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t("session")}</Text>
+          <View style={styles.row}>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>{t("signOut")}</Text>
+              <Text style={styles.rowDescription}>{t("signOutHint")}</Text>
+            </View>
+            <TvButton label={t("signOut")} variant="danger" onPress={() => void onSignOut()} />
           </View>
-          <TvButton label={t("signOut")} variant="danger" onPress={() => void onSignOut()} />
         </View>
-      </View>
 
-      <TvButton label={t("back")} variant="ghost" onPress={onBack} style={styles.back} />
-    </ScrollView>
+        <TvButton label={t("back")} variant="ghost" onPress={onBack} style={styles.back} />
+      </ScrollView>
+    </TVFocusGuideView>
   );
 }
 
 const styles = StyleSheet.create({
+  focusGuide: { flex: 1 },
   screen: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: screenPadding, paddingTop: 70, paddingBottom: 90 },
   title: { color: colors.text, fontSize: 54, lineHeight: 62, fontWeight: "700", letterSpacing: -1.8 },
