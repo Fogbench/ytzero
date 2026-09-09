@@ -4,6 +4,7 @@ import { surfaceMessages } from "./surfaceMessages";
 import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
+import { tvPairingMessages } from "./tvPairing";
 
 export const ptBR: Locale = {
   messages: {
@@ -11,6 +12,7 @@ export const ptBR: Locale = {
     ...feedBuilderMessages["pt-BR"],
     ...clusterMessages["pt-BR"],
     ...notificationMessages["pt-BR"],
+    ...tvPairingMessages["pt-BR"],
     "navToday": "Principal",
     "navSocial": "Social",
     "navDiscovery": "Descoberta",

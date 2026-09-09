@@ -287,6 +287,8 @@ describe("portable backup classification and restore", () => {
       .run("2099-12-31 23:59:58", 987654321);
     db.prepare(`INSERT INTO channel_posts(post_id,channel_id,body,url) VALUES('cache-post-do-not-export','UCportable','COMMUNITY-CACHE-DO-NOT-EXPORT','https://youtube.com/post/cache-post-do-not-export')`).run();
     db.prepare(`INSERT INTO channel_post_sync_state(channel_id,last_attempted_at,last_success_at,last_error) VALUES('UCportable','2099-12-31T23:59:57.000Z','2099-12-31T23:59:57.000Z','POST-SYNC-ERROR-DO-NOT-EXPORT')`).run();
+    db.prepare("INSERT INTO auth_flows(id,value,user_id,nonce,expires_at) VALUES(?,?,?,?,?)")
+      .run("tv-backup-flow", "tv-device:TV-CODE-DO-NOT-EXPORT", 1, '{"kind":"tv-device","approved":true}', "2099-12-31 23:59:59");
     const options = await backup.backupOptions();
     const zip = await backup.createPortableBackup({ preset: "configuration", profiles: options.profiles.map((profile) => profile.id) });
     const serialized = [...backup.readPortableZip(zip).values()].map((value) => new TextDecoder().decode(value)).join("\n");
@@ -307,6 +309,7 @@ describe("portable backup classification and restore", () => {
     expect(serialized).not.toContain("COMMUNITY-CACHE-DO-NOT-EXPORT");
     expect(serialized).not.toContain("POST-SYNC-ERROR-DO-NOT-EXPORT");
     expect(serialized).not.toContain("auth_sessions");
+    expect(serialized).not.toContain("TV-CODE-DO-NOT-EXPORT");
     for (const transientTable of ["auth_flows", "child_lock_sessions", "playback_activity", "child_pin_failures", "app_events", "cluster_instances"]) {
       expect(serialized).not.toContain(transientTable);
     }

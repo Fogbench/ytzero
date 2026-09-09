@@ -109,6 +109,12 @@ export { ApiError } from "./apiHttp";
 export type { FeedBuilderConfig, FeedMediaMode, FeedRecipe, FeedRecipeSources } from "../../shared/feedBuilder";
 export interface FeedBuilderOption { id: string; label: string; color?: string; filter_only?: number; }
 export interface FeedBuilderOptions { channels: FeedBuilderOption[]; tags: FeedBuilderOption[]; youtubePlaylists: FeedBuilderOption[]; userPlaylists: FeedBuilderOption[]; }
+export interface DevicePairingVerification {
+  user_code: string;
+  device_name: string;
+  profile_name: string;
+  approved: boolean;
+}
 export const api = {
   health: () => http<AppHealth>("/health"),
   clusterStatus: () => http<ClusterStatus>("/cluster/status"),
@@ -516,6 +522,10 @@ export const api = {
 
   config: () => sharedGet<{ app_url: string }>("config", "/config"),
   // ---------- authentication ----------
+  devicePairingVerification: (userCode: string) =>
+    http<DevicePairingVerification>(`/auth/device/verification?user_code=${encodeURIComponent(userCode)}`),
+  authorizeDevice: (userCode: string) =>
+    http<{ ok: true }>("/auth/device/authorize", { method: "POST", body: JSON.stringify({ user_code: userCode }) }),
   authStatus: () => sharedGet<AuthStatus>("auth-status", "/auth/status"),
   passwordLogin: (username: string, password: string) =>
     http<{ ok: true; active_id?: number }>("/auth/password/login", { method: "POST", body: JSON.stringify({ username, password }) }),

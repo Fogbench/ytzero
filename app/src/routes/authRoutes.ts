@@ -4,7 +4,7 @@ import { getSetting, setSetting } from "../db";
 import { log } from "../logger";
 import { generateTemporaryPassword, uniqueProfileUsername } from "../profileCredentials";
 import {
-  AUTH_SESSION_COOKIE,
+  AUTH_SESSION_TTL_SECONDS,
   authMethod,
   authSessionCookie,
   clearAuthSessionCookie,
@@ -29,6 +29,13 @@ import {
   validateSession,
 } from "../auth";
 import { accessControlSnapshot } from "../accessControl";
+import {
+  approveDeviceAuthorization,
+  beginDeviceAuthorization,
+  exchangeDeviceAuthorization,
+  inspectDeviceAuthorization,
+  normalizeDeviceUserCode,
+} from "../deviceAuth";
 import { externalRoleMappingConfig, type ExternalRoleMappingConfig } from "../externalRoleMappings";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
@@ -54,6 +61,7 @@ interface AuthRouteAccess {
   methodLogoutUrl: () => string;
   parseCookies: (header: string | undefined) => Record<string, string>;
   profileCookie: (userId: number) => string;
+  sessionToken: (context: ApiContext) => string | undefined;
 }
 
 export function registerAuthRoutes(api: Api, access: AuthRouteAccess): void {
@@ -67,11 +75,73 @@ export function registerAuthRoutes(api: Api, access: AuthRouteAccess): void {
     methodLogoutUrl,
     parseCookies,
     profileCookie,
+    sessionToken,
   } = access;
 
 // ---------- authentication ----------
 
 const OIDC_FLOW_COOKIE = "ytzero_oidc_flow";
+
+// Native TV pairing follows the OAuth device-flow shape, while remaining
+// entirely local to the YT Zero instance and its existing profile model.
+api.post("/auth/device/code", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const { device_name } = await c.req.json().catch(() => ({}));
+  const authorization = await beginDeviceAuthorization(device_name);
+  const verificationUri = `${requestOrigin(c)}/tv/pair`;
+  return c.json({
+    device_code: authorization.deviceCode,
+    user_code: authorization.userCode,
+    verification_uri: verificationUri,
+    verification_uri_complete: `${verificationUri}?code=${encodeURIComponent(authorization.userCode)}`,
+    expires_in: authorization.expiresIn,
+    interval: authorization.interval,
+  });
+});
+
+api.get("/auth/device/verification", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const uid = currentUserId(c);
+  if (!uid) return c.json({ error: "unauthenticated" }, 401);
+  const userCode = normalizeDeviceUserCode(c.req.query("user_code"));
+  const authorization = await inspectDeviceAuthorization(userCode);
+  if (!authorization) return c.json({ error: "invalid or expired device code" }, 404);
+  const profile = await database.prepare("SELECT name FROM users WHERE id = ?").get<{ name: string }>(uid);
+  return c.json({
+    user_code: userCode,
+    device_name: authorization.deviceName,
+    approved: authorization.approved,
+    profile_name: profile?.name ?? "",
+  });
+});
+
+api.post("/auth/device/authorize", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const uid = currentUserId(c);
+  if (!uid) return c.json({ error: "unauthenticated" }, 401);
+  const { user_code } = await c.req.json().catch(() => ({}));
+  const normalized = normalizeDeviceUserCode(user_code);
+  if (!normalized) return c.json({ error: "invalid or expired device code" }, 404);
+  const approved = await approveDeviceAuthorization(normalized, uid);
+  if (!approved) return c.json({ error: "invalid, expired, or already approved device code" }, 404);
+  log.info("auth.device_approved", { profileId: uid });
+  return c.json({ ok: true });
+});
+
+api.post("/auth/device/token", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const { device_code } = await c.req.json().catch(() => ({}));
+  const authorization = await exchangeDeviceAuthorization(device_code);
+  if (authorization.kind === "pending") return c.json({ error: "authorization_pending" }, 428);
+  if (authorization.kind === "expired") return c.json({ error: "expired_token" }, 400);
+  const accessToken = await createSession(authorization.userId, "profile");
+  log.info("auth.device_login", { scope: "profile", id: authorization.userId });
+  return c.json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: AUTH_SESSION_TTL_SECONDS,
+  });
+});
 
 // What the SPA needs to decide between rendering the app or the login screen.
 api.get("/auth/status", async (c) => {
@@ -80,6 +150,18 @@ api.get("/auth/status", async (c) => {
     can_manage_administrators: isPrimaryUser(c),
     admin_delegation_available: canDelegateProfileAdmins(),
   };
+  if (c.req.header("authorization")?.match(/^Bearer\s/i)) {
+    const deviceSession = await validateSession(sessionToken(c));
+    return c.json({
+      method,
+      authenticated: Boolean(deviceSession),
+      scope: deviceSession?.scope ?? null,
+      can_switch: false,
+      hide_other_profiles: true,
+      is_admin: isAdmin(c),
+      ...ownerCapabilities,
+    });
+  }
   if (method === "none") return c.json({ method, authenticated: true, can_switch: true, hide_other_profiles: false, is_admin: isAdmin(c), ...ownerCapabilities });
 
   if (method === "proxy_header") {
@@ -95,7 +177,7 @@ api.get("/auth/status", async (c) => {
     });
   }
 
-  const session = await validateSession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
+  const session = await validateSession(sessionToken(c));
   const perProfilePasskeys =
     (await database.prepare("SELECT COUNT(*) AS n FROM webauthn_credentials WHERE user_id IS NOT NULL").get() as { n: number }).n > 0;
   return c.json({
@@ -241,7 +323,7 @@ api.get("/auth/oidc/callback", async (c) => {
 });
 
 api.post("/auth/logout", async (c) => {
-  await destroySession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
+  await destroySession(sessionToken(c));
   c.header("Set-Cookie", clearAuthSessionCookie());
   return c.json({ ok: true, logout_url: methodLogoutUrl() });
 });

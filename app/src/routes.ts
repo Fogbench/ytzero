@@ -80,6 +80,16 @@ function parseCookies(header: string | undefined) {
   return cookies;
 }
 
+function bearerSessionToken(header: string | undefined): string | undefined {
+  const match = header?.match(/^Bearer\s+([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i);
+  return match?.[1];
+}
+
+function authSessionToken(c: any): string | undefined {
+  return bearerSessionToken(c.req.header("authorization"))
+    ?? parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE];
+}
+
 function isSixDigitPin(pin: unknown): pin is string {
   return typeof pin === "string" && /^\d{6}$/.test(pin);
 }
@@ -193,6 +203,13 @@ async function profileFromCookie(c: any): Promise<number> {
 /** Re-resolve long-lived request identity instead of trusting middleware state forever. */
 export async function revalidateCurrentRequestUser(c: any, expectedUserId: number): Promise<boolean> {
   const method = authMethod();
+  const bearer = bearerSessionToken(c.req.header("authorization"));
+  if (bearer) {
+    const session = await validateSession(bearer);
+    if (!session) return false;
+    const userId = session.scope === "account" ? await profileFromCookie(c) : session.user_id ?? 0;
+    return userId === expectedUserId;
+  }
   if (method === "none") return await profileFromCookie(c) === expectedUserId;
   if (method === "proxy_header") return await resolveProxyUser(c) === expectedUserId;
 
@@ -211,6 +228,29 @@ function isAuthFreePath(path: string): boolean {
 api.use("*", async (c, next) => {
   const method = authMethod();
   const path = new URL(c.req.url).pathname.replace(/^\/api/, "");
+  const authorization = c.req.header("authorization");
+  const bearer = bearerSessionToken(authorization);
+
+  if (authorization?.match(/^Bearer\b/i) && !bearer) {
+    c.set("userId", 0);
+    return c.json({ error: "unauthenticated", method }, 401);
+  }
+
+  // Native TV clients use the same server-side sessions as the browser, but
+  // present the opaque token as a Bearer credential instead of a cookie.
+  if (bearer) {
+    const session = await validateSession(bearer);
+    if (!session) {
+      c.set("userId", 0);
+      return c.json({ error: "unauthenticated", method }, 401);
+    }
+    const userId = session.scope === "account" ? await profileFromCookie(c) : session.user_id ?? 0;
+    c.set("userId", userId);
+    c.set("sessionAdmin", session.is_admin);
+    if (session.permission_group_uuid) c.set("permissionGroupUuid", session.permission_group_uuid);
+    if (session.scope === "profile") await setDelegatedProfileAdmin(c, userId);
+    return next();
+  }
 
   if (method === "none") {
     c.set("userId", await profileFromCookie(c));
@@ -452,6 +492,7 @@ registerAuthRoutes(api, {
   methodLogoutUrl,
   parseCookies,
   profileCookie,
+  sessionToken: authSessionToken,
 });
 
 registerSystemRoutes(api, { isAdmin, currentUserId });

@@ -104,7 +104,8 @@ export function rpId(c: any): string {
 // ---------- sessions (DB-backed, survive restart) ----------
 
 export const AUTH_SESSION_COOKIE = "ytzero_session";
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const AUTH_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const SESSION_TTL_MS = AUTH_SESSION_TTL_SECONDS * 1000;
 
 export type SessionScope = "account" | "profile";
 
