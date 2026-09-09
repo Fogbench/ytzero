@@ -180,7 +180,8 @@ adds persistent data must update this list and the backup registry described
 below.
 
 Cluster runtime tables are transient state and are never portable:
-`auth_flows` contains single-use, five-minute OIDC/WebAuthn challenges;
+`auth_flows` contains single-use, five-minute OIDC/WebAuthn challenges and
+ten-minute native-TV device pairing requests;
 `child_lock_sessions` contains expiring server-side unlock tokens;
 `playback_activity` and `child_pin_failures` contain short-lived child-safety
 coordination state; and `app_events` is a short-lived cross-replica SSE
@@ -189,8 +190,10 @@ safe runtime-configuration snapshot used by the cluster dashboard. The
 `downloads.worker_id` and
 `downloads.worker_heartbeat_at_ms` fields are transient queue ownership rather
 than portable download state. They are intentionally excluded from every
-backup section. Durable `auth_sessions` remain instance-local authentication
-state and are likewise excluded.
+backup section. Durable `auth_sessions`, including profile-bound bearer
+sessions issued to a paired television, remain instance-local authentication
+state and are likewise excluded. Device codes, bearer tokens, and the
+television's saved instance URL are never part of a portable backup.
 
 Public sharing is instance-local security state. `public_share_policy` contains
 the default-off installation-wide kill switch, while `public_shares` contains

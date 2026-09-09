@@ -1,5 +1,6 @@
 import { apiFetch } from "./apiTransport";
 import { http, sharedGet } from "./apiHttp";
+import { devicePairingApi } from "./devicePairingApi";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import { createSocialWatchPartyApi } from "./socialWatchPartyApi";
 import type { PlaylistSort, UserPlaylistSort } from "./playlistSort";
@@ -112,11 +113,9 @@ export { ApiError } from "./apiHttp";
 export type { FeedBuilderConfig, FeedMediaMode, FeedRecipe, FeedRecipeSources } from "../../shared/feedBuilder";
 export interface FeedBuilderOption { id: string; label: string; color?: string; filter_only?: number; }
 export interface FeedBuilderOptions { channels: FeedBuilderOption[]; tags: FeedBuilderOption[]; youtubePlaylists: FeedBuilderOption[]; userPlaylists: FeedBuilderOption[]; }
-
 function withBrowserPublicShareUrl(share: ManagedPublicShare): ManagedPublicShare {
   return { ...share, url: new URL(`/share/${encodeURIComponent(share.token)}`, window.location.origin).toString() };
 }
-
 export const api = {
   health: () => http<AppHealth>("/health"),
   clusterStatus: () => http<ClusterStatus>("/cluster/status"),
@@ -543,6 +542,7 @@ export const api = {
 
   config: () => sharedGet<{ app_url: string }>("config", "/config"),
   // ---------- authentication ----------
+  ...devicePairingApi,
   authStatus: () => sharedGet<AuthStatus>("auth-status", "/auth/status"),
   passwordLogin: (username: string, password: string) =>
     http<{ ok: true; active_id?: number }>("/auth/password/login", { method: "POST", body: JSON.stringify({ username, password }) }),

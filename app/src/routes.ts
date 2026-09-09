@@ -18,6 +18,7 @@ import {
   resolveProxyUser,
   resolveProxyPermissionGroupUuid,
 } from "./auth";
+import { authenticateBearerRequest, authSessionToken, isAuthFreePath, revalidateBearerRequest } from "./deviceSessionAuth";
 import { registerSystemRoutes } from "./routes/systemRoutes";
 import { registerNotificationRoutes } from "./routes/notificationRoutes";
 import { registerPublicShareManagementRoutes } from "./routes/publicShareManagementRoutes";
@@ -194,6 +195,8 @@ async function profileFromCookie(c: any): Promise<number> {
 /** Re-resolve long-lived request identity instead of trusting middleware state forever. */
 export async function revalidateCurrentRequestUser(c: any, expectedUserId: number): Promise<boolean> {
   const method = authMethod();
+  const bearerValid = await revalidateBearerRequest(c, expectedUserId, profileFromCookie);
+  if (bearerValid !== undefined) return bearerValid;
   if (method === "none") return await profileFromCookie(c) === expectedUserId;
   if (method === "proxy_header") return await resolveProxyUser(c) === expectedUserId;
 
@@ -203,15 +206,13 @@ export async function revalidateCurrentRequestUser(c: any, expectedUserId: numbe
   return userId === expectedUserId;
 }
 
-// Endpoints reachable without an authenticated session (login flow + app config).
-function isAuthFreePath(path: string): boolean {
-  return path.startsWith("/auth") || path === "/config";
-}
-
 // Resolve the active profile for every API request, honouring the auth method.
 api.use("*", async (c, next) => {
   const method = authMethod();
   const path = new URL(c.req.url).pathname.replace(/^\/api/, "");
+  const bearerAuth = await authenticateBearerRequest(c, { profileFromCookie, setDelegatedProfileAdmin });
+  if (bearerAuth === "invalid") return c.json({ error: "unauthenticated", method }, 401);
+  if (bearerAuth === "authenticated") return next();
 
   if (method === "none") {
     c.set("userId", await profileFromCookie(c));
@@ -454,6 +455,7 @@ registerAuthRoutes(api, {
   methodLogoutUrl,
   parseCookies,
   profileCookie,
+  sessionToken: (context) => authSessionToken(context, parseCookies),
 });
 
 registerSystemRoutes(api, { isAdmin, currentUserId });

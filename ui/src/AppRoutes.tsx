@@ -4,7 +4,6 @@ import { api, type ChildStatus, type ProfilePermissions, type Video } from "./ap
 import type { ToastVariant } from "./events";
 import type { PlaybackQueueContext } from "./playbackQueue";
 import { DelayedPageSkeleton } from "./components/LoadingState";
-
 const ArchivePage = lazy(() => import("./pages/ArchivePage"));
 const BookmarksPage = lazy(() => import("./pages/BookmarksPage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
@@ -25,10 +24,10 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ShortsPage = lazy(() => import("./pages/ShortsPage"));
 const SocialPage = lazy(() => import("./pages/SocialPage"));
 const SubscriptionsPage = lazy(() => import("./pages/SubscriptionsPage"));
+const TvPairingPage = lazy(() => import("./pages/TvPairingPage"));
 const UserPlaylistPage = lazy(() => import("./pages/UserPlaylistPage"));
 const WatchPage = lazy(() => import("./pages/WatchPage"));
 const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
-
 type AppRoutesProps = {
   childStatus: ChildStatus | null;
   enabledPluginRoutes: Set<string> | null;
@@ -86,6 +85,7 @@ export default function AppRoutes({
         <Route path="/cleanup" element={<CleanupPage />} />
         <Route path="/insights" element={<InsightsPage shortsEnabled={shortsEnabled} />} />
         <Route path="/settings" element={<SettingsPage showToast={showToast} />} />
+        <Route path="/tv/pair" element={<TvPairingPage />} />
         <Route path="/import" element={isAdmin || !profilePermissions.admin_only_areas.includes("imports")
           ? <ImportPage showToast={showToast} />
           : <Navigate to="/settings" replace />} />

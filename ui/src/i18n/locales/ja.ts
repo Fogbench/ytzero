@@ -4,6 +4,7 @@ import { surfaceMessages } from "./surfaceMessages";
 import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
+import { tvPairingMessages } from "./tvPairing";
 
 export const ja: Locale = {
   messages: {
@@ -11,6 +12,7 @@ export const ja: Locale = {
     ...feedBuilderMessages.ja,
     ...clusterMessages.ja,
     ...notificationMessages.ja,
+    ...tvPairingMessages.ja,
     "navToday": "メインページ",
     "navSocial": "社会招聘",
     "navDiscovery": "ディスカバリー",

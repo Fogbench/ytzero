@@ -4,7 +4,6 @@ import { getSetting, setSetting } from "../db";
 import { log } from "../logger";
 import { generateTemporaryPassword, uniqueProfileUsername } from "../profileCredentials";
 import {
-  AUTH_SESSION_COOKIE,
   authMethod,
   authSessionCookie,
   clearAuthSessionCookie,
@@ -26,10 +25,11 @@ import {
   resolveProxyUser,
   sharedAuth,
   testOidc,
-  validateSession,
 } from "../auth";
 import { accessControlSnapshot } from "../accessControl";
 import { externalRoleMappingConfig, type ExternalRoleMappingConfig } from "../externalRoleMappings";
+import { registerAuthStatusRoute } from "./authStatusRoute";
+import { registerDeviceAuthRoutes } from "./deviceAuthRoutes";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -54,6 +54,7 @@ interface AuthRouteAccess {
   methodLogoutUrl: () => string;
   parseCookies: (header: string | undefined) => Record<string, string>;
   profileCookie: (userId: number) => string;
+  sessionToken: (context: ApiContext) => string | undefined;
 }
 
 export function registerAuthRoutes(api: Api, access: AuthRouteAccess): void {
@@ -67,56 +68,14 @@ export function registerAuthRoutes(api: Api, access: AuthRouteAccess): void {
     methodLogoutUrl,
     parseCookies,
     profileCookie,
+    sessionToken,
   } = access;
 
 // ---------- authentication ----------
 
 const OIDC_FLOW_COOKIE = "ytzero_oidc_flow";
-
-// What the SPA needs to decide between rendering the app or the login screen.
-api.get("/auth/status", async (c) => {
-  const method = authMethod();
-  const ownerCapabilities = {
-    can_manage_administrators: isPrimaryUser(c),
-    admin_delegation_available: canDelegateProfileAdmins(),
-  };
-  if (method === "none") return c.json({ method, authenticated: true, can_switch: true, hide_other_profiles: false, is_admin: isAdmin(c), ...ownerCapabilities });
-
-  if (method === "proxy_header") {
-    const uid = await resolveProxyUser(c);
-    return c.json({
-      method,
-      authenticated: Boolean(uid),
-      can_switch: false,
-      hide_other_profiles: hideOtherProfilesInPicker(),
-      is_admin: isAdmin(c),
-      ...ownerCapabilities,
-      proxy_header_seen: Boolean(proxyHeaderValue(c)),
-    });
-  }
-
-  const session = await validateSession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
-  const perProfilePasskeys =
-    (await database.prepare("SELECT COUNT(*) AS n FROM webauthn_credentials WHERE user_id IS NOT NULL").get() as { n: number }).n > 0;
-  return c.json({
-    method,
-    authenticated: Boolean(session),
-    scope: session?.scope ?? null,
-    can_switch: canSwitchProfiles(),
-    hide_other_profiles: hideOtherProfilesInPicker(),
-    is_admin: isAdmin(c),
-    ...ownerCapabilities,
-    oidc_mode: method === "oidc" ? getSetting("auth_oidc_mode") || "mapped" : undefined,
-    // per_profile always needs a username; shared only when one was configured.
-    username_field: method === "per_profile" || (method === "shared" && Boolean(sharedAuth.username())),
-    login: {
-      password:
-        method === "shared" ? sharedAuth.passwordConfigured() : method === "per_profile",
-      passkey: method === "shared" ? await hasPasskeys(null) : method === "per_profile" ? perProfilePasskeys : false,
-      oidc: method === "oidc",
-    },
-  });
-});
+registerDeviceAuthRoutes(api, { currentUserId });
+registerAuthStatusRoute(api, { canDelegateProfileAdmins, canSwitchProfiles, hideOtherProfilesInPicker, isAdmin, isPrimaryUser, sessionToken });
 
 api.post("/auth/password/login", async (c) => {
   const method = authMethod();
@@ -241,7 +200,7 @@ api.get("/auth/oidc/callback", async (c) => {
 });
 
 api.post("/auth/logout", async (c) => {
-  await destroySession(parseCookies(c.req.header("cookie"))[AUTH_SESSION_COOKIE]);
+  await destroySession(sessionToken(c));
   c.header("Set-Cookie", clearAuthSessionCookie());
   return c.json({ ok: true, logout_url: methodLogoutUrl() });
 });

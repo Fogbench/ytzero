@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "YT Zero",
+    "slug": "ytzero-tv",
+    "version": "0.1.0",
+    "orientation": "landscape",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#050506",
+    "icon": "./assets/brand/launcher-icon.png",
+    "scheme": "ytzero",
+    "ios": {
+      "bundleIdentifier": "app.ytzero.tv",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "app.ytzero.tv",
+      "versionCode": 1,
+      "userInterfaceStyle": "dark"
+    },
+    "plugins": [
+      [
+        "@react-native-tvos/config-tv",
+        {
+          "isTV": true,
+          "androidTVRequired": true,
+          "tvosDeploymentTarget": "17.0",
+          "androidTVBanner": "./assets/brand/android-tv-banner.png",
+          "androidTVIcon": "./assets/brand/launcher-icon.png",
+          "appleTVImages": {
+            "icon": "./assets/brand/tvos-icon-large.png",
+            "iconSmall": "./assets/brand/tvos-icon-small.png",
+            "iconSmall2x": "./assets/brand/tvos-icon-small@2x.png",
+            "topShelf": "./assets/brand/tvos-top-shelf.png",
+            "topShelf2x": "./assets/brand/tvos-top-shelf@2x.png",
+            "topShelfWide": "./assets/brand/tvos-top-shelf-wide.png",
+            "topShelfWide2x": "./assets/brand/tvos-top-shelf-wide@2x.png"
+          }
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-secure-store"
+    ]
+  }
+}

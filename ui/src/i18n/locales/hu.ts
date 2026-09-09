@@ -4,6 +4,7 @@ import { surfaceMessages } from "./surfaceMessages";
 import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
+import { tvPairingMessages } from "./tvPairing";
 import type { Locale } from "../types";
 
 export const hu: Locale = {
@@ -12,6 +13,7 @@ export const hu: Locale = {
     ...feedBuilderMessages.hu,
     ...clusterMessages.hu,
     ...notificationMessages.hu,
+    ...tvPairingMessages.hu,
     navToday: "Kezdőlap",
     navSocial: "Közösség",
     navDiscovery: "Felfedezés",
