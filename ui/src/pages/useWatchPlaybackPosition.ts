@@ -12,6 +12,7 @@ export function useWatchPlaybackPosition({
   playerRef,
   privateVideoNotice,
   sharedStartSeconds,
+  sourceKey,
   video,
 }: {
   audioActive: boolean;
@@ -21,6 +22,7 @@ export function useWatchPlaybackPosition({
   playerRef: RefObject<WatchPlayerHandle | null>;
   privateVideoNotice: boolean;
   sharedStartSeconds: number;
+  sourceKey?: string;
   video: Video | null;
 }) {
   const streamPositionRef = useRef(0);
@@ -48,7 +50,7 @@ export function useWatchPlaybackPosition({
       ownedWatchPosition(id, playbackPositionVideoIdRef.current, progressRef.current?.position),
     );
     return resolveWatchPlaybackStart({ capturedPosition: capturedStartSeconds, savedPosition: savedStartSeconds, sharedTargetChanged, sharedTargetSeconds: sharedStartSeconds });
-  }, [audioActive, id, livePlayback, playerKind, savedStartSeconds, sharedStartSeconds]);
+  }, [audioActive, id, livePlayback, playerKind, savedStartSeconds, sharedStartSeconds, sourceKey]);
   const capturePlaybackPosition = useCallback(() => {
     if (!id || livePlayback) return;
     const player = playerRef.current;

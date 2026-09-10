@@ -358,6 +358,7 @@ export const ptBR: Locale = {
     "playlistDownloadConfirm": "Colocar todos os {count} episódios de playlist disponíveis para download local?",
     "playlistDownloadQueued": "Em fila {count} episódios para download",
     "playlistDownloadNone": "Todos os episódios disponíveis já estão baixados ou em fila de espera",
+    playlistSortSaveFailed: "Não foi possível salvar a ordenação da playlist. Tente novamente.",
     "playlistDownloadFailed": "Não foi possível fazer fila na lista de reprodução para download",
     "cancelDownload": "Cancelar a transferência",
     "downloading": "Baixando",

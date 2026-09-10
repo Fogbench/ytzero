@@ -1,3 +1,4 @@
+import type { PlaylistSort } from "./playlistSort";
 import type { I18nKey } from "./i18n";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import type { PlaybackQueueContext } from "./playbackQueue";
@@ -170,6 +171,7 @@ export interface PlaylistInfo {
   followed?: boolean;
 }
 export interface FollowedPlaylist {
+  video_sort?: PlaylistSort;
   playlist_id: string;
   title: string;
   thumbnail: string;

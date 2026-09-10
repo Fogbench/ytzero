@@ -1,9 +1,9 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { database } from "./database";
 import { DB_PATH, getSetting, setSetting } from "./db";
 import { log } from "./logger";
-import { supportedDenoVersion } from "./ytdlpJavascriptRuntime";
+import { denoRuntimeArgs, selectDenoRuntime } from "./ytdlpJavascriptRuntime";
 export { DL_DEFAULTS, DOWNLOADS_ADMIN_SETTING_KEYS } from "./downloadSettings";
 export type { DlSettings, DownloadSettingDefinition, DownloadSettingValue } from "./downloadSettings";
 export { dlEnabled, dlSettings, downloadSettings, migrateDownloadsFromPlugin, profileDownloadsEnabled, setDownloadSettings, setProfileDownloadsEnabled } from "./downloadSettingsStore";
@@ -19,7 +19,21 @@ mkdirSync(DOWNLOAD_COOKIES_DIR, { recursive: true });
 const MAX_COOKIES_BYTES = 4 * 1024 * 1024;
 export const YTDLP = process.env.YTDLP_PATH ?? "yt-dlp";
 
-
+// Resolve once before any extractor command is built. GUI/dev-server PATHs can
+// find an obsolete ~/.deno/bin installation before a working package-manager
+// version. Pass the chosen executable explicitly instead of changing PATH.
+const ytdlpJavascriptRuntime = await selectDenoRuntime(
+  (process.env.PATH ?? "").split(delimiter).filter(Boolean)
+    .map((directory) => Bun.which("deno", { PATH: directory })).filter((path): path is string => path !== null),
+  async (path) => {
+    const proc = Bun.spawn([path, "--version"], { stdout: "pipe", stderr: "ignore" });
+    const timer = setTimeout(() => { try { proc.kill(); } catch {} }, 2000);
+    try {
+      const out = await new Response(proc.stdout).text();
+      return (await proc.exited) === 0 ? out : null;
+    } finally { clearTimeout(timer); }
+  },
+);
 
 
 export function downloadCookiesFile(userId: number) {
@@ -43,7 +57,7 @@ export function ytdlpCommand(userId: number, args: string[], useCookies = false)
  * This keeps it out of cookie-backed attempts and native installs that did not
  * opt into the image-provided paths. */
 export function ytdlpAttemptArgs(args: string[], useCookies: boolean, cookieFile: string | null = null): string[] {
-  const result = [...args];
+  const result = [...args, ...denoRuntimeArgs(ytdlpJavascriptRuntime)];
   if (useCookies && cookieFile) result.push("--cookies", cookieFile);
   if (!useCookies) {
     const pluginDir = process.env.YTDLP_BGUTIL_PLUGIN_DIR;
@@ -97,7 +111,7 @@ export async function migrateLegacyDownloadCookies() {
 // ---------- yt-dlp binary ----------
 
 let ytdlpVersion: string | null | undefined;
-let ytdlpJavascriptRuntimeVersion: string | null | undefined;
+let warnedAboutMissingRuntime = false;
 
 export function invalidateYtdlpStatus(): void {
   ytdlpVersion = undefined;
@@ -105,22 +119,15 @@ export function invalidateYtdlpStatus(): void {
 
 /** Deno is yt-dlp's recommended and default-enabled EJS challenge runtime. */
 export async function ytdlpJavascriptRuntimeStatus(): Promise<string | null> {
-  if (ytdlpJavascriptRuntimeVersion !== undefined) return ytdlpJavascriptRuntimeVersion;
-  try {
-    const proc = Bun.spawn(["deno", "--version"], { stdout: "pipe", stderr: "ignore" });
-    const out = await new Response(proc.stdout).text();
-    ytdlpJavascriptRuntimeVersion = (await proc.exited) === 0 ? supportedDenoVersion(out) : null;
-  } catch {
-    ytdlpJavascriptRuntimeVersion = null;
-  }
-  if (!ytdlpJavascriptRuntimeVersion) {
+  if (!ytdlpJavascriptRuntime && !warnedAboutMissingRuntime) {
+    warnedAboutMissingRuntime = true;
     log.warn("downloads.ytdlp_js_runtime_missing", {
       runtime: "deno",
       minimumVersion: "2.3.0",
       impact: "YouTube JavaScript challenges may make downloads, streaming, audio, subtitles, transcripts, and comments unavailable",
     });
   }
-  return ytdlpJavascriptRuntimeVersion;
+  return ytdlpJavascriptRuntime?.version ?? null;
 }
 
 export async function ytdlpStatus(): Promise<string | null> {

@@ -19,14 +19,20 @@ export function channelsForTags(topChannels: Channel[], channels: Channel[], sel
 }
 
 export function dueScheduledVideos(videos: Video[], now = new Date()): Video[] {
-  return videos
-    .filter((video) => video.bucket && (!video.show_from || parseAppTimestamp(video.show_from) <= now))
+  return scheduledVideosInOrder(videos.filter((video) => !video.show_from || parseAppTimestamp(video.show_from) <= now));
+}
+
+/** Match the server's watchlist schedule, including deterministic ties. */
+export function scheduledVideosInOrder(videos: Video[]): Video[] {
+  return videos.filter((video) => video.bucket && bucketOrder.includes(video.bucket))
     .sort((left, right) => {
       const bucketDifference = bucketOrder.indexOf(left.bucket!) - bucketOrder.indexOf(right.bucket!);
       if (bucketDifference !== 0) return bucketDifference;
       const leftTime = left.show_from ? parseAppTimestamp(left.show_from).getTime() : 0;
       const rightTime = right.show_from ? parseAppTimestamp(right.show_from).getTime() : 0;
-      return leftTime - rightTime;
+      return leftTime - rightTime
+        || String(right.queued_at ?? "").localeCompare(String(left.queued_at ?? ""))
+        || right.video_id.localeCompare(left.video_id);
     });
 }
 

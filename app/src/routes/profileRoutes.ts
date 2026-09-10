@@ -69,6 +69,7 @@ mkdirSync(AVATAR_DIR, { recursive: true });
 
 interface UserRow {
   id: number;
+  portable_uuid: string;
   name: string;
   avatar: string;
   avatar_color: string;
@@ -108,6 +109,7 @@ async function serializeProfile(u: UserRow, activeId: number, includeOidcIdentit
   const status = u.is_child === 1 ? await childStatus(u.id) : null;
   return {
     id: u.id,
+    uuid: u.portable_uuid,
     name: u.name,
     avatar: u.avatar ? `/api/profiles/${u.id}/avatar?v=${encodeURIComponent(u.avatar)}` : "",
     avatar_color: u.avatar_color,

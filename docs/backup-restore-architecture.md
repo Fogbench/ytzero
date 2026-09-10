@@ -196,6 +196,47 @@ expiry, remain instance-local authentication state and are likewise excluded.
 Device codes, bearer tokens, and the television's saved instance URL are never
 part of a portable backup.
 
+Bonjour discovery results and health probes are transient device state, cleared
+when leaving the instance picker. `YTZERO_DISCOVERY`, `YTZERO_DISCOVERY_NAME`
+`YTZERO_DISCOVERY_PORT` and `YTZERO_DISCOVERY_URL` are machine-bound deployment environment variables,
+not database settings or portable configuration. DNS-SD publishes only a public
+service name, host, port and protocol metadata. No profile, session, device code
+or credential is announced. Selecting a result uses the existing device pairing
+and secure-store adapters; discovery introduces no persistent entity or backup
+section.
+
+Native playback tickets are transient secrets held only in `MediaTicketStore`
+process memory. A ticket binds one video and transport to a profile and its
+existing TV session, expires after fifteen minutes without renewal, and is
+revoked when playback closes. Session revocation or profile switching invalidates
+its access. Neither tickets nor their parent session tokens enter a backup,
+settings catalogue, diagnostics payload, or persistent file. Restarting the
+server requires a new ticket; multi-worker deployments must keep the ticket and
+media requests on the issuing worker, as with the existing in-memory HLS jobs.
+
+The native player's resume position and duration reuse the portable personal
+state in `profile.video-state`; completion reuses the existing watched/history
+adapters. There is no new serialized shape or backup version. Incognito playback
+does not write that personal state (child profiles always retain safety tracking).
+Playback buffers, selected tracks and the current play/pause state are transient.
+The TV session queue is transient React state, capped at 100 unique video IDs
+and cleared on process exit, instance/session/profile changes and incognito
+changes. Its ordering, current selection and native AVKit menu are never written
+to SecureStore, the database or portable backups. Next/previous resolution uses
+the existing versioned playback-context API. Starting playback records history
+and the durable source context through the existing profile adapters; the server
+continues to exclude `kind: "session"` contexts. Existing feed continuation
+preferences remain portable configuration in `profile.settings`. No adapter,
+serialized shape or backup version changes for the TV queue.
+Reduced motion/transparency follow the device's system preferences and add no
+server setting.
+Preparation of incompatible native-player files reuses the existing
+mobile-playback conversion job. Its bounded in-memory completion cache is
+transient, expires after one minute and is invalidated by source mtime/size.
+The converted media itself remains in the existing
+`mobile-playback` H.264/AAC cache. HTTP 202
+preparation status is transient; it adds no new portable entity or setting.
+
 Public sharing is instance-local security state. `public_share_policy` contains
 the default-off installation-wide kill switch, while `public_shares` contains
 plaintext bearer tokens, owners, targets and the per-link local-media grant.
@@ -350,6 +391,14 @@ archive with no such capability restores with public sharing denied.
 - The equivalent followed-playlist download-quality override is portable
   configuration in `profile.followed-playlists` schema v3, with the same
   inheritance and old-backup merge behavior as personal playlists.
+- `user_followed_playlists.video_sort` is portable per-profile configuration owned
+  by `profile.followed-playlists` schema v4. Web and TV use this preference for
+  browsing and playback; explicit sort query parameters override only a request.
+  The existing stable YouTube playlist ID and profile mapping identify the value.
+  Merge/replace restore the selected value idempotently. Older v1–v3 archives
+  remain supported: a missing value preserves an existing preference during merge
+  and defaults to `oldest` for new or replaced follows. An archive excluding this
+  section contains no playlist sort preferences and leaves them unchanged.
 - A profile's assigned access-control group and explicit allow/deny overrides
   are portable configuration in `profile.access-control`. Merge updates only
   selected mapped profiles; replace clears just their overrides and assignment.
@@ -374,8 +423,10 @@ archive with no such capability restores with public sharing denied.
   progress, and physical file paths remain excluded.
   The per-profile **Default player** preference is portable configuration in
   `profile.downloads` schema v5. It chooses the YouTube embed or a direct,
-  memory-only progressive stream; signed source URLs, range buffers, and active
-  player state are transient and never exported. Older archives restore the
+  memory-only HLS stream (with a progressive MP4 fallback). Signed source URLs,
+  request headers, MP4 indexes, HLS playlists, range buffers, and active player
+  state are transient and never exported. Streaming creates no download row or
+  media file and does not change the serialized preference. Older archives restore the
   historical `youtube` default.
   Downloads' per-profile **Include Shorts** preference is portable
   configuration. It controls automatic feed and Watch later downloads; manual
@@ -534,6 +585,37 @@ archive with no such capability restores with public sharing denied.
   rebuilt or maintained by the active engine rather than exported
 
 ### Secrets and machine-bound data — excluded in v1
+
+- Apple TV profile linking is machine-bound device configuration, never a
+  server profile setting. `ytzero.tv.system-profiles-enabled.v1` is a default-off
+  device switch in Expo SecureStore's user-independent tvOS Keychain.
+  `ytzero.tv.preferred-profile.v1` is a versioned UserDefaults record containing
+  only a local connection ID and the target profile UUID; tvOS separates it for
+  each system user through the Runs as Current User entitlement. It contains no
+  Apple identity, profile name, PIN, or authentication token. Unknown versions,
+  a different connection ID, or a deleted profile require a new selection.
+  The existing `users.portable_uuid` is exposed as `uuid` by the profile API;
+  it remains owned by the existing portable profile adapter and confers no access.
+- TV connections use versioned SecureStore records:
+  `ytzero.tv.connection.v1` contains the normalized origin, local connection ID,
+  and an optional **account-scoped** bearer in the user-independent Keychain;
+  `ytzero.tv.personal-connection.v1` contains a **profile-scoped** bearer in the
+  current tvOS user's Keychain. Both bearer values are secrets. A new instance
+  gets a fresh connection ID, so old per-user credentials and links cannot be
+  reused for it. Legacy `instance-url` / `access-token` keys migrate only after
+  server authentication validates their scope, and are deleted after saving.
+  Account sign-out revokes the shared television session; profile sign-out
+  preserves other system users' personal sessions. All these keys and mappings
+  are excluded from portable and exact server backups. No server backup adapter
+  or archive version changes; restoring old archives leaves device state alone.
+
+- The TV thumbnail opening preference (`ytzero.tv.open-details`, SecureStore) is
+  machine-bound presentation configuration for that television, shared across
+  profiles. Missing or invalid values default to immediate playback. It is never
+  sent to the instance and is excluded from portable and exact server backups.
+  No server backup adapter or archive shape changes; restoring old backups leaves
+  the local preference unchanged. On tvOS it uses the user-independent Keychain;
+  the existing preference migrates without changing its value.
 
 - The last active profile id stored in browser `localStorage` is a
   machine-bound presentation convenience. It is scoped to that browser and

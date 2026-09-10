@@ -372,6 +372,7 @@ CREATE TABLE IF NOT EXISTS user_followed_playlists (
   offline_policy TEXT NOT NULL DEFAULT 'none' CHECK (offline_policy IN ('none', 'download', 'keep')),
   -- NULL inherits the profile's default download quality.
   download_quality TEXT CHECK (download_quality IS NULL OR download_quality IN ('best', '1440', '1080', '720', '480')),
+  video_sort TEXT NOT NULL DEFAULT 'oldest' CHECK (video_sort IN ('playlist-order', 'oldest', 'newest', 'title-asc', 'title-desc')),
   PRIMARY KEY (user_id, playlist_id)
 );
 CREATE INDEX IF NOT EXISTS idx_user_followed_playlists_playlist ON user_followed_playlists(playlist_id);

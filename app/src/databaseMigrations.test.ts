@@ -30,8 +30,8 @@ describe("cross-database schema migrations", () => {
     await database.exec("CREATE TABLE downloads (video_id TEXT PRIMARY KEY)");
     await database.exec("INSERT INTO user_playlist_videos VALUES (1, 'later', '2026-01-02'), (1, 'earlier', '2026-01-01')");
 
-    expect(await applyDatabaseMigrations(database)).toBe(115);
-    expect(await applyDatabaseMigrations(database)).toBe(115);
+    expect(await applyDatabaseMigrations(database)).toBe(116);
+    expect(await applyDatabaseMigrations(database)).toBe(116);
     expect((await database.prepare("PRAGMA table_info(auth_sessions)").all() as Array<{ name: string }>).some((column) => column.name === "permission_group_uuid")).toBe(true);
 
     const columns = await database.prepare('PRAGMA table_info("user_channels")').all<{ name: string }>();
@@ -55,6 +55,12 @@ describe("cross-database schema migrations", () => {
     expect(playlistColumns.some((column) => column.name === "offline_policy")).toBe(true);
     expect(playlistColumns.some((column) => column.name === "download_quality")).toBe(true);
     const followedPlaylistColumns = await database.prepare('PRAGMA table_info("user_followed_playlists")').all<{ name: string }>();
+    expect(followedPlaylistColumns.some((column) => column.name === "video_sort")).toBe(true);
+    await database.prepare("INSERT INTO user_followed_playlists(user_id,playlist_id) VALUES(1,'legacy')").run();
+    expect(await database.prepare("SELECT video_sort FROM user_followed_playlists WHERE playlist_id='legacy'").get<{ video_sort: string }>()).toEqual({ video_sort: "oldest" });
+    await database.prepare("UPDATE user_followed_playlists SET video_sort='newest' WHERE playlist_id='legacy'").run();
+    await applyDatabaseMigrations(database);
+    expect(await database.prepare("SELECT video_sort FROM user_followed_playlists WHERE playlist_id='legacy'").get<{ video_sort: string }>()).toEqual({ video_sort: "newest" });
     expect(followedPlaylistColumns.some((column) => column.name === "offline_policy")).toBe(true);
     expect(followedPlaylistColumns.some((column) => column.name === "download_quality")).toBe(true);
     expect(await database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name='user_playlist_download_protections'").get<{ count: number }>())
@@ -105,7 +111,7 @@ describe("cross-database schema migrations", () => {
         .run(migration.version, migration.name, "2026-09-03T00:00:00.000Z");
     }
 
-    expect(await applyDatabaseMigrations(database)).toBe(115);
+    expect(await applyDatabaseMigrations(database)).toBe(116);
     const columns = await database.prepare('PRAGMA table_info("downloads")').all<{ name: string }>();
     for (const name of ["progress_percent", "progress_total_bytes", "progress_speed", "worker_id", "worker_heartbeat_at_ms"]) {
       expect(columns.some((column) => column.name === name)).toBe(true);

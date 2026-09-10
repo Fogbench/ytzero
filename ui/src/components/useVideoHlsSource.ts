@@ -32,9 +32,17 @@ export function useVideoHlsSource({
   callbacksRef.current = { onFatalError, onReady };
 
   useEffect(() => {
-    if (!active) return;
     const media = mediaRef.current;
     if (!media) return;
+    if (!active) {
+      // React commits the new progressive src before the previous HLS effect
+      // cleans up. Restore it after that cleanup on a same-element handoff.
+      if (media.getAttribute("src") !== src) {
+        media.src = src;
+        media.load();
+      }
+      return;
+    }
     const startPosition = videoHlsStartPosition(startSeconds, durationSeconds);
     let cancelled = false;
     let fatalReported = false;
@@ -204,7 +212,10 @@ export function useVideoHlsSource({
           networkRecoveryUsed = true;
           pendingRecovery = recoverySnapshot();
           recoveryActive = true;
-          instance.startLoad(pendingRecovery.position);
+          // startLoad cannot recover a master that has never loaded. Retrying
+          // its URL also lets a second failure reach the progressive fallback.
+          if (!mediaReady) instance.loadSource(src);
+          else instance.startLoad(pendingRecovery.position);
           return;
         }
         if (action === "recover-media") {

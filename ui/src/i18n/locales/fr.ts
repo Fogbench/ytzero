@@ -358,6 +358,7 @@ export const fr: Locale = {
     "playlistDownloadConfirm": "Mettre en file de téléchargement local les {count} épisodes disponibles de la playlist ?",
     "playlistDownloadQueued": "{count} épisodes mis en file de téléchargement",
     "playlistDownloadNone": "Tous les épisodes disponibles sont déjà téléchargés ou en file d'attente",
+    playlistSortSaveFailed: "Impossible d’enregistrer le tri de la playlist. Réessayez.",
     "playlistDownloadFailed": "Impossible de mettre la playlist en file de téléchargement",
     "cancelDownload": "Annuler le téléchargement",
     "downloading": "Téléchargement",

@@ -267,6 +267,7 @@ export const pl: Locale = {
     playlistDownloadConfirm: "Zakolejkować wszystkie dostępne odcinki z playlisty ({count}) do pobrania lokalnego?",
     playlistDownloadQueued: "Zakolejkowano odcinki: {count}",
     playlistDownloadNone: "Wszystkie dostępne odcinki są już pobrane lub zakolejkowane",
+    playlistSortSaveFailed: "Nie udało się zapisać sortowania playlisty. Spróbuj ponownie.",
     playlistDownloadFailed: "Nie udało się zakolejkować playlisty do pobrania",
     cancelDownload: "Anuluj pobieranie",
     downloading: "Pobieranie",

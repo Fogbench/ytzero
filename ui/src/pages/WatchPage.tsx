@@ -39,7 +39,7 @@ import TagChip from "../components/TagChip";
 import LocalPlayer from "../components/LocalPlayer";
 import Popconfirm from "../components/Popconfirm";
 import PlaylistPicker from "../components/PlaylistPicker";
-import { formatVideoDuration } from "../components/VideoCard";
+import { formatVideoDuration, parseVideoDurationSeconds } from "../components/VideoCard";
 import { VideoThumbnail, watchProgress } from "../components/VideoThumbnail";
 import { SchedulePicker, VideoScheduleActions } from "../components/VideoScheduleActions";
 import UpNextOverlay from "../components/UpNextOverlay";
@@ -114,6 +114,7 @@ export default function WatchPage() {
     dismissUpNextVideo,
     exitStreaming,
     exitDirectStream,
+    directProgressive,
     goToUpNextVideo,
     handleEnded,
     id,
@@ -307,7 +308,9 @@ export default function WatchPage() {
                 <LocalPlayer
                   key={`${video.video_id}-native-${sharedStartSeconds}`}
                   ref={playerRef}
-                  src={playerKind === "direct" ? api.directStreamUrl(video.video_id) : api.streamUrl(video.video_id)}
+                  hls={playerKind === "direct" && !directProgressive}
+                  durationSeconds={parseVideoDurationSeconds(video.duration) ?? undefined}
+                  src={playerKind === "direct" ? (directProgressive ? api.directStreamUrl(video.video_id) : api.directHlsUrl(video.video_id)) : api.streamUrl(video.video_id)}
                   poster={videoThumbnail(video.thumbnail)}
                   autoplay={!watchTogetherRoomId}
                   transportLocked={watchTogetherTransportLocked}

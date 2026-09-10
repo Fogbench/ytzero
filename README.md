@@ -62,6 +62,7 @@ YT Zero removes that layer. It keeps subscriptions, watch progress, playlists, t
 - **Organized watching** — use tags, inherited channel tags, rules, and local playlists to shape your own feed.
 - **Real playback controls** — theater view, captions, quality, display settings, and optional SponsorBlock support.
 - **Audio-only background playback** — switch a video or active livestream to a compact audio player that can keep playing from the lock screen on supported mobile browsers.
+- **[Direct video streaming](docs/direct-streaming-research.md)** — play YouTube video and audio on demand in the built-in player, with seeking and no offline file or background download. Supports available H.264/AAC formats within your selected quality limit.
 - **Downloads & local playback** — the optional yt-dlp plugin fetches videos to disk and plays them in YT Zero's own player: instant seeking, no embeds, no buffering, works offline.
 - **TubeArchivist source** — connect an existing TubeArchivist archive and let its videos appear directly in the normal feed, with protected local playback, archived comments and subtitles, and watched-status synchronization.
 - **Works for households** — profiles, authentication modes, child profiles with watch-time limits, and child lock make one install usable by more than one person.
@@ -112,7 +113,10 @@ The **YT-DLP Integration** plugin (disabled by default) uses [yt-dlp](https://gi
 
 The Docker image and native installer bundle yt-dlp, ffmpeg, and Deno. Deno is
 the JavaScript runtime yt-dlp uses to solve YouTube's extraction challenges;
-manual installations must provide Deno 2.3 or newer on `PATH`. Administrators
+manual installations must provide Deno 2.3 or newer on `PATH`. YT Zero checks
+available Deno executables in PATH order and passes a supported executable
+directly to yt-dlp, so an older installation cannot shadow a working one.
+Administrators
 can update yt-dlp from the UI and choose stable or nightly releases plus an
 automatic-update interval. Details and the full settings reference:
 **[YT-DLP Integration](https://github.com/Pelski/ytzero/wiki/YT-DLP-Integration)**.

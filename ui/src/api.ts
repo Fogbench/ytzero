@@ -256,6 +256,7 @@ export const api = {
     http<{ ok: true; download: VideoDownload | null }>(`/videos/${id}/download/pin${profileId ? `?profile_id=${profileId}` : ""}`, { method: "PUT", body: JSON.stringify({ pinned }) }),
   streamUrl: (id: string) => `/api/videos/${id}/stream`,
   directStreamUrl: (id: string) => `/api/videos/${id}/direct-stream`,
+  directHlsUrl: (id: string) => `/api/videos/${id}/direct-hls/index.m3u8`,
   hlsUrl: (id: string) => `/api/videos/${id}/hls/index.m3u8`,
   audioUrl: (id: string) => `/api/videos/${id}/audio`,
   audioHlsUrl: (id: string) => `/api/videos/${id}/audio/index.m3u8`,
@@ -466,7 +467,8 @@ export const api = {
   syncChannelPlaylists: (id: string) => http<{ playlists: PlaylistInfo[]; count: number; synced: number; added: number; errors: number }>(`/channels/${id}/playlists/sync`, { method: "POST" }),
   syncChannelMetadata: (id: string) => http<{ checked: number; updated: number; dates: number; durations: number; shorts: number; failed: number; remaining: number }>(`/channels/${id}/metadata/sync`, { method: "POST" }),
   channelPlaylist: (id: string) => http<{ playlist: FollowedPlaylist }>(`/channel-playlists/${id}`),
-  channelPlaylistVideos: (id: string, sort: PlaylistSort = "oldest") => http<{ videos: Video[]; processing: Video[]; order: string[] }>(`/channel-playlists/${id}/videos?sort=${encodeURIComponent(sort)}`),
+  channelPlaylistVideos: (id: string, sort?: PlaylistSort) => http<{ videos: Video[]; processing: Video[]; order: string[]; sort: PlaylistSort }>(`/channel-playlists/${id}/videos${sort ? `?sort=${encodeURIComponent(sort)}` : ""}`),
+  updateFollowedPlaylistSort: (id: string, sort: PlaylistSort) => http<{ sort: PlaylistSort }>(`/channel-playlists/${id}/sort`, { method: "PUT", body: JSON.stringify({ sort }) }),
   downloadChannelPlaylist: (id: string, sort: PlaylistSort = "playlist-order") => http<PlaylistDownloadResult>(`/channel-playlists/${id}/download?sort=${encodeURIComponent(sort)}`, { method: "POST", body: "{}" }),
   followPlaylist: (id: string, followed: boolean) => http<{ followed: boolean }>(`/channel-playlists/${id}/follow`, { method: "PUT", body: JSON.stringify({ followed }) }),
   updateFollowedPlaylistDownloadSettings: (id: string, settings: { offline_policy?: FollowedPlaylist["offline_policy"]; download_quality?: DownloadQuality | null }) =>

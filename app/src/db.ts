@@ -132,6 +132,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS user_followed_playlists (
 db.exec("CREATE INDEX IF NOT EXISTS idx_user_followed_playlists_playlist ON user_followed_playlists(playlist_id)");
 try { db.exec("ALTER TABLE user_followed_playlists ADD COLUMN offline_policy TEXT NOT NULL DEFAULT 'none' CHECK (offline_policy IN ('none', 'download', 'keep'))"); } catch {}
 try { db.exec("ALTER TABLE user_followed_playlists ADD COLUMN download_quality TEXT CHECK (download_quality IS NULL OR download_quality IN ('best', '1440', '1080', '720', '480'))"); } catch {}
+try { db.exec("ALTER TABLE user_followed_playlists ADD COLUMN video_sort TEXT NOT NULL DEFAULT 'oldest' CHECK (video_sort IN ('playlist-order', 'oldest', 'newest', 'title-asc', 'title-desc'))"); } catch {}
 db.exec(`CREATE TABLE IF NOT EXISTS followed_playlist_download_protections (
   user_id INTEGER NOT NULL,
   playlist_id TEXT NOT NULL,

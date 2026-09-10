@@ -98,6 +98,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   // Experimental play-while-downloading source. The known total length keeps
   // controls stable while the HLS master and its renditions are attaching.
   live?: boolean;
+  /** HLS transport also supports direct playback without a background download. */
+  hls?: boolean;
   liveLabel?: string;
   durationSeconds?: number;
   onError?: () => void;
@@ -137,6 +139,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   subtitleStyle,
   onSubtitleSizeChange,
   live = false,
+  hls = live,
   liveLabel,
   durationSeconds,
   onError,
@@ -329,7 +332,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     const v = videoRef.current;
     if (!v) return;
     setDuration(Number.isFinite(v.duration) ? v.duration : 0);
-    if (!live && startSeconds > 0 && startSeconds < v.duration - 5) v.currentTime = startSeconds;
+    if (!hls && startSeconds > 0 && startSeconds < v.duration - 5) v.currentTime = startSeconds;
     v.playbackRate = playbackRate;
     enforceLocalPlayerVolume(v, volume);
     v.muted = muted;
@@ -353,7 +356,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   }, [autoplay]);
 
   useVideoHlsSource({
-    active: live,
+    active: hls,
     durationSeconds,
     mediaRef: videoRef,
     onFatalError: onError,
@@ -719,7 +722,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       <video
         ref={videoRef}
         className="lp-video"
-        src={live ? undefined : src}
+        src={hls ? undefined : src}
         poster={poster}
         autoPlay={autoplay}
         playsInline
@@ -751,7 +754,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
           setControlsVisible(true);
           onEnded?.();
         }}
-        onError={() => { if (!live) onError?.(); }}
+        onError={() => { if (!hls) onError?.(); }}
       >
         {activeSub && (
           <track

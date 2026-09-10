@@ -36,6 +36,8 @@ Kod aplikacji znajduje się w `apps/tv` i zawiera:
 
 - wpisanie i lokalny zapis adresu instancji (HTTPS oraz jawnie oznaczone HTTP
   dla zaufanej sieci domowej),
+- automatyczne wykrywanie instancji w LAN na tvOS przez Bonjour, z weryfikacją
+  dostępności i przejściem do istniejącego parowania; [konfiguracja](local-network-discovery.md),
 - utworzenie jednorazowego kodu, QR prowadzący do przeglądarkowego `/tv/pair`
   i kod do ręcznego przepisania,
 - zatwierdzenie konkretnego profilu w istniejącym UI YT Zero,
@@ -55,11 +57,15 @@ Kod aplikacji znajduje się w `apps/tv` i zawiera:
   obejrzane, planowanie na dziś, odrzucenie/przywrócenie, podobne materiały oraz
   komentarze zgodne z `watch_show_comments` i `watch_show_related`,
 - osobny ekran ustawień urządzenia z wylogowaniem i zmianą instancji,
+- natywny AVPlayer przez `expo-video`, krótkotrwałe uprawnienia do jednego
+  materiału, wznowienie, zapis postępu i systemowe kontrolki odtwarzania,
+- pełnoekranową grafikę, unoszący się sidebar Liquid Glass na tvOS 26 oraz
+  wspólną animację fokusu z obsługą ograniczenia ruchu i przezroczystości,
 - komplet tekstów dla tych samych dziewięciu języków co główne UI.
 
-To jest działający pionowy przekrój, nie kompletna aplikacja. Watch Page ma już
-docelową, natywną strukturę treści i akcji, ale jego hero świadomie nie udaje
-gotowego playera przed wprowadzeniem krótkotrwałych media-ticketów.
+Opis zmian wyglądu, odtwarzania i ograniczeń znajduje się w
+[`tvos-design-audit.md`](tvos-design-audit.md). Aktywne transmisje live wymagają
+jeszcze osobnej ścieżki; odtwarzacz obsługuje obecne źródła plikowe i VOD.
 
 Prototyp został uruchomiony i sprawdzony na symulatorze Apple TV 4K z tvOS
 26.5: odtworzenie zapisanej sesji, pobranie 40-elementowego feedu, miniatury,
@@ -124,7 +130,7 @@ wspieranej drogi w `react-native-tvos`. Dochodzą focus, pilot, fullscreen,
 autoplay, nagłówki autoryzacji i reguły YouTube zabraniające zasłaniania playera
 lub obchodzenia jego identyfikacji. Efekt byłby mniej natywny i mniej niezawodny.
 
-Docelowa ścieżka:
+Przyjęta ścieżka:
 
 1. `expo-video` jako wspólna kontrolka oparta o AVPlayer i Media3/ExoPlayer.
 2. Własna cienka abstrakcja YT Zero nad źródłem, pozycją, napisami, ścieżką
@@ -151,10 +157,10 @@ przed publiczną dystrybucją.
 
 1. Uruchomić obecny feed na emulatorze Android TV, a następnie sprawdzić focus
    traversal i overscan na fizycznym Apple TV oraz urządzeniu Fire TV.
-2. Dodać endpoint media-ticket i natywny player dla pobranego pliku/HLS wraz z
-   play/pause, seek, pozycją oglądania i błędami sieci.
-3. Dodać wybór napisów, języka audio i podstawowe ustawienia playera zapisane
-   lokalnie na urządzeniu.
+2. Zweryfikować zachowanie już wdrożonego playera i odnawiania media-ticketów
+   na fizycznym Apple TV, w długich sesjach i przy utracie sieci.
+3. Dodać import osobnych napisów YouTube i obsługę aktywnych transmisji live.
+   Wbudowane ścieżki napisów i audio są dostępne przez kontrolki systemowe.
 4. Dodać półki Watchlist/Continue/Live, wyszukiwanie ekranową klawiaturą i
    pełniejsze filtry, korzystając z obecnych endpointów.
 5. Testy na fizycznym Apple TV i Fire TV oraz przygotowanie ikon, bannerów,

@@ -6,7 +6,7 @@ import { log } from "../logger";
 import { syncPlaylist } from "../refresher";
 import { videoSelect, type VideoRow } from "../videoRoutesSupport";
 import { profileDownloadsEnabled } from "../downloadConfig";
-import { normalizePlaylistSort, sortPlaylistItems } from "../playlistSort";
+import { PLAYLIST_SORTS, normalizePlaylistSort, sortPlaylistItems } from "../playlistSort";
 import { shortsUiVisibilitySql } from "../feedQuery";
 import { isDownloadQuality, type DownloadQuality } from "../downloadSettings";
 
@@ -34,17 +34,18 @@ api.get("/channel-playlists/:id", async (c) => {
            ch.thumbnail AS channel_thumbnail,
            EXISTS(SELECT 1 FROM user_followed_playlists ufp WHERE ufp.user_id = ? AND ufp.playlist_id = cp.playlist_id) AS followed,
            COALESCE((SELECT ufp.offline_policy FROM user_followed_playlists ufp WHERE ufp.user_id = ? AND ufp.playlist_id = cp.playlist_id), 'none') AS offline_policy,
-           (SELECT ufp.download_quality FROM user_followed_playlists ufp WHERE ufp.user_id = ? AND ufp.playlist_id = cp.playlist_id) AS download_quality
+           (SELECT ufp.download_quality FROM user_followed_playlists ufp WHERE ufp.user_id = ? AND ufp.playlist_id = cp.playlist_id) AS download_quality,
+           COALESCE((SELECT ufp.video_sort FROM user_followed_playlists ufp WHERE ufp.user_id = ? AND ufp.playlist_id = cp.playlist_id), 'oldest') AS video_sort
     FROM channel_playlists cp JOIN channels ch ON ch.channel_id = cp.channel_id
     WHERE cp.playlist_id = ?
-  `).get(uid, uid, uid, id) as any;
+  `).get(uid, uid, uid, uid, id) as any;
   if (!playlist) {
     try {
       await syncPlaylist(id);
       playlist = await database.prepare(`
         SELECT cp.playlist_id, cp.title, cp.thumbnail, cp.video_count, cp.last_synced_at,
                cp.channel_id, COALESCE(NULLIF(ch.custom_title, ''), ch.title) AS channel_title,
-               ch.thumbnail AS channel_thumbnail, 0 AS followed, 'none' AS offline_policy, NULL AS download_quality
+               ch.thumbnail AS channel_thumbnail, 0 AS followed, 'none' AS offline_policy, NULL AS download_quality, 'oldest' AS video_sort
         FROM channel_playlists cp JOIN channels ch ON ch.channel_id = cp.channel_id
         WHERE cp.playlist_id = ?
       `).get(id) as any;
@@ -70,8 +71,10 @@ api.get("/channel-playlists/:id/videos", async (c) => {
     WHERE cpv.playlist_id = ?
       AND ${shortsUiVisibilitySql(uid)}
     ORDER BY cpv.position ASC`).all(id) as VideoRow[];
-  const attached = sortPlaylistItems(await attachTags(uid, rows), normalizePlaylistSort(c.req.query("sort")), (video) => ({ title: video.title, publishedAt: video.published_at }));
-  return c.json({ order: attached.map((video) => video.video_id),
+  const preference = await database.prepare("SELECT video_sort FROM user_followed_playlists WHERE user_id=? AND playlist_id=?").get<{ video_sort: string }>(uid, id);
+  const sort = normalizePlaylistSort(c.req.query("sort") ?? preference?.video_sort);
+  const attached = sortPlaylistItems(await attachTags(uid, rows), sort, (video) => ({ title: video.title, publishedAt: video.published_at }));
+  return c.json({ sort, order: attached.map((video) => video.video_id),
     videos: attached.filter((video) => video.published_at != null && video.published_at !== ""),
     processing: attached.filter((video) => video.published_at == null || video.published_at === ""),
   });
@@ -125,6 +128,18 @@ api.put("/channel-playlists/:id/follow", async (c) => {
   }
 });
 
+api.put("/channel-playlists/:id/sort", async (c) => {
+  const body = await c.req.json<{ sort?: unknown }>().catch(() => null);
+  if (!body || typeof body.sort !== "string" || !(PLAYLIST_SORTS as readonly string[]).includes(body.sort)) {
+    return c.json({ error: "invalid playlist sort" }, 400);
+  }
+  const updated = await database.prepare(`
+    UPDATE user_followed_playlists SET video_sort=? WHERE user_id=? AND playlist_id=? RETURNING video_sort
+  `).get<{ video_sort: string }>(body.sort, currentUserId(c), c.req.param("id"));
+  if (!updated) return c.json({ error: "not found" }, 404);
+  return c.json({ sort: updated.video_sort });
+});
+
 api.put("/channel-playlists/:id/offline-policy", async (c) => {
   const uid = currentUserId(c);
   const id = c.req.param("id");
@@ -164,7 +179,7 @@ api.get("/followed-playlists", async (c) => {
   const playlists = await database.prepare(`
     SELECT cp.playlist_id, cp.title, cp.thumbnail, cp.video_count, cp.last_synced_at,
            cp.channel_id, COALESCE(NULLIF(ch.custom_title, ''), ch.title) AS channel_title,
-           ch.thumbnail AS channel_thumbnail, ufp.followed_at, ufp.include_in_feed, ufp.offline_policy, ufp.download_quality
+           ch.thumbnail AS channel_thumbnail, ufp.followed_at, ufp.include_in_feed, ufp.offline_policy, ufp.download_quality, ufp.video_sort
     FROM user_followed_playlists ufp
     JOIN channel_playlists cp ON cp.playlist_id = ufp.playlist_id
     JOIN channels ch ON ch.channel_id = cp.channel_id
@@ -179,7 +194,7 @@ api.get("/followed-playlists/updates", async (c) => {
   const playlists = await database.prepare(`
     SELECT cp.playlist_id, cp.title, cp.thumbnail, cp.video_count, cp.last_synced_at,
            cp.channel_id, COALESCE(NULLIF(ch.custom_title, ''), ch.title) AS channel_title,
-           ch.thumbnail AS channel_thumbnail, ufp.followed_at, ufp.feed_from, ufp.include_in_feed, ufp.offline_policy, ufp.download_quality
+           ch.thumbnail AS channel_thumbnail, ufp.followed_at, ufp.feed_from, ufp.include_in_feed, ufp.offline_policy, ufp.download_quality, ufp.video_sort
     FROM user_followed_playlists ufp
     JOIN channel_playlists cp ON cp.playlist_id = ufp.playlist_id
     JOIN channels ch ON ch.channel_id = cp.channel_id

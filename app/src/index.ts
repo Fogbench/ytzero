@@ -19,6 +19,7 @@ import { deploymentMode } from "./deploymentMode";
 import { reloadPluginEnabledCache } from "./plugins";
 import { startClusterHeartbeat } from "./clusterRuntime";
 import { createPublicShareRouter } from "./routes/publicShareRoutes";
+import { startLocalDiscovery } from "./localDiscovery";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
   log.error("auth.environment_password_missing", {
@@ -43,7 +44,7 @@ app.get("/api/health", async (c) => {
     return c.json({ status: "error", version: VERSION, commit: COMMIT }, 503);
   }
   const mode = deploymentMode(databaseConfig.engine);
-  return c.json({ status: "ok", version: VERSION, commit: COMMIT, uptime: Math.round(process.uptime()), database: mode.database, background_tasks: mode.backgroundTasks });
+  return c.json({ status: "ok", app: "ytzero", version: VERSION, commit: COMMIT, uptime: Math.round(process.uptime()), database: mode.database, background_tasks: mode.backgroundTasks });
 });
 
 // Public bearer links live outside the authenticated API router. This router
@@ -132,6 +133,10 @@ if (databaseConfig.engine === "sqlite") startSQLiteMaintenance(db);
 const port = Number(process.env.PORT ?? 3001);
 const idleTimeout = Number(process.env.IDLE_TIMEOUT_SECONDS ?? 120);
 const server = Bun.serve({ port, idleTimeout, fetch: app.fetch });
+const discovery = startLocalDiscovery(server.port!, getSetting("app_name") || "YT Zero");
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => { void discovery.stop().finally(() => process.exit(0)); });
+}
 log.info("app.listen", { url: String(server.url), port, uiDir, idleTimeout, version: VERSION, commit: COMMIT, backgroundTasks: mode.backgroundTasks, database: mode.database });
 collectDiagnosticSnapshot()
   .then((snapshot) => log.info("app.state_snapshot", snapshot))

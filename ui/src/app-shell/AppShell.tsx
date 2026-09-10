@@ -88,7 +88,7 @@ export default function AppShell({ isAdmin }: { isAdmin: boolean }) {
             />
             <main className="main">
               <div className="content">
-                <AppRoutes childStatus={profile.childStatus}
+                <AppRoutes appIconColor={preferences.appIconColor} childStatus={profile.childStatus}
                   enabledPluginRoutes={plugins.enabledPluginRoutes}
                   feedSort={preferences.feedSort}
                   isAdmin={isAdmin}

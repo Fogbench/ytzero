@@ -267,6 +267,7 @@ export const en = {
     playlistDownloadConfirm: "Queue all {count} available playlist episodes for local download?",
     playlistDownloadQueued: "Queued {count} episodes for download",
     playlistDownloadNone: "All available episodes are already downloaded or queued",
+    playlistSortSaveFailed: "Could not save the playlist sorting. Try again.",
     playlistDownloadFailed: "Could not queue the playlist for download",
     cancelDownload: "Cancel download",
     downloading: "Downloading",

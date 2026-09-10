@@ -11,7 +11,7 @@ describe("TV navigation", () => {
       { key: "/", hidden: false },
     ]));
 
-    expect(result.visible.slice(0, 3).map((item) => item.destination)).toEqual(["/settings", "/history", "/"]);
+    expect(result.visible.filter((item) => item.destination !== "/search").slice(0, 3).map((item) => item.destination)).toEqual(["/settings", "/history", "/"]);
     const keys: string[] = [...result.visible, ...result.hidden].map((item) => item.key);
     expect(keys.some((key) => key === "/social" || key === "/insights")).toBe(false);
   });
@@ -33,7 +33,7 @@ describe("TV navigation", () => {
   test("uses the browser defaults for missing entries", () => {
     const result = resolveTvNavigation(null);
     expect(result.visible.map((item) => item.destination)).toEqual([
-      "/", "/live", "/watchlist", "/downloads", "/liked", "/history", "/bookmarks", "/archive", "/settings",
+      "/search", "/", "/live", "/watchlist", "/downloads", "/liked", "/history", "/bookmarks", "/archive", "/settings",
     ]);
     expect(result.hidden.map((item) => item.destination)).toEqual(["/recommendations", "/shorts", "/followed-playlists"]);
   });

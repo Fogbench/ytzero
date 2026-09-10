@@ -29,7 +29,7 @@ export function registerDeviceAuthRoutes(api: Api, access: DeviceAuthRouteAccess
       device_code: authorization.deviceCode,
       user_code: authorization.userCode,
       verification_uri: verificationUri,
-      verification_uri_complete: `${verificationUri}?code=${encodeURIComponent(authorization.userCode)}`,
+      verification_uri_complete: `${verificationUri}#code=${encodeURIComponent(authorization.userCode.replace(/-/g, ""))}`,
       expires_in: authorization.expiresIn,
       interval: authorization.interval,
     });

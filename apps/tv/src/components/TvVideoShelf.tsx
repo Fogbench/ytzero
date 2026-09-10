@@ -1,6 +1,5 @@
-import { useCallback, useState, type Ref } from "react";
-import { StyleSheet, Text, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
-import { useVerticalFocusRedirect } from "../focus";
+import { useCallback, type Ref } from "react";
+import { StyleSheet, Text, TVFocusGuideView, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import type { Language, Video } from "../types";
 import { colors } from "../theme";
 import { VideoCard } from "./VideoCard";
@@ -19,10 +18,9 @@ type Props = {
   onLongPress: (video: Video) => void;
   viewsLabel: string;
 };
+const videoKey = (video: Video) => video.video_id;
 
 export function TvVideoShelf({ title, videos, cardWidth, firstItemRef, language, nextFocusUp, nextFocusDown, thumbnailSource, onOpen, onLongPress, viewsLabel }: Props) {
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
-  useVerticalFocusRedirect(focusedIndex !== null, nextFocusUp, nextFocusDown);
   const renderVideo = useCallback(({ item: video, index }: ListRenderItemInfo<Video>) => (
     <VideoCard
       ref={index === 0 ? firstItemRef : undefined}
@@ -30,9 +28,10 @@ export function TvVideoShelf({ title, videos, cardWidth, firstItemRef, language,
       width={cardWidth}
       language={language}
       thumbnailSource={thumbnailSource(video.thumbnail)}
+      channelSource={thumbnailSource(video.channel_thumbnail ?? "")}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocusChange={(focused) => setFocusedIndex(focused ? index : (current) => current === index ? null : current)}
+
       onLongPress={() => onLongPress(video)}
       onPress={() => onOpen(video)}
       viewsLabel={viewsLabel}
@@ -40,21 +39,22 @@ export function TvVideoShelf({ title, videos, cardWidth, firstItemRef, language,
   ), [cardWidth, firstItemRef, language, nextFocusDown, nextFocusUp, onLongPress, onOpen, thumbnailSource, viewsLabel]);
   if (videos.length === 0) return null;
   return (
-    <View style={styles.section}>
-      <Text style={styles.heading}>{title}</Text>
+    <TVFocusGuideView autoFocus style={styles.section}>
+      <Text accessibilityRole="header" style={styles.heading}>{title}</Text>
       <TvHorizontalList
         data={videos}
         estimatedItemExtent={cardWidth + 26}
+        itemExtent={cardWidth + 26}
         contentContainerStyle={styles.row}
-        keyExtractor={(video) => video.video_id}
+        keyExtractor={videoKey}
         renderItem={renderVideo}
       />
-    </View>
+    </TVFocusGuideView>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 20 },
+  section: { width: "100%", marginBottom: 20 },
   heading: { color: colors.text, fontSize: 27, lineHeight: 34, fontWeight: "700", marginBottom: 17, marginHorizontal: 20 },
   row: { gap: 26, paddingHorizontal: 20, paddingTop: 7, paddingBottom: 2 },
 });

@@ -17,6 +17,7 @@ export interface VideoVodMetadata {
 
 export interface VideoVodPlaylistInput {
   videoId: string;
+  resourcePath?: "hls" | "direct-hls";
   /** Stable identity of the indexed representation, used to reject stale ranges. */
   resourceVersion?: string;
   video: MediaSidxIndex;
@@ -256,7 +257,7 @@ export function createVideoVodPresentation(input: VideoVodPlaylistInput): VideoV
 
   let baseUri: string;
   try {
-    baseUri = `/api/videos/${encodeURIComponent(input.videoId)}/hls`;
+    baseUri = `/api/videos/${encodeURIComponent(input.videoId)}/${input.resourcePath ?? "hls"}`;
   } catch {
     return unsupported("invalid_metadata");
   }

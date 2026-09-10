@@ -1,10 +1,13 @@
 export function tvGridListPerformance(columns: number) {
-  const row = Math.max(1, columns);
+  // TvGridList virtualizes rows rather than individual cards. Keep only a few
+  // complete rows warm: multiplying these values by the column count caused
+  // 32 video cards (and 50 Shorts) to mount during the first frame.
+  const initialRows = columns >= 5 ? 2 : 3;
   return {
-    initialNumToRender: row * 2,
-    maxToRenderPerBatch: row * 2,
-    updateCellsBatchingPeriod: 48,
-    windowSize: 5,
+    initialNumToRender: initialRows,
+    maxToRenderPerBatch: 2,
+    updateCellsBatchingPeriod: 24,
+    windowSize: 3,
     removeClippedSubviews: false,
   } as const;
 }

@@ -1,5 +1,5 @@
 export type PlaybackPosition = { position: number; duration: number };
-export type PlaybackResult = PlaybackPosition & { completed: boolean; saveFailed: boolean };
+export type PlaybackResult = PlaybackPosition & { completed: boolean; saveFailed: boolean; showDetails?: boolean };
 
 export function resumePosition(position: number | null | undefined, duration: number | null | undefined, watched?: number | null): number {
   if (watched === 1 || !Number.isFinite(position) || (position ?? 0) < 5) return 0;
@@ -21,16 +21,27 @@ export function playbackTime(seconds: number): string {
 /** Serialize writes so a slow heartbeat cannot overwrite the final position. */
 export class PlaybackProgress {
   private queue = Promise.resolve();
+  private pending: PlaybackPosition | null = null;
+  private writing = false;
   private ended = false;
   private failed = false;
   constructor(private readonly enabled: boolean, private readonly save: (value: PlaybackPosition) => Promise<unknown>, private readonly complete: () => Promise<unknown>) {}
 
   private enqueue(value: PlaybackPosition) {
     if (!this.enabled || !validPlaybackPosition(value)) return;
-    this.queue = this.queue.then(async () => {
-      try { await this.save(value); this.failed = false; }
-      catch { this.failed = true; }
-    });
+    this.pending = value;
+    if (this.writing) return;
+    this.writing = true;
+    this.queue = (async () => {
+      // Keep only the newest heartbeat while a slow connection is busy.
+      while (this.pending) {
+        const next = this.pending;
+        this.pending = null;
+        try { await this.save(next); this.failed = false; }
+        catch { this.failed = true; }
+      }
+      this.writing = false;
+    })();
   }
 
   update(value: PlaybackPosition) {

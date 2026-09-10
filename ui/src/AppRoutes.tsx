@@ -29,6 +29,7 @@ const UserPlaylistPage = lazy(() => import("./pages/UserPlaylistPage"));
 const WatchPage = lazy(() => import("./pages/WatchPage"));
 const WatchlistPage = lazy(() => import("./pages/WatchlistPage"));
 type AppRoutesProps = {
+  appIconColor: string;
   childStatus: ChildStatus | null;
   enabledPluginRoutes: Set<string> | null;
   feedSort: "published" | "arrival";
@@ -41,6 +42,7 @@ type AppRoutesProps = {
 };
 
 export default function AppRoutes({
+  appIconColor,
   childStatus,
   enabledPluginRoutes,
   feedSort,
@@ -85,7 +87,7 @@ export default function AppRoutes({
         <Route path="/cleanup" element={<CleanupPage />} />
         <Route path="/insights" element={<InsightsPage shortsEnabled={shortsEnabled} />} />
         <Route path="/settings" element={<SettingsPage showToast={showToast} />} />
-        <Route path="/tv/pair" element={<TvPairingPage />} />
+        <Route path="/tv/pair" element={<TvPairingPage appIconColor={appIconColor} />} />
         <Route path="/import" element={isAdmin || !profilePermissions.admin_only_areas.includes("imports")
           ? <ImportPage showToast={showToast} />
           : <Navigate to="/settings" replace />} />

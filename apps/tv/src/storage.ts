@@ -1,33 +1,11 @@
 import * as SecureStore from "expo-secure-store";
+import { deviceStore, legacyDeviceStore } from "./deviceStore";
+import { connectionStorage } from "./connectionStorage";
+import { systemProfilesNative } from "./systemProfilesNative";
+export type { StoredConnection } from "./connectionStorage";
 
-const INSTANCE_URL_KEY = "ytzero.tv.instance-url";
-const ACCESS_TOKEN_KEY = "ytzero.tv.access-token";
-
-export type StoredConnection = { instanceUrl: string; accessToken: string | null };
-
-export async function loadConnection(): Promise<StoredConnection> {
-  const [instanceUrl, accessToken] = await Promise.all([
-    SecureStore.getItemAsync(INSTANCE_URL_KEY),
-    SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
-  ]);
-  return { instanceUrl: instanceUrl ?? "", accessToken };
-}
-
-export async function saveInstanceUrl(instanceUrl: string): Promise<void> {
-  await SecureStore.setItemAsync(INSTANCE_URL_KEY, instanceUrl);
-}
-
-export async function saveAccessToken(accessToken: string): Promise<void> {
-  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
-}
-
-export async function clearAccessToken(): Promise<void> {
-  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-}
-
-export async function clearConnection(): Promise<void> {
-  await Promise.all([
-    SecureStore.deleteItemAsync(INSTANCE_URL_KEY),
-    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-  ]);
-}
+// An installation-local preference namespace, never an authentication secret.
+const storage = connectionStorage(SecureStore, deviceStore, () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`, systemProfilesNative.available ? legacyDeviceStore : undefined);
+export const loadConnection = storage.load;
+export const saveConnection = storage.save;
+export const clearAccessToken = storage.clearToken;

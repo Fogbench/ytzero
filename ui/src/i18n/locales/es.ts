@@ -362,6 +362,7 @@ export const es: Locale = {
     playlistDownloadConfirm: "¿Añadir a la cola los {count} episodios disponibles de la lista para descargarlos localmente?",
     playlistDownloadQueued: "Se han añadido {count} episodios a la cola de descarga",
     playlistDownloadNone: "Todos los episodios disponibles ya están descargados o en cola",
+    playlistSortSaveFailed: "No se pudo guardar el orden de la lista. Inténtalo de nuevo.",
     playlistDownloadFailed: "No se ha podido añadir la lista a la cola de descarga",
     cancelDownload: "Cancelar descarga",
     downloading: "Descargando",

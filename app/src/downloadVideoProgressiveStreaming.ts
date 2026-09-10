@@ -9,6 +9,7 @@ interface Dependencies {
   downloadCookiesConfigured: (userId: number) => boolean;
   downloadCookiesFile: (userId: number) => string;
   ytdlpStatus: () => Promise<string | null>;
+  dlSettings?: (userId: number) => Promise<{ quality: string }>;
   fetchImpl?: typeof fetch;
   spawn?: typeof Bun.spawn;
   now?: () => number;
@@ -57,6 +58,7 @@ function abortSignal(parent: AbortSignal | undefined, timeoutMs: number, message
 export function createDownloadVideoProgressiveStreaming(dependencies: Dependencies) {
   const {
     YTDLP, downloadCookiesConfigured, downloadCookiesFile, ytdlpStatus,
+    dlSettings = async () => ({ quality: "best" }),
     fetchImpl = fetch, spawn = Bun.spawn, now = Date.now,
   } = dependencies;
   const sources = new Map<string, Source>();
@@ -64,9 +66,12 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
   const bufferedRequests = new Map<number, number>();
 
   async function resolveAttempt(userId: number, videoId: string, useCookies: boolean, signal: AbortSignal): Promise<{ source: Source | null; refused: boolean }> {
+    const quality = Number((await dlSettings(userId)).quality);
+    if (signal.aborted) return { source: null, refused: false };
+    const height = Number.isFinite(quality) && quality > 0 ? Math.min(Math.floor(quality), 720) : 720;
     const args = [
-      `https://www.youtube.com/watch?v=${videoId}`, "--ignore-config", "--no-playlist", "--no-warnings",
-      "-f", "22/18/best[ext=mp4][vcodec^=avc1][acodec^=mp4a][height<=720]",
+      `https://www.youtube.com/watch?v=${videoId}`, "--ignore-config", "--no-playlist", "--no-warnings", "--skip-download",
+      "-f", `best[ext=mp4][vcodec^=avc1][acodec^=mp4a][protocol^=http][height<=${height}]`,
       "--print", "urls", "--print", "%(ext)s", "--print", "%(vcodec)s", "--print", "%(acodec)s",
       "--print", "%(http_headers)j",
     ];

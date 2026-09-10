@@ -40,6 +40,7 @@ describe("HTTP route manifest", () => {
     const vodAudioRoute = "GET /videos/:id/audio/index.m3u8";
     const retryAudioRoute = "POST /videos/:id/audio/retry";
     const directStreamRoute = "GET /videos/:id/direct-stream";
+    const directHlsRoute = "GET /videos/:id/direct-hls/:file";
     const ytdlpConfigRoute = "PUT /downloads/ytdlp/config";
     const ytdlpUpdateRoute = "POST /downloads/ytdlp/update";
     const importVideoRoute = "POST /videos/:id/import";
@@ -74,13 +75,18 @@ describe("HTTP route manifest", () => {
       "POST /auth/device/authorize",
       "POST /auth/device/token",
     ];
-    expect(routes).toHaveLength(270);
+    const nativePlaybackRoutes = ["POST", "PUT", "DELETE"].map((method) => `${method} /videos/:id/playback-ticket`);
+    for (const route of nativePlaybackRoutes) expect(routes).toContain(route);
+    expect(routes).toContain("PUT /channel-playlists/:id/sort");
+    expect(routes).toHaveLength(276);
+    expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);
     expect(routes).toContain(liveAudioRoute);
     expect(routes).toContain(vodAudioRoute);
     expect(routes).toContain(retryAudioRoute);
     expect(routes).toContain(directStreamRoute);
+    expect(routes).toContain(directHlsRoute);
     expect(routes).toContain(ytdlpConfigRoute);
     expect(routes).toContain(ytdlpUpdateRoute);
     expect(routes).toContain(importVideoRoute);
@@ -95,7 +101,7 @@ describe("HTTP route manifest", () => {
     for (const route of deviceAuthRoutes) expect(routes).toContain(route);
     expect(routes).toContain("GET /plugins/tubearchivist/config");
     expect(routes).toContain("POST /plugins/tubearchivist/sync");
-    const legacyRoutes = routes.filter((route) => route !== transcriptRoute && route !== playbackAdjacentRoute && route !== liveAudioRoute && route !== vodAudioRoute && route !== retryAudioRoute && route !== directStreamRoute && route !== ytdlpConfigRoute && route !== ytdlpUpdateRoute && route !== importVideoRoute && route !== sessionPlaylistRoute && route !== clearVideoBookmarksRoute && route !== clusterStatusRoute && route !== followedPlaylistOfflinePolicyRoute && !feedBuilderRoutes.includes(route) && !accessControlRoutes.includes(route) && !notificationPreferenceRoutes.includes(route) && !publicShareManagementRoutes.includes(route) && !deviceAuthRoutes.includes(route));
+    const legacyRoutes = routes.filter((route) => route !== "GET /videos/:id/live-hls/:file" && route !== "PUT /channel-playlists/:id/sort" && route !== directHlsRoute && !nativePlaybackRoutes.includes(route) && route !== transcriptRoute && route !== playbackAdjacentRoute && route !== liveAudioRoute && route !== vodAudioRoute && route !== retryAudioRoute && route !== directStreamRoute && route !== ytdlpConfigRoute && route !== ytdlpUpdateRoute && route !== importVideoRoute && route !== sessionPlaylistRoute && route !== clearVideoBookmarksRoute && route !== clusterStatusRoute && route !== followedPlaylistOfflinePolicyRoute && !feedBuilderRoutes.includes(route) && !accessControlRoutes.includes(route) && !notificationPreferenceRoutes.includes(route) && !publicShareManagementRoutes.includes(route) && !deviceAuthRoutes.includes(route));
     expect(createHash("sha256").update(legacyRoutes.join("\n")).digest("hex"))
       .toBe("80c5a76e8b9e73067474352689dee5912762cbd8933feb23ceb68592f592158b");
   });

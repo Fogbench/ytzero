@@ -63,7 +63,7 @@ async function asLegacyPlaylistQualityArchive(bytes: Uint8Array): Promise<Uint8A
     const rows = decoder.decode(entries.get(section.path)!).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
     for (const row of rows) {
       if (section.id === "profile.playlists") delete row.downloadQuality;
-      else delete row.download_quality;
+      else { delete row.download_quality; delete row.video_sort; }
     }
     const content = encoder.encode(`${rows.map((row) => JSON.stringify(row)).join("\n")}\n`);
     entries.set(section.path, content);
@@ -111,6 +111,51 @@ describe("portable backup ZIP security", () => {
 });
 
 describe("portable backup classification and restore", () => {
+  test("playlist sorting round-trips, remains scoped, and supports archives without preferences", async () => {
+    const profile = (await backup.backupOptions()).profiles[0]!;
+    db.prepare("INSERT INTO channel_playlists(playlist_id,channel_id,title) VALUES('PL-sort-backup','UCportable','Sorting')").run();
+    db.prepare("INSERT INTO user_followed_playlists(user_id,playlist_id,video_sort) VALUES(1,'PL-sort-backup','title-desc')").run();
+    const target = db.prepare("INSERT INTO users(name,portable_uuid) VALUES('Sorting restore',?) RETURNING id").get(crypto.randomUUID()) as { id: number };
+    const read = () => db.prepare("SELECT video_sort FROM user_followed_playlists WHERE user_id=? AND playlist_id='PL-sort-backup'").get(target.id);
+    const restore = async (zip: Uint8Array, strategy: "merge" | "replace" = "merge", sections = ["profile.followed-playlists"]) => {
+      const analyzed = await backup.analyzePortableBackup(1, zip);
+      const plan = await backup.planPortableRestore(1, analyzed.sessionId, {
+        mappings: { [profile.id]: { action: "merge", targetProfileId: target.id } }, sections, strategy,
+      });
+      await backup.commitPortableRestore(1, analyzed.sessionId, plan.planRevision);
+    };
+    try {
+      const zip = await backup.createPortableBackup({ profiles: [profile.id], sections: ["profile.followed-playlists"] });
+      await restore(zip); await restore(zip);
+      expect(read()).toEqual({ video_sort: "title-desc" });
+      expect(db.prepare("SELECT count(*) AS count FROM user_followed_playlists WHERE user_id=?").get(target.id)).toEqual({ count: 1 });
+      db.prepare("UPDATE user_followed_playlists SET video_sort='newest' WHERE user_id=?").run(target.id);
+      await restore(zip, "replace"); expect(read()).toEqual({ video_sort: "title-desc" });
+      const excluded = await backup.createPortableBackup({ profiles: [profile.id], sections: ["profile.settings"] });
+      expect([...backup.readPortableZip(excluded).values()].map((bytes) => decoder.decode(bytes)).join("\n")).not.toContain('"video_sort"');
+      await restore(excluded, "replace", ["profile.settings"]); expect(read()).toEqual({ video_sort: "title-desc" });
+      for (const version of [1, 2, 3]) {
+        const entries = backup.readPortableZip(zip);
+        const manifest = JSON.parse(decoder.decode(entries.get("manifest.json")!));
+        const section = manifest.sections.find((item: any) => item.id === "profile.followed-playlists");
+        const rows = decoder.decode(entries.get(section.path)!).trim().split("\n").map((line) => JSON.parse(line));
+        for (const row of rows) delete row.video_sort;
+        const bytes = encoder.encode(rows.map((row) => JSON.stringify(row)).join("\n") + "\n");
+        entries.set(section.path, bytes); section.schemaVersion = version; section.bytes = bytes.length;
+        section.sha256 = new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+        entries.set("manifest.json", encoder.encode(JSON.stringify(manifest)));
+        const legacy = backup.createZip([...entries].map(([name, bytes]) => ({ name, bytes })));
+        db.prepare("UPDATE user_followed_playlists SET video_sort='newest' WHERE user_id=?").run(target.id);
+        await restore(legacy); expect(read()).toEqual({ video_sort: "newest" });
+        await restore(legacy, "replace"); expect(read()).toEqual({ video_sort: "oldest" });
+      }
+      expect(db.prepare("SELECT video_sort FROM user_followed_playlists WHERE user_id=1 AND playlist_id='PL-sort-backup'").get()).toEqual({ video_sort: "title-desc" });
+    } finally {
+      db.prepare("DELETE FROM users WHERE id=?").run(target.id);
+      db.prepare("DELETE FROM channel_playlists WHERE playlist_id='PL-sort-backup'").run();
+    }
+  });
+
   test("excludes public-share policy and bearer links", async () => {
     const token = "PUBLIC_SHARE_TOKEN_SENTINEL_1234567890";
     const timestamp = "PUBLIC_SHARE_POLICY_SENTINEL";
@@ -223,8 +268,8 @@ describe("portable backup classification and restore", () => {
     const tagUuid = crypto.randomUUID();
     const tagId = Number(db.prepare("INSERT INTO tags(name,color,user_id,portable_uuid) VALUES(?,?,1,?) RETURNING id").run("Portable resume tag", "#7c5cff", tagUuid).lastInsertRowid);
     const context = { version: 1, kind: "feed", tags: [tagId], showAll: false, sort: "arrival" };
-    db.prepare(`INSERT INTO user_videos(user_id,video_id,playback_context_json) VALUES(1,'portable001',?)
-      ON CONFLICT(user_id,video_id) DO UPDATE SET playback_context_json=excluded.playback_context_json`)
+    db.prepare(`INSERT INTO user_videos(user_id,video_id,watch_position,watch_duration,playback_context_json) VALUES(1,'portable001',123.5,600,?)
+      ON CONFLICT(user_id,video_id) DO UPDATE SET playback_context_json=excluded.playback_context_json,watch_position=123.5,watch_duration=600`)
       .run(JSON.stringify(context));
 
     const zip = await backup.createPortableBackup({ preset: "full", profiles: [profile.id] });
@@ -234,9 +279,11 @@ describe("portable backup classification and restore", () => {
     const exported = decoder.decode(entries.get(section.path)!).trim().split("\n").map((line) => JSON.parse(line))
       .find((row) => row.video_id === "portable001");
     expect(exported.playbackContext).toEqual({ version: 1, kind: "feed", tagUuids: [tagUuid], showAll: false, sort: "arrival" });
+    expect(exported.watch_position).toBe(123.5);
+    expect(exported.watch_duration).toBe(600);
     expect(JSON.stringify(exported)).not.toContain(`\"tags\":[${tagId}]`);
 
-    db.prepare("UPDATE user_videos SET playback_context_json=NULL WHERE user_id=1 AND video_id='portable001'").run();
+    db.prepare("UPDATE user_videos SET playback_context_json=NULL,watch_position=0,watch_duration=0 WHERE user_id=1 AND video_id='portable001'").run();
     const analyzed = await backup.analyzePortableBackup(1, zip);
     const mappings = { [profile.id]: { action: "merge" as const, targetProfileId: 1 } };
     const plan = await backup.planPortableRestore(1, analyzed.sessionId, {
@@ -246,8 +293,26 @@ describe("portable backup classification and restore", () => {
     });
     await backup.commitPortableRestore(1, analyzed.sessionId, plan.planRevision);
 
-    const restored = db.prepare("SELECT playback_context_json FROM user_videos WHERE user_id=1 AND video_id='portable001'").get() as { playback_context_json: string };
+    const restored = db.prepare("SELECT playback_context_json,watch_position,watch_duration FROM user_videos WHERE user_id=1 AND video_id='portable001'").get() as { playback_context_json: string; watch_position: number; watch_duration: number };
     expect(JSON.parse(restored.playback_context_json)).toEqual(context);
+    expect(restored.watch_position).toBe(123.5);
+    expect(restored.watch_duration).toBe(600);
+  });
+
+  test("native playback capabilities and their parent sessions are excluded from portable backups", async () => {
+    const { mediaTickets } = await import("./nativePlayback");
+    const sessionToken = "native-playback-session-must-not-be-portable";
+    const ticket = mediaTickets.issue({ userId: 1, videoId: "portable001", sessionToken, kind: "file" });
+    try {
+      const profile = (await backup.backupOptions()).profiles[0];
+      const zip = await backup.createPortableBackup({ preset: "full", profiles: [profile.id] });
+      const content = [...backup.readPortableZip(zip).values()].map((value) => decoder.decode(value)).join("\n");
+      expect(content).not.toContain(ticket);
+      expect(content).not.toContain(sessionToken);
+      expect(content).not.toContain("media_ticket");
+    } finally {
+      mediaTickets.revoke(ticket);
+    }
   });
 
   test("round-trips profile bookmarks idempotently and excludes them from setup backups", async () => {
@@ -287,6 +352,11 @@ describe("portable backup classification and restore", () => {
   });
 
   test("configuration export excludes authentication values and runtime tables", async () => {
+    // Even accidental server copies of device-only TV state must stay outside
+    // the allowlisted settings adapter. Real values live only on the TV.
+    for (const key of ["ytzero.tv.system-profiles-enabled.v1", "ytzero.tv.preferred-profile.v1", "ytzero.tv.connection.v1", "ytzero.tv.personal-connection.v1"]) {
+      setSetting(key, "APPLE-TV-LOCAL-STATE-DO-NOT-EXPORT");
+    }
     setSetting("auth_oidc_client_secret", "DO-NOT-EXPORT-THIS");
     setSetting("auth_shared_password_hash", "HASH-DO-NOT-EXPORT");
     setSetting("auth_hide_other_profiles", "1");
@@ -306,6 +376,8 @@ describe("portable backup classification and restore", () => {
     const zip = await backup.createPortableBackup({ preset: "configuration", profiles: options.profiles.map((profile) => profile.id) });
     const serialized = [...backup.readPortableZip(zip).values()].map((value) => new TextDecoder().decode(value)).join("\n");
     expect(serialized).not.toContain("DO-NOT-EXPORT-THIS");
+    expect(serialized).not.toContain("APPLE-TV-LOCAL-STATE-DO-NOT-EXPORT");
+    expect(serialized).not.toContain("ytzero.tv.");
     expect(serialized).not.toContain("HASH-DO-NOT-EXPORT");
     expect(serialized).not.toContain("auth_hide_other_profiles");
     expect(serialized).not.toContain("BACKUP-EXTERNAL-GROUP-DO-NOT-EXPORT");
@@ -482,7 +554,7 @@ describe("portable backup classification and restore", () => {
     expect(profileSettingsSection.schemaVersion).toBe(10);
     expect(JSON.parse(decoder.decode(exportedEntries.get(profileSettingsSection.path)!)).settings.watch_show_comments).toBe("auto");
     const followedSection = exportedManifest.sections.find((section: any) => section.id === "profile.followed-playlists");
-    expect(followedSection.schemaVersion).toBe(3);
+    expect(followedSection.schemaVersion).toBe(4);
     expect(decoder.decode(exportedEntries.get(followedSection.path)!)).toContain('"offline_policy":"keep"');
     expect(decoder.decode(exportedEntries.get(followedSection.path)!)).toContain('"download_quality":"720"');
     const playlistSection = exportedManifest.sections.find((section: any) => section.id === "profile.playlists");

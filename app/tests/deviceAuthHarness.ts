@@ -13,6 +13,11 @@ const begin = await api.request("http://localhost/auth/device/code", {
   body: JSON.stringify({ device_name: "Living room" }),
 });
 const authorization = await begin.json() as any;
+const pairingUrl = new URL(authorization.verification_uri_complete);
+if (pairingUrl.search || pairingUrl.hash !== `#code=${authorization.user_code.replace(/-/g, "")}`
+  || `${pairingUrl.origin}${pairingUrl.pathname}` !== authorization.verification_uri) {
+  throw new Error("TV pairing link must carry the compact user code in its fragment");
+}
 
 const pending = await api.request("http://localhost/auth/device/token", {
   method: "POST",

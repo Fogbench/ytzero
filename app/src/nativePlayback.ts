@@ -1,17 +1,38 @@
 import type { Context, Next } from "hono";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { validateSession } from "./auth";
-import { childStatus } from "./childTime";
+import { childStatus, type ChildStatus } from "./childTime";
 import { database } from "./database";
-import { getDownload, liveStreamEnabled, ytdlpStatus } from "./downloader";
+import { ensureMobilePlayback, getDownload, ytdlpStatus } from "./downloader";
 import { authorizeHlsPlaylist, MediaTicketStore, ticketAllowsPath, type NativeMediaKind } from "./mediaTickets";
 import { tubeArchivistConfigured } from "./tubeArchivist";
 
 export const mediaTickets = new MediaTicketStore();
 
-export async function nativePlaybackAccess(userId: number, videoId: string) {
-  const video = await database.prepare("SELECT live_status, is_short, external, members_only FROM videos WHERE video_id=?")
-    .get<{ live_status: string; is_short: number; external: number; members_only: number }>(videoId);
+const preparations = new Map<string, { stamp: string; expires: number; complete: Promise<boolean> }>();
+async function mediaPrepared(path: string): Promise<boolean> {
+  const stat = statSync(path);
+  const stamp = `${stat.mtimeMs}:${stat.size}`;
+  let entry = preparations.get(path);
+  if (!entry || entry.stamp !== stamp || entry.expires < Date.now()) {
+    if (preparations.size >= 64) preparations.delete(preparations.keys().next().value!);
+    // Remember completion briefly, including an unavailable converter. Otherwise
+    // a slow failing probe could start again on every poll and return 202 forever.
+    const record = { stamp, expires: Infinity, complete: Promise.resolve(true) };
+    record.complete = ensureMobilePlayback(path).then(() => true, () => true)
+      .finally(() => { record.expires = Date.now() + 60_000; });
+    preparations.set(path, record);
+    entry = record;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([entry.complete, new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), 250); })])
+    .finally(() => clearTimeout(timer));
+}
+
+type AccessVideo = { live_status: string; is_short: number; external: number; members_only: number; is_private: number; is_unavailable: number };
+export async function nativePlaybackAccess(userId: number, videoId: string): Promise<{ video: AccessVideo; child: ChildStatus } | { error: string; status: 403 | 404 }> {
+  const video = await database.prepare("SELECT live_status, is_short, external, members_only, is_private, is_unavailable FROM videos WHERE video_id=?")
+    .get<AccessVideo>(videoId);
   if (!video) return { error: "not found", status: 404 as const };
   const child = await childStatus(userId);
   if (child.locked || (child.is_child && (
@@ -23,7 +44,7 @@ export async function nativePlaybackAccess(userId: number, videoId: string) {
 }
 
 export async function nativePlaybackSource(userId: number, videoId: string): Promise<
-  { kind: NativeMediaKind } | { error: string; status: 403 | 404 | 409 | 503 }
+  { kind: NativeMediaKind } | { preparing: true } | { error: string; status: 403 | 404 | 409 | 503 }
 > {
   const access = await nativePlaybackAccess(userId, videoId);
   if ("error" in access) return access;
@@ -32,14 +53,25 @@ export async function nativePlaybackSource(userId: number, videoId: string): Pro
   const archived = tubeArchivistConfigured() && await database.prepare(
     "SELECT 1 FROM tube_archivist_items WHERE video_id=? AND available=1"
   ).get(videoId);
-  if (local || archived) return { kind: "file" };
+  if (local) {
+    // A new AV1/Opus download can need more than one HTTP timeout to convert.
+    // Keep AVPlayer away from that unfinished response; its first byte request
+    // should receive an already prepared file. The existing cache deduplicates
+    // work and preserves the original download.
+    if (!await mediaPrepared(download.path!)) return { preparing: true };
+    return { kind: "file" };
+  }
+  if (archived) return { kind: "file" };
   // Server streaming routes disallow child profiles; keep the same boundary.
   if (access.child.is_child) return { error: "playback restricted", status: 403 };
-  if (["live", "upcoming"].includes(access.video.live_status)) return { error: "live playback unavailable", status: 409 };
+  if (access.video.live_status === "upcoming") return { error: "live playback unavailable", status: 409 };
+  if (access.video.members_only || access.video.is_private || access.video.is_unavailable) return { error: "native playback unavailable", status: 409 };
   if (!await ytdlpStatus()) return { error: "native playback unavailable", status: 503 };
-  if (await liveStreamEnabled(userId)) return { kind: "hls" };
-  if (access.video.members_only === 1) return { error: "native playback unavailable", status: 409 };
-  return { kind: "direct" };
+  if (access.video.live_status === "live") return { kind: "live-hls" };
+  // AVPlayer can combine the H.264/AAC renditions even when YouTube offers no
+  // progressive MP4. This path never starts an offline download, including
+  // when experimental play-while-downloading is enabled in the web client.
+  return { kind: "direct-hls" };
 }
 
 /** Called in place of ordinary auth only when a media capability is present. */
@@ -67,6 +99,9 @@ export async function serveMediaTicket(c: Context, next: Next): Promise<Response
       headers.delete("Content-Length");
       headers.delete("ETag");
       c.res = new Response(playlist, { status: 200, headers });
+      // Hono merges the previous response's headers in its response setter.
+      c.header("Content-Length", undefined);
+      c.header("ETag", undefined);
     } catch {
       c.res = c.json({ error: "unsupported media playlist" }, 502);
     }

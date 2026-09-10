@@ -187,6 +187,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const [youtubeAutoplayBlocked, setYoutubeAutoplayBlocked] = useState(false);
   const [youtubeError, setYoutubeError] = useState<number | null>(null);
   const [directFallback, setDirectFallback] = useState(false);
+  const [directProgressive, setDirectProgressive] = useState(false);
   const downloadPollGenerationRef = useRef(0);
   // Path to the next playlist video, read by the player's onStateChange when a
   // video ends. A ref keeps the player effect free of playlist dependencies.
@@ -331,6 +332,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     capturePlaybackPosition, playbackPositionVideoIdRef, playbackStartSeconds,
     progressRef, streamPositionRef,
   } = useWatchPlaybackPosition({
+    sourceKey: directProgressive ? "progressive" : "hls",
     audioActive, id, membersOnlyNotice, playerKind, playerRef,
     privateVideoNotice, sharedStartSeconds, video,
   });
@@ -491,15 +493,20 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
 
   const exitDirectStream = useCallback(() => {
     capturePlaybackPosition();
+    if (!directProgressive) {
+      setDirectProgressive(true);
+      return;
+    }
     setDirectFallback(false);
     setPlayerSource("youtube");
-  }, [capturePlaybackPosition]);
+  }, [capturePlaybackPosition, directProgressive]);
 
   useEffect(() => {
     setYoutubeError(null);
   }, [id, playerKind]);
 
   useEffect(() => { setDirectFallback(false); }, [id]);
+  useEffect(() => { setDirectProgressive(false); }, [id]);
 
   // Effective playback rate: per-channel override, else the global default.
   // Kept in a ref so the player effect can read it without re-creating the player.
@@ -1446,6 +1453,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     downloadsEnabled,
     dismissUpNextVideo,
     exitDirectStream,
+    directProgressive,
     exitStreaming,
     goToUpNextVideo,
     handleEnded,

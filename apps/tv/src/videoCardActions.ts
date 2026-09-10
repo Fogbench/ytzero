@@ -37,16 +37,22 @@ function parseVideoCardActionConfig(value: unknown): VideoCardActionConfig | nul
   return { version: 1, actions: [actions.find((action) => action.id === "schedule")!, ...actions.filter((action) => action.id !== "schedule")] };
 }
 
-export type TvVideoCardActionId = Extract<VideoCardActionId, "schedule" | "playlist" | "download" | "archive" | "watched" | "restore" | "remove">;
+export type TvVideoCardActionId = Extract<VideoCardActionId, "schedule" | "sessionQueue" | "playlist" | "download" | "archive" | "watched" | "restore" | "remove">;
 
 export function tvVideoCardActionConfig(value: unknown): VideoCardActionConfig {
   return parseVideoCardActionConfig(value) ?? DEFAULT_TV_VIDEO_CARD_ACTION_CONFIG;
 }
 
-export function visibleTvVideoCardActions(config: VideoCardActionConfig, video: Video, showRemove = false): TvVideoCardActionId[] {
+export function canQueueTvVideo(video: Video): boolean {
+  return video.download_status === "done" || (video.is_private !== 1 && video.is_unavailable !== 1 && video.live_status !== "live" && video.live_status !== "upcoming");
+}
+
+export function visibleTvVideoCardActions(config: VideoCardActionConfig, video: Video, showRemove = false, queued = false): TvVideoCardActionId[] {
   return config.actions.flatMap(({ id, hidden }) => {
     if (hidden) return [];
     switch (id) {
+      case "sessionQueue":
+        return queued || canQueueTvVideo(video) ? [id] : [];
       case "schedule":
         return video.status === "archived" ? [] : [id];
       case "playlist":
@@ -54,6 +60,7 @@ export function visibleTvVideoCardActions(config: VideoCardActionConfig, video: 
       case "download": {
         const active = video.download_status === "queued" || video.download_status === "downloading";
         const available = video.is_private !== 1
+          && video.is_unavailable !== 1
           && video.live_status !== "live"
           && video.live_status !== "upcoming"
           && (video.downloads_enabled === true || video.downloads_allowed === true)
@@ -63,9 +70,11 @@ export function visibleTvVideoCardActions(config: VideoCardActionConfig, video: 
       case "archive":
         return video.status === "archived" ? [] : [id];
       case "watched":
-        return video.watched === 1 || video.status !== "archived" ? [id] : [];
+        return video.watched === 1 || (video.status !== "archived" && canQueueTvVideo(video)) ? [id] : [];
       case "restore":
-        return video.status === "archived" ? [id] : [];
+        // Restoring a watched video still leaves it hidden by the feed. Let the
+        // viewer clear its watched state first; then restoration becomes useful.
+        return video.status === "archived" && video.watched !== 1 ? [id] : [];
       case "remove":
         return showRemove ? [id] : [];
       default:

@@ -267,6 +267,7 @@ export const de: Locale = {
     playlistDownloadConfirm: "Alle {count} verfügbaren Playlist-Folgen zum lokalen Download vormerken?",
     playlistDownloadQueued: "{count} Folgen zum Download vorgemerkt",
     playlistDownloadNone: "Alle verfügbaren Folgen sind bereits heruntergeladen oder vorgemerkt",
+    playlistSortSaveFailed: "Die Sortierung der Playlist konnte nicht gespeichert werden. Versuche es erneut.",
     playlistDownloadFailed: "Die Playlist konnte nicht zum Download vorgemerkt werden",
     cancelDownload: "Download abbrechen",
     downloading: "Wird geladen",

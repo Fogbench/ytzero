@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-export type NativeMediaKind = "file" | "hls" | "direct";
+export type NativeMediaKind = "file" | "hls" | "direct" | "direct-hls" | "live-hls";
 export type MediaTicket = {
   userId: number;
   videoId: string;
@@ -48,7 +48,7 @@ export class MediaTicketStore {
 
 export function mediaTicketPath(ticket: Pick<MediaTicket, "videoId" | "kind">): string {
   const base = `/api/videos/${encodeURIComponent(ticket.videoId)}`;
-  if (ticket.kind === "hls") return `${base}/hls/index.m3u8`;
+  if (ticket.kind === "hls" || ticket.kind === "direct-hls" || ticket.kind === "live-hls") return `${base}/${ticket.kind}/index.m3u8`;
   return ticket.kind === "file" ? `${base}/stream?compat=1` : `${base}/direct-stream`;
 }
 
@@ -57,8 +57,12 @@ export function ticketAllowsPath(ticket: Pick<MediaTicket, "videoId" | "kind">, 
   const base = `/api/videos/${encodeURIComponent(ticket.videoId)}`;
   if (ticket.kind === "file") return pathname === `${base}/stream`;
   if (ticket.kind === "direct") return pathname === `${base}/direct-stream`;
-  if (!pathname.startsWith(`${base}/hls/`)) return false;
-  return /^(?:index|video|audio)\.m3u8$|^(?:video|audio)\.mp4$|^seg\d+\.ts$/.test(pathname.slice(`${base}/hls/`.length));
+  const prefix = `${base}/${ticket.kind}/`;
+  if (!pathname.startsWith(prefix)) return false;
+  const file = pathname.slice(prefix.length);
+  if (ticket.kind === "live-hls") return /^(?:index|video|audio)\.m3u8$/.test(file) || /^r[av][a-f0-9]{16}_\d+$/.test(file);
+  return /^(?:index|video|audio)\.m3u8$|^(?:video|audio)\.mp4$/.test(file)
+    || (ticket.kind === "hls" && /^seg\d+\.ts$/.test(file));
 }
 
 /** Rewrite both variant/segment lines and EXT-X-MAP/KEY/MEDIA URI attributes. */

@@ -358,6 +358,7 @@ export const ru: Locale = {
     "playlistDownloadConfirm": "Добавить в очередь все доступные выпуски плейлиста ({count})?",
     "playlistDownloadQueued": "В очередь добавлено выпусков: {count}",
     "playlistDownloadNone": "Все доступные выпуски уже загружены или находятся в очереди",
+    playlistSortSaveFailed: "Не удалось сохранить сортировку плейлиста. Попробуйте ещё раз.",
     "playlistDownloadFailed": "Не удалось добавить плейлист в очередь загрузки",
     "cancelDownload": "Отменить загрузку",
     "downloading": "Загружается",

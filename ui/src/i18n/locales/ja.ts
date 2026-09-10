@@ -358,6 +358,7 @@ export const ja: Locale = {
     "playlistDownloadConfirm": "ローカルのダウンロードのためのすべての{count}利用可能なプレイリストのエピソードはありますか?",
     "playlistDownloadQueued": "Queued {count} エピソードのダウンロード",
     "playlistDownloadNone": "利用可能なすべてのエピソードは、既にダウンロードまたはキューイングされています",
+    playlistSortSaveFailed: "プレイリストの並び順を保存できませんでした。もう一度お試しください。",
     "playlistDownloadFailed": "ダウンロード用のプレイリストをキューに入れない",
     "cancelDownload": "ダウンロード",
     "downloading": "ダウンロード",

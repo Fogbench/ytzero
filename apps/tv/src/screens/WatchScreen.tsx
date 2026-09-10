@@ -1,31 +1,52 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Text, TVFocusGuideView, useWindowDimensions, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
+import { TvControlSurface } from "../components/TvSurface";
+import { TvPageBackButton } from "../components/TvPageBackButton";
+import { formatVideoDuration } from "../duration";
+import { TvTextDetails } from "../components/TvTextDetails";
+import { TvListButton } from "../components/TvListButton";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, Image, StyleSheet, Text, TVFocusGuideView, useWindowDimensions, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import type { YtZeroApi } from "../api";
+import { TvBackdrop } from "../components/TvBackdrop";
+import { TvNativePlayer } from "../components/TvNativePlayer";
+import { TvPressable } from "../components/TvPressable";
+import { useSessionQueue } from "../SessionQueue";
+import { usePlaybackSequence } from "../usePlaybackSequence";
+import { shouldAdvanceQueue, SESSION_QUEUE_LIMIT, type OpenVideo, type PlaybackQueueContext } from "../playbackQueue";
+import { playbackTime, resumePosition, type PlaybackResult } from "../playback";
 import { TvButton } from "../components/TvButton";
 import { TvLoadingMark } from "../components/TvLoadingMark";
 import { TvVideoShelf } from "../components/TvVideoShelf";
 import type { VideoActionOptions } from "../components/TvVideoActionMenu";
-import { useVerticalFocusRedirect } from "../focus";
+import { canQueueTvVideo } from "../videoCardActions";
 import { localeTags, type Translate } from "../i18n";
 import { tvVerticalListPerformance } from "../listPerformance";
-import { colors, screenPadding } from "../theme";
+import { colors, typography, screenPadding } from "../theme";
 import type { Language, TvProfileSettings, Video, VideoComment } from "../types";
 
 type Props = {
   api: YtZeroApi;
+  incognito: boolean;
+  isChild: boolean;
   language: Language;
   t: Translate;
   video: Video;
   onBack: () => void;
+  onPrimaryFocusTarget: (target: View | null) => void;
+  profileFocusTarget?: FocusDestination;
   onOpenChannel?: (channelId: string) => void;
-  onOpenVideo: (video: Video) => void;
-  onSourceVisibilityChange: (videoId: string, hidden: boolean) => void;
+  onOpenVideo: OpenVideo;
+  queueContext: PlaybackQueueContext | null;
+  autoplay: boolean;
+  initialPosition?: number;
+  onShowQueue: (returnTarget: View | null) => void;
+  onVideoChange: (video: Video) => void;
   onVideoLongPress: (video: Video, onChange: (updated: Video) => void, options?: VideoActionOptions) => void;
 };
 
-type Mutation = "watched" | "liked" | "scheduled" | "archived";
 type CommentsMode = "disabled" | "scroll" | "auto";
-type FocusArea = "back" | "channel" | "actions" | "comments";
+
+const noComments: VideoComment[] = [];
+const commentKey = (comment: VideoComment) => comment.id;
 
 function commentsMode(value: TvProfileSettings["watch_show_comments"]): CommentsMode {
   if (value === "auto") return "auto";
@@ -39,15 +60,26 @@ function validDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.valueOf()) ? null : date;
 }
 
-export function WatchScreen({ api, language, t, video: preview, onBack, onOpenChannel, onOpenVideo, onSourceVisibilityChange, onVideoLongPress }: Props) {
-  const { width } = useWindowDimensions();
+export function WatchScreen({ api, incognito, isChild, language, t, video: initialVideo, onBack, onOpenChannel, onOpenVideo, onVideoChange, onVideoLongPress, queueContext, autoplay, initialPosition, onShowQueue, onPrimaryFocusTarget, profileFocusTarget }: Props) {
+  const [preview, setPreview] = useState(initialVideo);
+  const { width, height } = useWindowDimensions();
   const [video, setVideo] = useState(preview);
   const [related, setRelated] = useState<Video[]>([]);
   const [settings, setSettings] = useState<TvProfileSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [busy, setBusy] = useState<Mutation | null>(null);
-  const [actionError, setActionError] = useState(false);
+  const [playingFrom, setPlayingFrom] = useState<number | null>(autoplay ? initialPosition ?? resumePosition(preview.watch_position, preview.watch_duration, preview.watched) : null);
+  const returnToBrowse = useRef(autoplay);
+  const queue = useSessionQueue();
+  const queued = queue.items.some((item) => item.video_id === video.video_id);
+  const sequence = usePlaybackSequence(api, video, queueContext, settings);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const alive = useRef(true);
+  const requestVersion = useRef(0);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
   const [portraitFailed, setPortraitFailed] = useState(false);
   const [comments, setComments] = useState<VideoComment[] | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -56,36 +88,51 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
   const [channelTarget, setChannelTarget] = useState<View | null>(null);
   const [firstActionTarget, setFirstActionTarget] = useState<View | null>(null);
   const [relatedTarget, setRelatedTarget] = useState<View | null>(null);
+  const [nextTarget, setNextTarget] = useState<View | null>(null);
+  const [queueButtonTarget, setQueueButtonTarget] = useState<View | null>(null);
+  const queueTarget = sequence.next ? nextTarget : queueButtonTarget;
+  const [descriptionTarget, setDescriptionTarget] = useState<View | null>(null);
   const [commentsTarget, setCommentsTarget] = useState<View | null>(null);
-  const [focusArea, setFocusArea] = useState<FocusArea | null>(null);
 
-  useVerticalFocusRedirect(focusArea === "back", undefined, channelTarget ?? firstActionTarget ?? relatedTarget ?? commentsTarget ?? undefined);
-  useVerticalFocusRedirect(focusArea === "channel", backTarget ?? undefined, firstActionTarget ?? relatedTarget ?? commentsTarget ?? undefined);
-  useVerticalFocusRedirect(focusArea === "actions", channelTarget ?? backTarget ?? undefined, relatedTarget ?? commentsTarget ?? undefined);
-  useVerticalFocusRedirect(focusArea === "comments", relatedTarget ?? firstActionTarget ?? channelTarget ?? backTarget ?? undefined, undefined);
+  useEffect(() => {
+    if (playingFrom !== null) return;
+    const frame = requestAnimationFrame(() => firstActionTarget?.requestTVFocus());
+    return () => cancelAnimationFrame(frame);
+  }, [firstActionTarget, playingFrom]);
+
+  useEffect(() => {
+    onPrimaryFocusTarget(firstActionTarget);
+    return () => onPrimaryFocusTarget(null);
+  }, [firstActionTarget, onPrimaryFocusTarget]);
 
   const loadComments = useCallback(async () => {
+    const version = requestVersion.current;
+    const current = () => alive.current && requestVersion.current === version;
     setCommentsLoading(true);
     setCommentsError(false);
     try {
       const result = await api.videoComments(preview.video_id);
+      if (!current()) return;
       setComments(result.comments.slice(0, 18));
     } catch {
-      setCommentsError(true);
+      if (current()) setCommentsError(true);
     } finally {
-      setCommentsLoading(false);
+      if (current()) setCommentsLoading(false);
     }
   }, [api, preview.video_id]);
 
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
+    const current = () => alive.current && requestVersion.current === version;
     setLoading(true);
     setLoadError(false);
-    setActionError(false);
+    setSaveFailed(false);
     try {
       const [page, settingsResult] = await Promise.all([
         api.video(preview.video_id),
         api.settings().catch(() => null),
       ]);
+      if (!current()) return;
       setVideo(page.video);
       setRelated(page.related);
       setSettings(settingsResult?.settings ?? null);
@@ -93,9 +140,9 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
         void loadComments();
       }
     } catch {
-      setLoadError(true);
+      if (current()) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (current()) setLoading(false);
     }
   }, [api, loadComments, preview.video_id]);
 
@@ -104,52 +151,46 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
     setRelated([]);
     setSettings(null);
     setComments(null);
+    setCommentsLoading(false);
     setCommentsError(false);
     setPortraitFailed(false);
     void load();
-  }, [load, preview]);
+    return () => { requestVersion.current++; };
+  }, [load, preview.video_id]);
 
-  const mutate = async (action: Mutation) => {
-    if (busy) return;
-    setBusy(action);
-    setActionError(false);
-    try {
-      if (action === "watched") {
-        const watched = video.watched !== 1;
-        if (watched) await api.markWatched(video.video_id);
-        else await api.markUnwatched(video.video_id);
-        setVideo((current) => ({ ...current, watched: watched ? 1 : 0 }));
-        onSourceVisibilityChange(video.video_id, watched);
-      } else if (action === "liked") {
-        const liked = video.liked !== 1;
-        await api.likeVideo(video.video_id, liked);
-        setVideo((current) => ({ ...current, liked: liked ? 1 : 0 }));
-      } else if (action === "scheduled") {
-        const scheduled = video.status === "queued";
-        if (scheduled) await api.dequeue(video.video_id);
-        else await api.queue(video.video_id, "today");
-        setVideo((current) => ({ ...current, status: scheduled ? "inbox" : "queued", bucket: scheduled ? null : "today" }));
-      } else {
-        const archived = video.status === "archived";
-        if (archived) await api.restore(video.video_id);
-        else await api.reject(video.video_id);
-        setVideo((current) => ({ ...current, status: archived ? "inbox" : "archived", bucket: null }));
-        onSourceVisibilityChange(video.video_id, !archived);
-      }
-    } catch {
-      setActionError(true);
-    } finally {
-      setBusy(null);
+  const closePlayer = (result: PlaybackResult, next?: Video, playedVideo = video) => {
+    if (!alive.current) return;
+    if (result.showDetails) returnToBrowse.current = false;
+    setPlayingFrom(null);
+    setSaveFailed(result.saveFailed);
+    if ((!incognito || isChild) && result.duration > 0) {
+      const updated = { ...playedVideo, watch_position: result.position, watch_duration: result.duration, watched: result.completed && !result.saveFailed ? 1 : playedVideo.watched };
+      setVideo(updated);
+      if (!result.saveFailed) onVideoChange(updated);
     }
+    if (next) { onOpenVideo(next, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true); return; }
+    if (returnToBrowse.current) { onBack(); return; }
+    requestAnimationFrame(() => firstActionTarget?.requestTVFocus());
   };
 
+  const openActions = useCallback(() => onVideoLongPress(video, (updated) => {
+    setVideo(updated);
+    onVideoChange(updated);
+  }), [onVideoChange, onVideoLongPress, video]);
+
+  const startAt = (video.video_id === initialVideo.video_id ? initialPosition : undefined) ?? resumePosition(video.watch_position, video.watch_duration, video.watched);
+  const heroHeight = Math.max(500, Math.round(height * 0.69));
   const locale = localeTags[language];
+  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
+  const viewsFormatter = useMemo(
+    () => new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }),
+    [locale],
+  );
   const publishedAt = validDate(video.published_at);
-  const published = publishedAt ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(publishedAt) : "";
-  const views = typeof video.views === "number"
-    ? `${new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(video.views)} ${t("views")}`
-    : "";
-  const metadata = [published, views, video.duration].filter(Boolean);
+  const published = publishedAt ? dateFormatter.format(publishedAt) : "";
+  const views = typeof video.views === "number" ? `${viewsFormatter.format(video.views)} ${t("views")}` : "";
+  const duration = formatVideoDuration(video.duration);
+  const metadata = [published, views, duration].filter(Boolean);
   const progress = video.watch_position && video.watch_duration
     ? Math.max(0, Math.min(100, video.watch_position / video.watch_duration * 100))
     : 0;
@@ -157,7 +198,7 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
   const showRelated = settings?.watch_show_related !== "0";
   const short = video.is_short === 1;
   const cardWidth = useMemo(() => Math.max(300, Math.min(390, (width - screenPadding * 2 - 78) / 4)), [width]);
-  const visibleComments = mode === "disabled" ? [] : comments ?? [];
+  const visibleComments = mode === "disabled" ? noComments : comments ?? noComments;
   const renderComment = useCallback(({ item }: ListRenderItemInfo<VideoComment>) => (
     <CommentCard api={api} comment={item} t={t} />
   ), [api, t]);
@@ -166,31 +207,31 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
       .map((item) => item.video_id === updated.video_id ? updated : item)
       .filter((item) => item.video_id !== updated.video_id || updated.status !== "archived"));
   }, []);
+  const relatedThumbnailSource = useCallback((thumbnail: string) => api.thumbnailSource(thumbnail), [api]);
+  const openRelatedVideo = useCallback((relatedVideo: Video) => {
+    onOpenVideo(relatedVideo, queueContext ?? undefined);
+  }, [onOpenVideo, queueContext]);
+  const openRelatedVideoActions = useCallback((relatedVideo: Video) => {
+    onVideoLongPress(relatedVideo, applyRelatedVideoChange);
+  }, [applyRelatedVideoChange, onVideoLongPress]);
 
   return (
-    <FlatList
-      style={styles.screen}
+    <View style={[styles.screen, { width, height }]}>
+    {playingFrom === null && !returnToBrowse.current ? <TvPageBackButton ref={setBackTarget} t={t}
+      nextFocusRight={profileFocusTarget} nextFocusDown={channelTarget ?? firstActionTarget ?? undefined}
+      onPress={onBack} /> : null}
+    {playingFrom === null && !returnToBrowse.current ? <FlatList
+      style={[styles.screen, { width, height, flexBasis: height, flexGrow: 0, flexShrink: 0 }]}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       data={visibleComments}
-      keyExtractor={(comment) => comment.id}
+      keyExtractor={commentKey}
       renderItem={renderComment}
       {...tvVerticalListPerformance}
       ListHeaderComponent={(
         <>
-      <View style={styles.topBar}>
-        <TvButton
-          ref={setBackTarget}
-          label={t("back")}
-          variant="ghost"
-          preferredFocus
-          nextFocusDown={channelTarget ?? firstActionTarget ?? relatedTarget ?? commentsTarget ?? undefined}
-          onFocus={() => setFocusArea("back")}
-          onBlur={() => setFocusArea((current) => current === "back" ? null : current)}
-          onPress={onBack}
-        />
-        {loading ? <TvLoadingMark accessibilityLabel={t("loadingVideo")} size={28} /> : null}
-      </View>
+      <TvBackdrop source={api.backdropSource(video.thumbnail)} fallbackSource={api.thumbnailSource(video.thumbnail)} style={{ left: -screenPadding, right: -screenPadding, top: -132, height: heroHeight + 240 }} />
+      {loading ? <TvLoadingMark accessibilityLabel={t("loadingVideo")} size={28} /> : null}
 
       {loadError ? (
         <View style={styles.errorPanel}>
@@ -199,8 +240,8 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
         </View>
       ) : null}
 
-      <View style={[styles.hero, short && styles.shortHero]}>
-        <View style={[styles.imageFrame, short && styles.shortImageFrame]}>
+      <View style={[styles.hero, { minHeight: heroHeight }, short && styles.shortHero]}>
+        {short ? <View style={[styles.imageFrame, { width: Math.min(330, height * 0.3) }, styles.shortImageFrame]}>
           {video.thumbnail ? (
             <Image
               source={short && !portraitFailed ? api.shortThumbnailSource(video.video_id) : api.thumbnailSource(video.thumbnail)}
@@ -212,9 +253,9 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
             <View style={styles.imagePlaceholder}><Text style={styles.imagePlaceholderText}>YT Zero</Text></View>
           )}
           <View style={styles.posterShade} />
-          {video.duration ? <View style={styles.duration}><Text style={styles.durationText}>{video.duration}</Text></View> : null}
+          {duration ? <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View> : null}
           {progress > 0 ? <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View> : null}
-        </View>
+        </View> : null}
 
         <View style={styles.copy}>
           <View style={styles.badges}>
@@ -223,7 +264,7 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
             {video.is_private === 1 ? <MetaBadge label={t("privateVideo")} /> : null}
             {video.tags?.filter((tag) => tag.filter_only !== 1).slice(0, 3).map((tag) => <MetaBadge key={tag.id} label={tag.name} />)}
           </View>
-          <Text style={styles.title}>{video.title}</Text>
+          <Text accessibilityRole="header" numberOfLines={3} style={styles.title}>{video.title}</Text>
           {metadata.length > 0 ? <Text style={styles.meta}>{metadata.join("  •  ")}</Text> : null}
 
           {video.channel_id && onOpenChannel ? (
@@ -232,68 +273,51 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
               api={api}
               video={video}
               nextFocusUp={backTarget ?? undefined}
-              nextFocusDown={firstActionTarget ?? relatedTarget ?? commentsTarget ?? undefined}
-              onFocusChange={(focused) => setFocusArea((current) => focused ? "channel" : current === "channel" ? null : current)}
+              nextFocusDown={descriptionTarget ?? firstActionTarget ?? undefined}
+
               onPress={() => onOpenChannel(video.channel_id!)}
             />
           ) : (
             <Text style={styles.channelName}>{video.channel_title}</Text>
           )}
 
+          {video.description ? <TvTextDetails ref={setDescriptionTarget} text={video.description} title={t("descriptionTitle")} t={t}
+            nextFocusUp={channelTarget ?? backTarget ?? undefined} nextFocusDown={firstActionTarget ?? undefined} /> : null}
           <View style={styles.actions}>
-            {video.status !== "archived" ? (
-              <TvButton
-                ref={setFirstActionTarget}
-                label={video.status === "queued" ? t("removeSchedule") : t("scheduleToday")}
-                variant="primary"
-                disabled={busy !== null}
-                nextFocusUp={channelTarget ?? backTarget ?? undefined}
-                nextFocusDown={relatedTarget ?? commentsTarget ?? undefined}
-                onFocus={() => setFocusArea("actions")}
-                onBlur={() => setFocusArea((current) => current === "actions" ? null : current)}
-                onPress={() => void mutate("scheduled")}
-              />
-            ) : null}
-            <TvButton
-              ref={video.status === "archived" ? setFirstActionTarget : undefined}
-              label={video.watched === 1 ? t("markUnwatched") : t("markWatched")}
-              disabled={busy !== null}
-              nextFocusUp={channelTarget ?? backTarget ?? undefined}
-              nextFocusDown={relatedTarget ?? commentsTarget ?? undefined}
-              onFocus={() => setFocusArea("actions")}
-              onBlur={() => setFocusArea((current) => current === "actions" ? null : current)}
-              onPress={() => void mutate("watched")}
+            <TvButton ref={setFirstActionTarget} preferredFocus icon="play"
+              label={startAt > 0 ? `${t("resumePlayback")} · ${playbackTime(startAt)}` : t("playVideo")}
+              variant="primary" nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined}
+              nextFocusDown={queueTarget ?? relatedTarget ?? commentsTarget ?? undefined}
+              onPress={() => setPlayingFrom(startAt)}
             />
-            <TvButton
-              label={video.liked === 1 ? t("unlike") : t("like")}
-              disabled={busy !== null}
-              nextFocusUp={channelTarget ?? backTarget ?? undefined}
-              nextFocusDown={relatedTarget ?? commentsTarget ?? undefined}
-              onFocus={() => setFocusArea("actions")}
-              onBlur={() => setFocusArea((current) => current === "actions" ? null : current)}
-              onPress={() => void mutate("liked")}
-            />
-            <TvButton
-              label={video.status === "archived" ? t("restoreVideo") : t("reject")}
-              variant={video.status === "archived" ? "default" : "danger"}
-              disabled={busy !== null}
-              nextFocusUp={channelTarget ?? backTarget ?? undefined}
-              nextFocusDown={relatedTarget ?? commentsTarget ?? undefined}
-              onFocus={() => setFocusArea("actions")}
-              onBlur={() => setFocusArea((current) => current === "actions" ? null : current)}
-              onPress={() => void mutate("archived")}
-            />
+            {startAt > 0 ? <TvButton label={t("playFromStart")}
+              nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined}
+              nextFocusDown={queueTarget ?? relatedTarget ?? commentsTarget ?? undefined}
+              onPress={() => setPlayingFrom(0)} /> : null}
+            {queued || canQueueTvVideo(video) ? <TvButton icon="queue" label={t(queued ? "removeFromQueue" : queue.items.length >= SESSION_QUEUE_LIMIT ? "queueFull" : "addToQueue")}
+              disabled={!queued && queue.items.length >= SESSION_QUEUE_LIMIT}
+              nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined} nextFocusDown={queueTarget ?? relatedTarget ?? undefined}
+              onPress={() => queued ? queue.remove(video.video_id) : queue.add(video)} /> : null}
+            <TvButton label={t("more")} icon="more"
+              nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined}
+              nextFocusDown={queueTarget ?? relatedTarget ?? commentsTarget ?? undefined}
+              onPress={openActions} />
           </View>
-          {actionError ? <Text style={styles.actionError}>{t("actionFailed")}</Text> : null}
+          {saveFailed ? <Text style={styles.actionError}>{t("playbackSaveError")}</Text> : null}
         </View>
       </View>
 
-      {showRelated && relatedTarget ? <TVFocusGuideView destinations={[relatedTarget]} style={styles.heroFocusBridge} /> : null}
-
-      <View style={styles.descriptionSection}>
-        <Text style={styles.sectionTitle}>{t("descriptionTitle")}</Text>
-        <Text style={styles.description}>{video.description || t("noDescription")}</Text>
-      </View>
+      {sequence.next || queue.items.length ? <TVFocusGuideView autoFocus style={styles.queueSection}>
+        <Text accessibilityRole="header" style={styles.sectionTitle}>{t(sequence.next ? "upNext" : "playQueue")}</Text>
+        <View style={styles.queueHeading}>
+          {sequence.next ? <View style={{ flex: 1 }}><TvListButton ref={setNextTarget} label={sequence.next.title} detail={sequence.next.channel_title}
+            nextFocusUp={firstActionTarget ?? undefined} nextFocusDown={relatedTarget ?? commentsTarget ?? undefined}
+            onPress={() => onOpenVideo(sequence.next!, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true)} /></View> : null}
+          <TvButton ref={setQueueButtonTarget} label={`${t("playQueue")} · ${queue.items.length}`} icon="queue"
+            nextFocusUp={firstActionTarget ?? undefined} nextFocusDown={relatedTarget ?? commentsTarget ?? undefined} onPress={() => onShowQueue(queueButtonTarget)} />
+        </View>
+      </TVFocusGuideView> : null}
+      {sequence.failed ? <Text style={styles.actionError}>{t("queueLoadError")}</Text> : null}
 
       {showRelated ? (
         <>
@@ -303,42 +327,48 @@ export function WatchScreen({ api, language, t, video: preview, onBack, onOpenCh
             cardWidth={cardWidth}
             firstItemRef={setRelatedTarget}
             language={language}
-            nextFocusUp={firstActionTarget ?? channelTarget ?? backTarget ?? undefined}
+            nextFocusUp={queueTarget ?? firstActionTarget ?? undefined}
             nextFocusDown={commentsTarget ?? undefined}
-            thumbnailSource={api.thumbnailSource.bind(api)}
-            onOpen={onOpenVideo}
-            onLongPress={(relatedVideo) => onVideoLongPress(relatedVideo, applyRelatedVideoChange)}
+            thumbnailSource={relatedThumbnailSource}
+            onOpen={openRelatedVideo}
+            onLongPress={openRelatedVideoActions}
             viewsLabel={t("views")}
           />
-          {relatedTarget && commentsTarget ? <TVFocusGuideView destinations={[commentsTarget]} style={styles.shelfFocusBridge} /> : null}
         </>
       ) : null}
 
       {mode !== "disabled" ? (
-        <View style={styles.commentsSection}>
-          <Text style={styles.sectionTitle}>{t("commentsTitle")}</Text>
+        <TVFocusGuideView autoFocus style={styles.commentsSection}>
+          <Text accessibilityRole="header" style={styles.sectionTitle}>{t("commentsTitle")}</Text>
           <View style={styles.commentsToolbar}>
             <TvButton
               ref={setCommentsTarget}
               label={commentsLoading ? t("loadingComments") : commentsError ? t("tryAgain") : comments === null ? t("loadComments") : t("refresh")}
               style={styles.inlineButton}
-              nextFocusUp={relatedTarget ?? firstActionTarget ?? channelTarget ?? backTarget ?? undefined}
+              nextFocusUp={relatedTarget ?? queueTarget ?? firstActionTarget ?? channelTarget ?? backTarget ?? undefined}
               onFocus={() => {
-                setFocusArea("comments");
                 if (mode === "scroll" && comments === null && !commentsLoading && !commentsError) void loadComments();
               }}
-              onBlur={() => setFocusArea((current) => current === "comments" ? null : current)}
               onPress={() => { if (!commentsLoading) void loadComments(); }}
             />
             {commentsLoading ? <TvLoadingMark accessibilityLabel={t("loadingComments")} size={27} /> : null}
           </View>
           {commentsError ? <Text style={styles.commentsStatus}>{t("commentsLoadError")}</Text> : null}
           {comments?.length === 0 ? <Text style={styles.commentsStatus}>{t("commentsEmpty")}</Text> : null}
-        </View>
+        </TVFocusGuideView>
       ) : null}
         </>
       )}
-    />
+    /> : null}
+    {playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
+      queueLoading={sequence.loading}
+      onAdvance={(next) => { requestVersion.current++; setVideo(next); setPreview(next); }}
+      onProgress={(played, result) => {
+        if (result.saveFailed) setSaveFailed(true);
+        if ((!incognito || isChild) && result.duration > 0 && !result.saveFailed) onVideoChange(played);
+      }}
+      advanceOnEnd={shouldAdvanceQueue(sequence.context, settings?.feed_autoplay_enabled, settings?.feed_autoplay_behavior)} /> : null}
+    </View>
   );
 }
 
@@ -346,27 +376,28 @@ function MetaBadge({ label, strong = false }: { label: string; strong?: boolean 
   return <View style={[styles.badge, strong && styles.badgeStrong]}><Text style={[styles.badgeText, strong && styles.badgeStrongText]}>{label}</Text></View>;
 }
 
-function ChannelButton({ api, video, nextFocusUp, nextFocusDown, onTargetReady, onFocusChange, onPress }: { api: YtZeroApi; video: Video; nextFocusUp?: FocusDestination; nextFocusDown?: FocusDestination; onTargetReady: (target: View | null) => void; onFocusChange: (focused: boolean) => void; onPress: () => void }) {
+function ChannelButton({ api, video, nextFocusUp, nextFocusDown, onTargetReady, onPress }: { api: YtZeroApi; video: Video; nextFocusUp?: FocusDestination; nextFocusDown?: FocusDestination; onTargetReady: (target: View | null) => void; onPress: () => void }) {
   const [focused, setFocused] = useState(false);
   const avatar = video.channel_thumbnail ? api.thumbnailSource(video.channel_thumbnail) : null;
   return (
-    <Pressable
+    <TvPressable
       ref={onTargetReady}
       accessibilityRole="button"
       accessibilityLabel={video.channel_title}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocus={() => { setFocused(true); onFocusChange(true); }}
-      onBlur={() => { setFocused(false); onFocusChange(false); }}
+      onFocus={() => { setFocused(true); }}
+      onBlur={() => { setFocused(false); }}
       onPress={onPress}
       style={({ pressed }) => [styles.channelButton, focused && styles.channelButtonFocused, pressed && styles.channelButtonPressed]}
     >
+      <TvControlSurface radius={39} focused={focused} filled={false} />
       {avatar?.uri ? <Image source={avatar} style={styles.channelAvatar} /> : <View style={[styles.channelAvatar, styles.channelAvatarPlaceholder]} />}
       <View style={styles.channelCopy}>
         <Text numberOfLines={1} style={[styles.channelTitle, focused && styles.channelTextFocused]}>{video.channel_title}</Text>
         {video.channel_subscriber_count ? <Text style={[styles.channelSubscribers, focused && styles.channelSubTextFocused]}>{video.channel_subscriber_count}</Text> : null}
       </View>
-    </Pressable>
+    </TvPressable>
   );
 }
 
@@ -382,7 +413,7 @@ function CommentCard({ api, comment, t }: { api: YtZeroApi; comment: VideoCommen
           {flags.length > 0 ? <Text style={styles.commentMeta}>{flags.join("  •  ")}</Text> : null}
           {comment.likeCount > 0 ? <Text style={styles.commentMeta}>♥ {comment.likeCount}</Text> : null}
         </View>
-        <Text numberOfLines={6} style={styles.commentText}>{comment.text}</Text>
+        <TvTextDetails text={comment.text} title={comment.author} t={t} />
       </View>
     </View>
   );
@@ -390,57 +421,53 @@ function CommentCard({ api, comment, t }: { api: YtZeroApi; comment: VideoCommen
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: screenPadding, paddingTop: 44, paddingBottom: 110 },
-  topBar: { minHeight: 72, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 22 },
+  content: { paddingHorizontal: screenPadding, paddingTop: 132, paddingBottom: 110 },
   errorPanel: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 24, paddingVertical: 18, paddingHorizontal: 22, marginBottom: 24, borderRadius: 22, backgroundColor: "rgba(255,159,154,0.12)" },
-  errorText: { flex: 1, color: colors.danger, fontSize: 19, lineHeight: 25, fontWeight: "700" },
-  hero: { flexDirection: "row-reverse", alignItems: "flex-start", gap: 54 },
-  shortHero: { alignItems: "center" },
+  errorText: { flex: 1, color: colors.danger, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "700" },
+  hero: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 64, paddingBottom: 32 },
+  shortHero: { flexDirection: "row-reverse", alignItems: "center" },
   imageFrame: { width: "57%", aspectRatio: 16 / 9, borderRadius: 30, overflow: "hidden", backgroundColor: colors.surface, shadowColor: colors.black, shadowOpacity: 0.62, shadowRadius: 34, shadowOffset: { width: 0, height: 18 } },
-  shortImageFrame: { width: 410, aspectRatio: 9 / 16 },
+  shortImageFrame: { aspectRatio: 9 / 16, marginRight: 120 },
   image: { width: "100%", height: "100%", backgroundColor: colors.surface },
   imagePlaceholder: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
   imagePlaceholderText: { color: colors.textMuted, fontSize: 34, fontWeight: "800" },
   posterShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: "30%", backgroundColor: "rgba(0,0,0,0.12)" },
   duration: { position: "absolute", right: 16, bottom: 18, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: "rgba(0,0,0,0.78)" },
-  durationText: { color: colors.white, fontSize: 16, fontWeight: "800" },
+  durationText: { color: colors.white, fontSize: typography.caption.fontSize, fontWeight: "800" },
   progressTrack: { position: "absolute", left: 0, right: 0, bottom: 0, height: 8, backgroundColor: "rgba(255,255,255,0.24)" },
   progressFill: { height: "100%", backgroundColor: colors.accentStrong },
-  copy: { flex: 1, minWidth: 0, paddingTop: 10 },
+  copy: { flex: 1, minWidth: 0, maxWidth: 980, paddingTop: 80 },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: 9, minHeight: 28 },
   badge: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: 12, backgroundColor: colors.surfaceRaised },
   badgeStrong: { backgroundColor: colors.danger },
-  badgeText: { color: colors.textMuted, fontSize: 14, lineHeight: 18, fontWeight: "700" },
+  badgeText: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "700" },
   badgeStrongText: { color: colors.black, fontWeight: "900" },
-  title: { color: colors.text, fontSize: 43, lineHeight: 50, fontWeight: "700", letterSpacing: -1.1, marginTop: 13 },
-  meta: { color: colors.textMuted, fontSize: 18, lineHeight: 25, marginTop: 14 },
-  channelName: { color: colors.text, fontSize: 21, fontWeight: "700", marginTop: 24 },
-  channelButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", minWidth: 280, maxWidth: "100%", minHeight: 78, paddingVertical: 8, paddingHorizontal: 10, marginTop: 24, borderRadius: 39, backgroundColor: "transparent" },
-  channelButtonFocused: { backgroundColor: colors.white, transform: [{ scale: 1.04 }], shadowColor: colors.black, shadowOpacity: 0.68, shadowRadius: 20, shadowOffset: { width: 0, height: 11 } },
-  channelButtonPressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
+  title: { color: colors.text, fontSize: 58, lineHeight: 66, fontWeight: "700", letterSpacing: -1.8, marginTop: 13 },
+  meta: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, marginTop: 14 },
+  channelName: { color: colors.text, fontSize: typography.caption.fontSize, fontWeight: "700", marginTop: 24 },
+  channelButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", minWidth: 440, maxWidth: "100%", minHeight: 78, paddingVertical: 8, paddingHorizontal: 10, marginTop: 24, borderRadius: 39, backgroundColor: "transparent" },
+  channelButtonFocused: { shadowColor: colors.black, shadowOpacity: 0.68, shadowRadius: 20, shadowOffset: { width: 0, height: 11 } },
+  channelButtonPressed: { opacity: 0.85 },
   channelAvatar: { width: 62, height: 62, borderRadius: 31, backgroundColor: colors.surfaceRaised },
   channelAvatarPlaceholder: { backgroundColor: colors.surfaceRaised },
   channelCopy: { flex: 1, minWidth: 0, paddingHorizontal: 14 },
-  channelTitle: { color: colors.text, fontSize: 21, lineHeight: 27, fontWeight: "700" },
-  channelSubscribers: { color: colors.textMuted, fontSize: 15, marginTop: 3 },
-  channelTextFocused: { color: colors.black },
-  channelSubTextFocused: { color: "rgba(0,0,0,0.6)" },
+  channelTitle: { color: colors.text, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "700" },
+  channelSubscribers: { color: colors.textMuted, fontSize: typography.caption.fontSize, marginTop: 3 },
+  channelTextFocused: { color: colors.text },
+  channelSubTextFocused: { color: colors.text },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 13, marginTop: 28 },
-  actionError: { color: colors.danger, fontSize: 18, lineHeight: 24, fontWeight: "700", marginTop: 16 },
-  heroFocusBridge: { width: 500, height: 20, marginTop: -20 },
-  descriptionSection: { maxWidth: 1420, marginTop: 62, marginBottom: 56, padding: 28, borderRadius: 26, backgroundColor: colors.surface },
+  actionError: { color: colors.danger, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "700", marginTop: 16 },
+  queueSection: { marginBottom: 48, maxWidth: 1360 },
+  queueHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 24 },
   sectionTitle: { color: colors.text, fontSize: 27, lineHeight: 34, fontWeight: "700", marginBottom: 18 },
-  description: { color: colors.textMuted, fontSize: 20, lineHeight: 31 },
   commentsSection: { maxWidth: 1420, marginTop: 42 },
-  shelfFocusBridge: { width: 390, height: 20, marginTop: -34 },
   inlineButton: { alignSelf: "flex-start" },
   commentsToolbar: { flexDirection: "row", alignItems: "center", gap: 22, marginBottom: 18 },
-  commentsStatus: { color: colors.textMuted, fontSize: 19, lineHeight: 26 },
+  commentsStatus: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight },
   commentCard: { maxWidth: 1420, flexDirection: "row", gap: 18, padding: 22, marginBottom: 14, borderRadius: 24, backgroundColor: colors.surface },
   commentAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surfaceRaised },
   commentCopy: { flex: 1, minWidth: 0 },
   commentHeader: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 9 },
-  commentAuthor: { color: colors.text, fontSize: 18, lineHeight: 23, fontWeight: "700" },
-  commentMeta: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-  commentText: { color: colors.text, fontSize: 18, lineHeight: 27 },
+  commentAuthor: { color: colors.text, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "700" },
+  commentMeta: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight },
 });

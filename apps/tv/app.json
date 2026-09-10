@@ -10,10 +10,17 @@
     "scheme": "ytzero",
     "ios": {
       "bundleIdentifier": "app.ytzero.tv",
+      "entitlements": {
+        "com.apple.developer.user-management": ["runs-as-current-user-with-user-independent-keychain"]
+      },
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSBonjourServices": [
+          "_ytzero._tcp"
+        ],
+        "NSLocalNetworkUsageDescription": "YT Zero finds your server on the local network so you can connect this television without typing an address."
       },
       "config": {
         "usesNonExemptEncryption": false
@@ -52,7 +59,25 @@
           }
         }
       ],
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
+        }
+      ]
+    ],
+    "locales": {
+      "en": "./locales/en.json",
+      "pl": "./locales/pl.json",
+      "de": "./locales/de.json",
+      "fr": "./locales/fr.json",
+      "es": "./locales/es.json",
+      "pt-BR": "./locales/pt-BR.json",
+      "ru": "./locales/ru.json",
+      "ja": "./locales/ja.json",
+      "hu": "./locales/hu.json"
+    }
   }
 }

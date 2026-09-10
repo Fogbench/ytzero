@@ -3,19 +3,18 @@ import {
   FlatList,
   StyleSheet,
   useWindowDimensions,
-  View,
   type ListRenderItem,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { TvHorizontalEdgeShadows, useHorizontalEdgeShadows } from "./TvHorizontalEdgeShadows";
+import { TvScrollEdges } from "./TvScrollEdges";
 
 type Props<Item> = {
   data: Item[];
   estimatedItemExtent?: number;
   initialNumToRender?: number;
   contentContainerStyle?: StyleProp<ViewStyle>;
-  edgeShadows?: boolean;
+  edgeEffect?: boolean;
   footer?: ReactElement | null;
   initialScrollIndex?: number;
   itemExtent?: number;
@@ -26,6 +25,8 @@ type Props<Item> = {
   wrapperStyle?: StyleProp<ViewStyle>;
 };
 
+const noPersistentRenderIndices: number[] = [];
+
 /**
  * Shared TV carousel primitive. FlatList keeps only the nearby cards mounted,
  * while the first item stays available as a stable D-pad focus destination.
@@ -35,17 +36,16 @@ export function TvHorizontalList<Item>({
   estimatedItemExtent,
   initialNumToRender,
   contentContainerStyle,
-  edgeShadows = true,
+  edgeEffect = true,
   footer,
   initialScrollIndex,
   itemExtent,
   keyExtractor,
-  persistentRenderIndices = [],
+  persistentRenderIndices = noPersistentRenderIndices,
   renderItem,
   style,
   wrapperStyle,
 }: Props<Item>) {
-  const edges = useHorizontalEdgeShadows();
   const { width } = useWindowDimensions();
   const initialCount = useMemo(() => {
     const requested = initialNumToRender
@@ -65,7 +65,7 @@ export function TvHorizontalList<Item>({
   }), [itemExtent]);
 
   return (
-    <View style={[styles.wrapper, wrapperStyle]} onLayout={edges.onLayout}>
+    <TvScrollEdges enabled={edgeEffect} style={[styles.wrapper, wrapperStyle]}>
       <FlatList
         horizontal
         data={data}
@@ -78,8 +78,6 @@ export function TvHorizontalList<Item>({
         contentContainerStyle={contentContainerStyle}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={32}
-        onContentSizeChange={(contentWidth) => edges.onContentSizeChange(contentWidth)}
-        onScroll={edges.onScroll}
         initialNumToRender={initialCount}
         maxToRenderPerBatch={Math.max(3, Math.min(8, initialCount))}
         updateCellsBatchingPeriod={48}
@@ -87,8 +85,7 @@ export function TvHorizontalList<Item>({
         removeClippedSubviews={false}
         additionalRenderRegions={additionalRenderRegions}
       />
-      {edgeShadows && <TvHorizontalEdgeShadows left={edges.left} right={edges.right} />}
-    </View>
+    </TvScrollEdges>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./ChannelPlaylistPage.css";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Bell, Download, FileClock, Gauge, ListFilter, ListMinus, ListPlus, MoreHorizontal, RefreshCw } from "lucide-react";
@@ -23,7 +23,8 @@ export default function ChannelPlaylistPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const sort = normalizePlaylistSort(searchParams.get("sort"));
+  const requestedSort = searchParams.has("sort") ? normalizePlaylistSort(searchParams.get("sort")) : undefined;
+  const [sort, setSort] = useState<PlaylistSort>("oldest");
   const { t } = useI18n();
   const [playlist, setPlaylist] = useState<FollowedPlaylist | null>(null);
   useDocumentTitle(playlist?.title);
@@ -42,24 +43,44 @@ export default function ChannelPlaylistPage() {
   const [offlinePolicySaving, setOfflinePolicySaving] = useState(false);
   const [downloadQualitySaving, setDownloadQualitySaving] = useState(false);
 
+  const generation = useRef(0);
+  const sortLock = useRef(false);
+  const [sortSaving, setSortSaving] = useState(false);
+
   const load = useCallback(async () => {
     if (!id) return;
-    const [details, contents, preferences] = await Promise.all([api.channelPlaylist(id), api.channelPlaylistVideos(id, sort), api.notificationPreferences()]);
+    const request = ++generation.current;
+    const [details, contents, preferences] = await Promise.all([api.channelPlaylist(id), api.channelPlaylistVideos(id, requestedSort), api.notificationPreferences()]);
+    if (request !== generation.current) return;
+    setSort(normalizePlaylistSort(contents.sort));
     setPlaylist(details.playlist);
     setVideos(contents.videos);
     setProcessingVideos(contents.processing);
     setVideoOrder(contents.order);
     const value = preferences.playlists.find((source) => source.playlist_id === id)?.notification_enabled;
     setNotificationMode(value == null ? "default" : value === 1 ? "on" : "off");
-  }, [id, sort]);
+  }, [id, requestedSort]);
 
-  const changeSort = (next: PlaylistSort) => {
-    setSearchParams({ sort: next }, { replace: true });
+  const changeSort = async (next: PlaylistSort) => {
+    if (!id || sortLock.current) return;
+    sortLock.current = true;
+    setSortSaving(true);
+    setDownloadFeedback("");
+    try {
+      if (playlist?.followed) {
+        await api.updateFollowedPlaylistSort(id, next);
+        // Legacy links may override a request. New choices are profile-owned.
+        if (requestedSort !== undefined) setSearchParams((params) => { const next = new URLSearchParams(params); next.delete("sort"); return next; }, { replace: true });
+        else await load();
+      } else setSearchParams((params) => { const updated = new URLSearchParams(params); updated.set("sort", next); return updated; }, { replace: true });
+    } catch { setDownloadFeedback(t("playlistSortSaveFailed")); }
+    finally { sortLock.current = false; setSortSaving(false); }
   };
 
   useEffect(() => {
     setLoading(true);
     load().catch(console.error).finally(() => setLoading(false));
+    return () => { generation.current++; };
   }, [load]);
 
   const toggleFollow = async () => {
@@ -213,7 +234,7 @@ export default function ChannelPlaylistPage() {
             </>}
             {settingsView === "sort" && <>
               <HeaderSettingsHeader onBack={() => setSettingsView("root")} backLabel={t("back")}>{t("playlistSort")}</HeaderSettingsHeader>
-              {sortOptions.map((option) => <HeaderSettingsOption key={option.value} selected={sort === option.value} onClick={() => changeSort(option.value)}>{option.label}</HeaderSettingsOption>)}
+              {sortOptions.map((option) => <HeaderSettingsOption key={option.value} selected={sort === option.value} disabled={sortSaving} onClick={() => void changeSort(option.value)}>{option.label}</HeaderSettingsOption>)}
             </>}
             {settingsView === "notifications" && <NotificationSourceMenu
               mode={notificationMode}

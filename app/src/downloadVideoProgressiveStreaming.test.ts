@@ -16,27 +16,38 @@ function ranged(range: string | null): Response {
   } });
 }
 
-function fixture() {
+function fixture(quality = "best") {
   const requests: string[] = [];
+  const commands: string[][] = [];
   const streaming = createDownloadVideoProgressiveStreaming({
     YTDLP: "yt-dlp",
     downloadCookiesConfigured: () => false,
     downloadCookiesFile: () => "cookies.txt",
     ytdlpStatus: async () => "test",
-    spawn: (() => ({
+    dlSettings: async () => ({ quality }),
+    spawn: ((command: string[]) => { commands.push(command); return {
       stdout: new Response('https://r1.googlevideo.com/video?expire=9999999999\nmp4\navc1.64001f\nmp4a.40.2\n{"User-Agent":"yt-dlp-agent","Accept-Language":"en-US"}\n').body!,
       stderr: new Response("").body!, exited: Promise.resolve(0), kill: () => {},
-    })) as unknown as typeof Bun.spawn,
+    }; }) as unknown as typeof Bun.spawn,
     fetchImpl: (async (_input, init) => {
       const range = new Headers(init?.headers).get("range");
       requests.push(range ?? "");
       return ranged(range);
     }) as typeof fetch,
   });
-  return { streaming, requests };
+  return { streaming, requests, commands };
 }
 
 describe("progressive direct video stream", () => {
+  test("keeps the progressive fallback within the selected quality limit", async () => {
+    const { streaming, commands } = fixture("480");
+    expect((await streaming.getDirectVideoResponse(1, "quality", "bytes=0-1"))?.status).toBe(206);
+    const selector = commands[0][commands[0].indexOf("-f") + 1];
+    expect(selector).toContain("[height<=480]");
+    expect(selector).toContain("[protocol^=http]");
+    expect(selector).not.toContain("22/");
+    expect(commands[0]).toContain("--skip-download");
+  });
   test("turns missing and open-ended browser ranges into finite upstream requests with Content-Length", async () => {
     const { streaming, requests } = fixture();
     const first = await streaming.getDirectVideoResponse(1, "video", null);

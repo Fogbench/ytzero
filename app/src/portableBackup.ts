@@ -1,3 +1,4 @@
+import { normalizePlaylistSort } from "./playlistSort";
 import { database } from "./database";
 import { getSetting, GLOBAL_SETTING_KEYS, reloadSettingCache, SETTING_DEFAULTS, USER_SETTING_KEYS } from "./db";
 import { PLUGINS, PLUGIN_BACKUP_ADAPTERS, setPluginEnabled } from "./plugins";
@@ -60,7 +61,7 @@ export const BACKUP_SECTIONS: readonly BackupSectionDefinition[] = [
   { id: "profile.access-control", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.access-control"], category: "configuration", path: profilePath("access-control.json") },
   { id: "profile.downloads", schemaVersion: DOWNLOAD_PROFILE_BACKUP_SCHEMA_VERSION, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.channels"], category: "configuration", path: profilePath("downloads.json") },
   { id: "profile.subscriptions", schemaVersion: 2, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.channels"], category: "organization", path: profilePath("subscriptions.jsonl") },
-  { id: "profile.followed-playlists", schemaVersion: 3, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.channels"], category: "organization", path: profilePath("followed-playlists.jsonl") },
+  { id: "profile.followed-playlists", schemaVersion: 4, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.channels"], category: "organization", path: profilePath("followed-playlists.jsonl") },
   { id: "profile.tags", schemaVersion: 2, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "library.referenced-videos"], category: "organization", path: profilePath("tags.jsonl") },
   { id: "profile.rules", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "profile.tags"], category: "organization", path: profilePath("rules.jsonl") },
   { id: "profile.playlists", schemaVersion: 4, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "library.referenced-videos"], category: "organization", path: profilePath("playlists.jsonl") },
@@ -217,7 +218,7 @@ async function sectionData(id: string, profile: any | null, referenced: Set<stri
     }
     case "profile.downloads": return await exportDownloadPreferences(uid);
     case "profile.subscriptions": return await database.prepare(`SELECT uc.channel_id, uc.followed, uc.playback_speed, uc.caption_mode, uc.caption_language, uc.hide_members_only_from_feed, uc.hide_members_only_on_channel, uc.members_only_visibility, uc.shorts_feed_visibility, uc.added_at FROM user_channels uc WHERE uc.user_id=?`).all(uid);
-    case "profile.followed-playlists": return await database.prepare(`SELECT fp.playlist_id, fp.followed_at, fp.feed_from, fp.include_in_feed, fp.offline_policy, fp.download_quality, cp.channel_id, cp.title, cp.thumbnail, cp.video_count FROM user_followed_playlists fp JOIN channel_playlists cp ON cp.playlist_id=fp.playlist_id WHERE fp.user_id=?`).all(uid);
+    case "profile.followed-playlists": return await database.prepare(`SELECT fp.playlist_id, fp.followed_at, fp.feed_from, fp.include_in_feed, fp.offline_policy, fp.download_quality, fp.video_sort, cp.channel_id, cp.title, cp.thumbnail, cp.video_count FROM user_followed_playlists fp JOIN channel_playlists cp ON cp.playlist_id=fp.playlist_id WHERE fp.user_id=?`).all(uid);
     case "profile.tags": { const hidden = hiddenFilterTagUuids(uid); return Promise.all((await database.prepare("SELECT id, portable_uuid, name, color, filter_only FROM tags WHERE user_id=?").all(uid) as any[]).map(async (tag) => ({ uuid: tag.portable_uuid, name: tag.name, color: tag.color, filterOnly: Boolean(tag.filter_only), hiddenFromFilters: hidden.has(tag.portable_uuid), channels: (await database.prepare("SELECT channel_id FROM channel_tags WHERE tag_id=?").all(tag.id) as any[]).map((r) => r.channel_id), videos: (await database.prepare("SELECT video_id FROM video_tags WHERE tag_id=? AND source='manual'").all(tag.id) as any[]).map((r) => r.video_id) }))); }
     case "profile.rules": return [
       ...(await database.prepare("SELECT r.pattern, r.match_type, r.field, t.portable_uuid AS tag_uuid FROM auto_tag_rules r JOIN tags t ON t.id=r.tag_id WHERE r.user_id=?").all(uid) as any[]).map((r) => ({ type: "auto-tag", ...r })),
@@ -431,14 +432,15 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
             await ensureChannel({ channel_id: row.channel_id });
             await database.prepare("INSERT INTO channel_playlists(playlist_id,channel_id,title,thumbnail,video_count) VALUES(?,?,?,?,?) ON CONFLICT(playlist_id) DO UPDATE SET title=excluded.title")
               .run(row.playlist_id,row.channel_id,row.title??"",row.thumbnail??"",row.video_count??"");
-            const existing = await database.prepare("SELECT offline_policy, download_quality FROM user_followed_playlists WHERE user_id=? AND playlist_id=?")
-              .get(uid,row.playlist_id) as { offline_policy: string; download_quality: DownloadQuality | null } | null;
+            const existing = await database.prepare("SELECT offline_policy, download_quality, video_sort FROM user_followed_playlists WHERE user_id=? AND playlist_id=?")
+              .get(uid,row.playlist_id) as { offline_policy: string; download_quality: DownloadQuality | null; video_sort: string } | null;
             const offlinePolicy=["none","download","keep"].includes(row.offline_policy)?row.offline_policy:(existing?.offline_policy??"none");
             const downloadQuality = Object.hasOwn(row, "download_quality")
               ? (isDownloadQuality(row.download_quality) ? row.download_quality : null)
               : (existing?.download_quality ?? null);
-            await database.prepare("INSERT INTO user_followed_playlists(user_id,playlist_id,followed_at,feed_from,include_in_feed,offline_policy,download_quality) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,playlist_id) DO UPDATE SET feed_from=excluded.feed_from,include_in_feed=excluded.include_in_feed,offline_policy=excluded.offline_policy,download_quality=excluded.download_quality")
-              .run(uid,row.playlist_id,row.followed_at,row.feed_from,row.include_in_feed?1:0,offlinePolicy,downloadQuality);
+            const videoSort = normalizePlaylistSort(row.video_sort ?? existing?.video_sort);
+            await database.prepare("INSERT INTO user_followed_playlists(user_id,playlist_id,followed_at,feed_from,include_in_feed,offline_policy,download_quality,video_sort) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(user_id,playlist_id) DO UPDATE SET feed_from=excluded.feed_from,include_in_feed=excluded.include_in_feed,offline_policy=excluded.offline_policy,download_quality=excluded.download_quality,video_sort=excluded.video_sort")
+              .run(uid,row.playlist_id,row.followed_at,row.feed_from,row.include_in_feed?1:0,offlinePolicy,downloadQuality,videoSort);
           }
         }
         const tagIds = new Map<string, number>();

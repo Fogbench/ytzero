@@ -119,7 +119,7 @@ export const DOWNLOADS_SETTINGS: DownloadSettingSource[] = [
     key: "default_player",
     type: "select",
     label: { en: "Default player", pl: "Domyślny odtwarzacz", de: "Standardplayer" },
-    description: { en: "YouTube uses the embedded player. Direct stream plays a progressive MP4 without saving it; it is usually limited to 360p or 720p.", pl: "YouTube używa osadzonego odtwarzacza. Bezpośredni stream odtwarza progressive MP4 bez zapisu; zwykle jest ograniczony do 360p lub 720p.", de: "YouTube verwendet den eingebetteten Player. Direktstream spielt eine progressive MP4 ohne Speichern ab und ist meist auf 360p oder 720p begrenzt." },
+    description: { en: "YouTube uses the embedded player. Direct stream plays video and audio on demand without saving a file or starting a background download. Quality follows the selected limit and available H.264 formats.", pl: "YouTube używa osadzonego odtwarzacza. Bezpośredni stream odtwarza obraz i dźwięk na żądanie, bez zapisywania pliku ani pobierania w tle. Jakość zależy od wybranego limitu i dostępnych formatów H.264.", de: "YouTube verwendet den eingebetteten Player. Direktstream spielt Bild und Ton bei Bedarf ab, ohne eine Datei zu speichern oder einen Download im Hintergrund zu starten. Die Qualität richtet sich nach dem gewählten Limit und den verfügbaren H.264-Formaten." },
     options: [
       { value: "youtube", label: { en: "YouTube embed", pl: "YouTube embed", de: "YouTube-Einbettung" } },
       { value: "direct", label: { en: "Direct stream", pl: "Bezpośredni stream", de: "Direktstream" } },

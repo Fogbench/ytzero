@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { channelsForTags, dueScheduledVideos, visibleFeedTags, withoutInProgress } from "./feedSections";
+import { channelsForTags, dueScheduledVideos, scheduledVideosInOrder, visibleFeedTags, withoutInProgress } from "./feedSections";
 import type { Channel, Video } from "./types";
 
 const video = (video_id: string, fields: Partial<Video> = {}): Video => ({
@@ -43,5 +43,15 @@ describe("TV feed sections", () => {
 
   test("removes continue-watching duplicates from the main grid", () => {
     expect(withoutInProgress([video("a"), video("b")], [video("b")]).map((item) => item.video_id)).toEqual(["a"]);
+  });
+
+  test("keeps the watchlist and carousel in the server's stable schedule order", () => {
+    const older = video("older", { bucket: "today", queued_at: "2026-09-09 08:00:00" });
+    const newer = video("newer", { bucket: "today", queued_at: "2026-09-09 09:00:00" });
+    const later = video("later", { bucket: "tonight", show_from: "2026-09-10 18:00:00" });
+    const rows = [later, older, video("unscheduled"), newer];
+    expect(scheduledVideosInOrder(rows).map((item) => item.video_id)).toEqual(["newer", "older", "later"]);
+    expect(dueScheduledVideos(rows, new Date("2026-09-10T20:00:00Z"))).toEqual(scheduledVideosInOrder(rows));
+    expect(rows[0]).toBe(later);
   });
 });

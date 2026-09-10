@@ -93,6 +93,7 @@ function selection(version: number): string {
   const expires = 9_999_999_999;
   return JSON.stringify({
     duration: 12,
+    http_headers: { "User-Agent": "yt-dlp-test-agent", "Accept-Language": "en-US" },
     requested_formats: [
       {
         format_id: "137",
@@ -159,6 +160,161 @@ afterEach(() => {
 });
 
 describe("direct no-transcode video HLS", () => {
+  test("retries a temporary missing-format response before failing the native manifest", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    let attempts = 0;
+    const spawn = (() => ++attempts === 1 ? fakeProcess("", 1, "ERROR: Requested format is not available") : fakeProcess(selection(1))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (_input, init) => rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
+    expect((await streaming.getDirectHlsPlaylist(1, "short", "index.m3u8")).kind).toBe("playlist");
+    expect(attempts).toBe(2);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("bounds missing-format retries and never caches them as confirmed incompatibility", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    let attempts = 0;
+    const spawn = (() => ++attempts <= 2 ? fakeProcess("", 1, "ERROR: Requested format is not available") : fakeProcess(selection(1))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (_input, init) => rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
+    expect((await streaming.getDirectHlsPlaylist(1, "short", "index.m3u8")).kind).toBe("unsupported");
+    expect(attempts).toBe(2);
+    expect((await streaming.getDirectHlsPlaylist(1, "short", "index.m3u8")).kind).toBe("playlist");
+    expect(attempts).toBe(3);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("audio/video preloads across three Shorts wait for capacity instead of receiving 429", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    let hold = false;
+    let active = 0;
+    let maximum = 0;
+    const pending: Array<() => void> = [];
+    const fetchImpl = (async (_input: string | URL | Request, init?: RequestInit) => {
+      if (hold) {
+        active++;
+        maximum = Math.max(maximum, active);
+        await new Promise<void>((resolve) => pending.push(resolve));
+        active--;
+      }
+      return rangedResponse(media.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies((() => fakeProcess(selection(1))) as unknown as typeof Bun.spawn, fetchImpl));
+    const ids = ["previous", "current", "next"];
+    const versions = await Promise.all(ids.map(async (id) => {
+      const master = await streaming.getDirectHlsPlaylist(1, id, "index.m3u8");
+      if (master.kind !== "playlist") throw new Error("missing playlist");
+      return master.playlist.match(/[?&]v=([a-f0-9]+)/)![1];
+    }));
+    hold = true;
+    let completed = 0;
+    const requests = ids.flatMap((id, index) => (["audio.mp4", "video.mp4"] as const).map((file) =>
+      streaming.getDirectHlsResource(1, id, file, "bytes=0-15", undefined, versions[index]).then((result) => { completed++; return result; })));
+    try {
+      for (let i = 0; i < 100 && pending.length < 4; i++) await Bun.sleep(1);
+      expect(pending).toHaveLength(4);
+      expect(completed).toBe(0);
+    } finally {
+      hold = false;
+      pending.splice(0).forEach((resolve) => resolve());
+    }
+    const results = await Promise.all(requests);
+    expect(maximum).toBe(4);
+    expect(results.map((result) => result.kind === "response" ? result.response.status : result.kind)).toEqual([206, 206, 206, 206, 206, 206]);
+  });
+
+  test("standalone playback preserves per-format headers and never starts a download", async () => {
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    const metadata = JSON.parse(selection(1));
+    metadata.requested_formats[0].http_headers = { "User-Agent": "video-agent", Referer: "https://www.youtube.com/" };
+    const commands: string[][] = [];
+    const spawn = ((command: string[]) => {
+      commands.push(command);
+      return fakeProcess(JSON.stringify(metadata));
+    }) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const isVideo = String(input).includes("/video-");
+      const headers = new Headers(init?.headers);
+      expect(headers.get("user-agent")).toBe(isVideo ? "video-agent" : "yt-dlp-test-agent");
+      expect(headers.get(isVideo ? "referer" : "accept-language")).toBe(isVideo ? "https://www.youtube.com/" : "en-US");
+      return rangedResponse(isVideo ? video.bytes : audio.bytes, headers.get("range"));
+    }) as typeof fetch;
+    const { prioritizeDownload: _unused, ...dependencies } = directDependencies(spawn, fetchImpl);
+    const streaming = createDownloadVideoDirectStreaming({ ...dependencies, resourcePath: "direct-hls" });
+    const result = await streaming.getDirectHlsPlaylist(1, "standalone", "index.m3u8");
+    expect(result.kind).toBe("playlist");
+    if (result.kind !== "playlist") throw new Error("missing playlist");
+    expect(result.playlist).toContain("/direct-hls/");
+    expect(result.playlist).not.toContain("googlevideo.com");
+    const version = result.playlist.match(/\?v=([a-f0-9]+)/)![1];
+    expect((await streaming.getDirectHlsResource(1, "standalone", "video.mp4", "bytes=0-15", undefined, version)).kind).toBe("response");
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toContain("--skip-download");
+    streaming.invalidateDirectHlsSources(1);
+    expect(streaming.hasDirectHlsSession(1, "standalone")).toBe(false);
+    expect((await streaming.getDirectHlsPlaylist(1, "standalone", "index.m3u8")).kind).toBe("playlist");
+    expect(commands).toHaveLength(2);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("rejects missing or malformed yt-dlp headers before fetching media", async () => {
+    for (const headers of [undefined, {}, { "User-Agent": 123 }, { "User-Agent": "bad\r\nheader" }]) {
+      const metadata = JSON.parse(selection(1));
+      metadata.http_headers = headers;
+      let requests = 0;
+      const spawn = (() => fakeProcess(JSON.stringify(metadata))) as unknown as typeof Bun.spawn;
+      const fetchImpl = (async () => { requests++; return new Response(null, { status: 500 }); }) as unknown as typeof fetch;
+      const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
+      expect((await streaming.getDirectHlsPlaylist(1, "bad-headers", "index.m3u8")).kind).toBe("unsupported");
+      expect(requests).toBe(0);
+      streaming.resetDirectHlsSessions();
+    }
+  });
+
+  test("a refused index URL is resolved again on the next manifest request", async () => {
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    let resolutions = 0;
+    const spawn = (() => fakeProcess(selection(++resolutions))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes("-v1?")) return new Response(null, { status: 403 });
+      return rangedResponse(String(input).includes("/video-") ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
+    expect((await streaming.getDirectHlsPlaylist(1, "retry", "index.m3u8")).kind).toBe("failed");
+    expect((await streaming.getDirectHlsPlaylist(1, "retry", "index.m3u8")).kind).toBe("playlist");
+    expect(resolutions).toBe(2);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("splits a large fragment into upstream ranges below YouTube's throttle threshold", async () => {
+    const video = mediaFixture([6_000, 6_000], [9 * 1024 * 1024, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    const ranges: string[] = [];
+    const spawn = (() => fakeProcess(selection(1))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const range = new Headers(init?.headers).get("range")!;
+      const [start, end] = range.slice(6).split("-").map(Number);
+      expect(end - start + 1).toBeLessThanOrEqual(8 * 1024 * 1024);
+      ranges.push(range);
+      return rangedResponse(String(input).includes("/video-") ? video.bytes : audio.bytes, range);
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
+    const master = await streaming.getDirectHlsPlaylist(1, "large", "index.m3u8");
+    if (master.kind !== "playlist") throw new Error("missing playlist");
+    const version = master.playlist.match(/\?v=([a-f0-9]+)/)![1];
+    ranges.length = 0;
+    const fragment = video.references[0];
+    const result = await streaming.getDirectHlsResource(1, "large", "video.mp4", `bytes=${fragment.offset}-${fragment.offset + fragment.length - 1}`, undefined, version);
+    expect(result.kind).toBe("response");
+    if (result.kind !== "response") throw new Error("missing media");
+    expect(ranges).toHaveLength(2);
+    expect(result.response.headers.get("content-length")).toBe(String(fragment.length));
+    expect(new Uint8Array(await result.response.arrayBuffer())).toEqual(video.bytes.slice(fragment.offset, fragment.offset + fragment.length));
+    streaming.resetDirectHlsSessions();
+  });
+
   test("builds separate fMP4 playlists and proxies the exact far byte range", async () => {
     const video = mediaFixture([6_000, 6_000], [8_193, 7_777]);
     const audio = mediaFixture([3_000, 3_000, 3_000, 3_000], [1_001, 1_003, 1_007, 1_009]);

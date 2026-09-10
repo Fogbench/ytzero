@@ -265,6 +265,7 @@ export const hu: Locale = {
     playlistDownloadConfirm: "Az összes {count} elérhető lejátszási lista-epizódot sorba állítsa helyi letöltésre?",
     playlistDownloadQueued: "{count} epizód vár letöltésre a sorban",
     playlistDownloadNone: "Az összes elérhető epizód már letöltésre került, vagy a sorba került",
+    playlistSortSaveFailed: "Nem sikerült menteni a lejátszási lista rendezését. Próbáld újra.",
     playlistDownloadFailed: "A lejátszási listát nem sikerült letöltésre sorba állítani",
     cancelDownload: "Letöltés megszakítása",
     downloading: "Letöltés",

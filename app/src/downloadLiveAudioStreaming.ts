@@ -3,6 +3,7 @@ import { fetchGoogleVideoResponse, safeGoogleVideoUrl } from "./audioUpstreamUrl
 import { downloadCookieAttempts } from "./downloadStrategy";
 import { rewriteLiveAudioPlaylist } from "./liveAudioPlaylist";
 import { ytdlpAttemptArgs } from "./downloadConfig";
+import { log } from "./logger";
 
 interface DownloadLiveAudioDependencies {
   YTDLP: string;
@@ -11,9 +12,13 @@ interface DownloadLiveAudioDependencies {
   ytdlpStatus: () => Promise<string | null>;
   fetchImpl?: typeof fetch;
   spawn?: typeof Bun.spawn;
+  /** A muxed video HLS rendition can use the same rolling-playlist relay. */
+  formatSelector?: (userId: number) => Promise<string>;
+  resourceTokenPrefix?: () => string;
 }
 
 interface LiveAudioSession {
+  resourceTokenPrefix: string;
   expiresAt: number;
   nextResourceId: number;
   playlistUrl: string;
@@ -83,6 +88,8 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
     ytdlpStatus,
     fetchImpl = fetch,
     spawn = Bun.spawn,
+    formatSelector = async () => LIVE_AUDIO_FORMAT,
+    resourceTokenPrefix = () => "r",
   } = dependencies;
   const sessions = new AudioSourceCache<LiveAudioSession>();
   const resolutions = new Map<string, LiveResolution>();
@@ -91,7 +98,7 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
     const args = [
       `https://www.youtube.com/watch?v=${videoId}`,
       "--ignore-config", "--no-playlist", "--no-warnings",
-      "-f", LIVE_AUDIO_FORMAT,
+      "-f", await formatSelector(userId),
       "--get-url",
     ];
     if (signal.aborted) return null;
@@ -107,16 +114,21 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; stop(); }, RESOLVE_TIMEOUT_MS);
     try {
-      const [stdout, , exitCode] = await Promise.all([
+      const [stdout, stderr, exitCode] = await Promise.all([
         new Response(process.stdout as ReadableStream<Uint8Array>).text(),
         new Response(process.stderr as ReadableStream<Uint8Array>).text(),
         process.exited,
       ]);
-      if (signal.aborted || timedOut || exitCode !== 0) return null;
+      if (signal.aborted || timedOut || exitCode !== 0) {
+        if (!signal.aborted) log.warn("live_stream.resolve_failed", { userId, videoId, exitCode, timedOut, useCookies, selector: args[args.indexOf("-f") + 1],
+          reason: /requested format.*not available/i.test(stderr) ? "format_unavailable" : "extractor_failed" });
+        return null;
+      }
       for (const line of stdout.trim().split(/\r?\n/)) {
         const url = safeGoogleVideoUrl(line.trim());
         if (url) return url;
       }
+      log.warn("live_stream.missing_source", { userId, videoId, stdoutBytes: stdout.length, stderrBytes: stderr.length });
       return null;
     } catch {
       return null;
@@ -132,6 +144,7 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
       const playlistUrl = await resolveAttempt(userId, videoId, useCookies, signal);
       if (playlistUrl) {
         return {
+          resourceTokenPrefix: resourceTokenPrefix(),
           expiresAt: Date.now() + LIVE_SESSION_IDLE_TTL_MS,
           nextResourceId: 0,
           playlistUrl,
@@ -191,7 +204,7 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
       session.tokensByUrl.set(url, stable);
       return stable;
     }
-    const token = `r${session.nextResourceId++}`;
+    const token = `${session.resourceTokenPrefix}${session.nextResourceId++}`;
     session.resources.set(token, url);
     session.tokensByUrl.set(url, token);
     if (identity) session.tokensByIdentity.set(identity, token);
@@ -231,6 +244,7 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
       upstream = await fetchPlaylist(session, signal);
     }
     if (!upstream || upstream.status !== 200) {
+      if (!signal?.aborted) log.warn("live_stream.playlist_failed", { userId, videoId, status: upstream?.status ?? null });
       await upstream?.body?.cancel().catch(() => {});
       return null;
     }
@@ -240,7 +254,9 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
       return null;
     }
     const source = await readBoundedPlaylist(upstream);
-    return source ? rewritePlaylist(session, source) : null;
+    const playlist = source ? rewritePlaylist(session, source) : null;
+    if (!playlist && !signal?.aborted) log.warn("live_stream.invalid_playlist", { userId, videoId, bytes: source?.length ?? 0 });
+    return playlist;
   }
 
   async function getLiveAudioResource(
@@ -250,7 +266,7 @@ export function createDownloadLiveAudioStreaming(dependencies: DownloadLiveAudio
     range: string | null,
     signal?: AbortSignal,
   ): Promise<Response | null> {
-    if (!/^r\d+$/.test(token)) return null;
+    if (!/^r(?:[av]?[a-f0-9]{16}_)?\d+$/.test(token)) return null;
     let session = await sessionFor(userId, videoId);
     let url = session?.resources.get(token);
     if (!url || signal?.aborted) return null;

@@ -7,6 +7,9 @@ type RelativeTimeFormatConstructor = new (
   options?: Intl.RelativeTimeFormatOptions,
 ) => Intl.RelativeTimeFormat;
 
+const compactNumberFormatters = new Map<Language, Intl.NumberFormat>();
+const relativeTimeFormatters = new Map<string, Intl.RelativeTimeFormat>();
+
 const fallbackNow: Record<Language, string> = {
   en: "now",
   pl: "teraz",
@@ -66,10 +69,12 @@ function validDate(value: string | null | undefined): Date | null {
 
 export function formatVideoViews(views: number | null | undefined, language: Language, label: string): string {
   if (views == null || !Number.isFinite(views)) return "";
-  const count = new Intl.NumberFormat(localeTags[language], {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(views);
+  let formatter = compactNumberFormatters.get(language);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(localeTags[language], { notation: "compact", maximumFractionDigits: 1 });
+    compactNumberFormatters.set(language, formatter);
+  }
+  const count = formatter.format(views);
   return `${count} ${label}`;
 }
 
@@ -86,7 +91,7 @@ export function formatVideoAge(
   if (Math.abs(diffMs) < 60_000) {
     if (RelativeTimeFormat) {
       try {
-        return new RelativeTimeFormat(localeTags[language], { numeric: "auto", style: "short" }).format(0, "second");
+        return relativeFormatter(RelativeTimeFormat, language, "auto").format(0, "second");
       } catch { /* Hermes may expose an incomplete Intl implementation. */ }
     }
     return fallbackRelativeTime(0, "minute", language);
@@ -107,10 +112,20 @@ export function formatVideoAge(
           : [years, "year"];
   if (RelativeTimeFormat) {
     try {
-      return new RelativeTimeFormat(localeTags[language], { numeric: "always", style: "short" }).format(-amount, unit);
+      return relativeFormatter(RelativeTimeFormat, language, "always").format(-amount, unit);
     } catch { /* Fall through to the tvOS-safe formatter below. */ }
   }
   return fallbackRelativeTime(amount, unit, language);
+}
+
+function relativeFormatter(constructor: RelativeTimeFormatConstructor, language: Language, numeric: "always" | "auto") {
+  const key = `${localeTags[language]}:${numeric}`;
+  let formatter = relativeTimeFormatters.get(key);
+  if (!formatter || formatter.constructor !== constructor) {
+    formatter = new constructor(localeTags[language], { numeric, style: "short" });
+    relativeTimeFormatters.set(key, formatter);
+  }
+  return formatter;
 }
 
 export function formatVideoCardMetadata(video: Video, language: Language, viewsLabel: string, now = Date.now()): string {

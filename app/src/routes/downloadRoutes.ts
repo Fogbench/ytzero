@@ -1,5 +1,6 @@
 import type { Context, Hono } from "hono";
-import { existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import { Readable } from "node:stream";
 import { publishAppEvent } from "../appEvents";
 import { database } from "../database";
 import { getUserSetting } from "../db";
@@ -14,6 +15,8 @@ import { configuredTimeZone } from "../timeZone";
 import { tubeArchivistResource, tubeArchivistSubtitleList, tubeArchivistSubtitleResponse } from "../tubeArchivist";
 import { validYouTubeVideoId } from "../youtubeComments";
 import { registerAudioRoutes } from "./audioRoutes";
+import { registerDirectVideoRoutes } from "./directVideoRoutes";
+import { registerLiveVideoRoutes } from "./liveVideoRoutes";
 import { registerYtdlpUpdateRoutes } from "./ytdlpUpdateRoutes";
 import { ytdlpUpdateChannel, ytdlpUpdateIntervalDays } from "../ytdlpUpdater";
 import { ensureOnDemandVideo, OnDemandVideoImportError } from "../onDemandVideoImport";
@@ -89,6 +92,7 @@ api.put("/downloads/config", async (c) => {
   const settings = body.settings && typeof body.settings === "object"
     ? await setDownloadSettings(uid, body.settings, getUserSetting(uid, "language"))
     : await downloadSettings(uid, getUserSetting(uid, "language"));
+  if (body.settings && Object.hasOwn(body.settings, "quality")) invalidateDirectVideoSources(uid);
   const enabled = await profileDownloadsEnabled(uid);
   publishAppEvent("downloads", { enabled, config: true, userId: uid });
   return c.json({ can_manage: true, can_manage_admin_settings: isAdmin(c), admin_setting_keys: [...DOWNLOADS_ADMIN_SETTING_KEYS], enabled, ...settings, cookies_configured: downloadCookiesConfigured(uid), time_zone: configuredTimeZone(), ytdlp: { version: await ytdlpStatus(), update_channel: ytdlpUpdateChannel(), update_interval_days: ytdlpUpdateIntervalDays() } });
@@ -299,14 +303,18 @@ api.get("/videos/:id/stream", async (c) => {
   const file = Bun.file(streamPath);
   const range = c.req.header("range");
   if (range) {
-    const m = range.match(/bytes=(\d*)-(\d*)/);
-    let start = m?.[1] ? Number(m[1]) : 0;
-    let end = m?.[2] ? Number(m[2]) : size - 1;
-    if (!Number.isFinite(start) || start >= size) {
+    const m = range.trim().match(/^bytes=(\d*)-(\d*)$/i);
+    const suffix = m && !m[1] && m[2] ? Number(m[2]) : null;
+    const start = suffix !== null ? Math.max(0, size - suffix) : m?.[1] ? Number(m[1]) : NaN;
+    let end = suffix !== null ? size - 1 : m?.[2] ? Number(m[2]) : size - 1;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= size || end < start || (suffix !== null && (!Number.isSafeInteger(suffix) || suffix <= 0))) {
       return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${size}` } });
     }
     end = Math.min(end, size - 1);
-    return new Response(file.slice(start, end + 1), {
+    // File-backed Response slices can lose their bounds after Hono copies the
+    // headers; Bun.file().slice().stream() also stalls real HTTP byte requests.
+    // A bounded fs stream preserves both framing and cancellation in Bun.
+    return new Response(Readable.toWeb(createReadStream(streamPath, { start, end })) as unknown as ReadableStream, {
       status: 206,
       headers: {
         "Content-Type": contentType,
@@ -388,6 +396,8 @@ api.get("/videos/:id/hls/:file", async (c) => {
 });
 
 registerAudioRoutes(api, currentUserId);
+registerDirectVideoRoutes(api, currentUserId);
+registerLiveVideoRoutes(api, currentUserId);
 
 // ---------- subtitles for the local player ----------
 

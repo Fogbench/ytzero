@@ -8,6 +8,7 @@ type Props = {
 };
 
 export function SidebarIcon({ color, name, size = 29 }: Props) {
+  if (name === "search") return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"><Circle cx="10" cy="10" r="6.5" stroke={color} strokeWidth="1.8" /><Path d="m15 15 6 6" stroke={color} strokeWidth="1.8" strokeLinecap="round" /></Svg>;
   if (name === "home") {
     return (
       <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

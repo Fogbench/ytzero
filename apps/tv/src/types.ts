@@ -1,3 +1,4 @@
+import type { PlaybackQueueContext } from "./playbackQueue";
 export type Language = "en" | "pl" | "de" | "fr" | "es" | "pt-BR" | "ru" | "ja" | "hu";
 
 export type AuthMethod = "none" | "shared" | "per_profile" | "oidc" | "proxy_header";
@@ -12,6 +13,7 @@ export type AuthStatus = {
 
 export type Profile = {
   id: number;
+  uuid?: string;
   name: string;
   avatar: string;
   avatar_color: string;
@@ -77,6 +79,24 @@ export type ChannelAbout = {
   counts?: { videos: number; shorts: number; processing: number };
 };
 
+export type ChannelSyncJob = {
+  id: string;
+  status: "running" | "completed" | "halted";
+  channels: Array<{ channelId: string; status: "pending" | "running" | "completed" | "failed" | "skipped"; added: number }>;
+};
+export type ChannelSyncSnapshot = { job: ChannelSyncJob | null; busy: boolean };
+export type FollowedPlaylist = {
+  playlist_id: string;
+  title: string;
+  thumbnail: string;
+  channel_id: string;
+  channel_title: string;
+  channel_thumbnail: string;
+  video_count: string | number;
+  followed?: number;
+  video_sort?: import("./playlist").PlaylistSort;
+};
+
 export type Bucket = "today" | "tonight" | "tomorrow" | "tomorrow_evening" | "weekend";
 
 export type Video = {
@@ -98,9 +118,11 @@ export type Video = {
   status: "inbox" | "queued" | "archived";
   bucket?: Bucket | null;
   show_from?: string | null;
+  queued_at?: string | null;
   is_short?: number | null;
   watch_position?: number | null;
   watch_duration?: number | null;
+  playback_context?: PlaybackQueueContext | null;
   tags?: Tag[];
   views?: number | null;
   likes?: number | null;
@@ -148,8 +170,13 @@ export type VideoComment = {
 
 export type TvProfileSettings = {
   language: Language;
+  app_name?: string;
+  app_icon_color?: string;
   sidebar_nav?: string;
   feed_sort?: string;
+  feed_autoplay_direction?: string;
+  feed_autoplay_enabled?: string;
+  feed_autoplay_behavior?: string;
   show_top_channels?: string;
   show_shorts?: string;
   watch_show_related?: string;

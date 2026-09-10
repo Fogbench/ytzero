@@ -510,6 +510,21 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_public_shares_owner ON public_shares(owner_user_id, created_at DESC)" },
     ],
   },
+  {
+    version: 116,
+    name: "followed-playlist-video-sort",
+    schemaHashes: {
+      "app/src/schema.sql": "75c00aa7a02fa7bce21b7842d55b012f0e1dbfc64401ece5347fae16e86218f7",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+    },
+    sqlite: [
+      { kind: "add-column", table: "user_followed_playlists", column: "video_sort", definition: "TEXT NOT NULL DEFAULT 'oldest' CHECK (video_sort IN ('playlist-order', 'oldest', 'newest', 'title-asc', 'title-desc'))" },
+    ],
+    postgres: [
+      { kind: "add-column", table: "user_followed_playlists", column: "video_sort", definition: "TEXT NOT NULL DEFAULT 'oldest' CHECK (video_sort IN ('playlist-order', 'oldest', 'newest', 'title-asc', 'title-desc'))" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {

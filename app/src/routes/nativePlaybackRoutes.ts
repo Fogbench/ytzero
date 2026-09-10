@@ -14,9 +14,13 @@ export function registerNativePlaybackRoutes(api: Hono<Environment>, currentUser
     const videoId = c.req.param("id");
     const source = await nativePlaybackSource(userId, videoId);
     if ("error" in source) return c.json({ error: source.error }, source.status);
+    if ("preparing" in source) {
+      c.header("Retry-After", "2");
+      return c.json({ preparing: true }, 202);
+    }
     const ticket = mediaTickets.issue({ userId, videoId, sessionToken, kind: source.kind });
     const path = mediaTicketPath({ videoId, kind: source.kind });
-    return c.json({ ticket, url: `${path}${path.includes("?") ? "&" : "?"}media_ticket=${ticket}`, content_type: source.kind === "hls" ? "hls" : "progressive", expires_in: MEDIA_TICKET_TTL_MS / 1000 });
+    return c.json({ ticket, url: `${path}${path.includes("?") ? "&" : "?"}media_ticket=${ticket}`, content_type: source.kind === "hls" || source.kind === "direct-hls" || source.kind === "live-hls" ? "hls" : "progressive", expires_in: MEDIA_TICKET_TTL_MS / 1000 });
   });
 
   api.put("/videos/:id/playback-ticket", async (c) => {
