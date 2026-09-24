@@ -57,7 +57,7 @@ export function InstanceScreen({ initialValue, t, onConnect, onBack }: Props) {
           </View> : null}
         </ScrollView>
         <View style={styles.actions}>
-          <TvButton ref={manualTarget} label={t("manualAddress")} preferredFocus disabled={busy} onPress={() => { setManual(true); setError(null); }} />
+          <TvButton ref={manualTarget} deferPress label={t("manualAddress")} preferredFocus disabled={busy} onPress={() => { setManual(true); setError(null); }} />
           {discovery.supported ? <TvButton label={t("scanAgain")} variant="ghost" disabled={busy} onPress={discovery.rescan} /> : null}
         </View>
       </>}

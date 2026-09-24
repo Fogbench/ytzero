@@ -1,5 +1,5 @@
 import { database } from "./database";
-import { classifyIsShort, fetchChannelAbout, fetchChannelFeed, fetchChannelPlaylists, fetchChannelStreams, fetchChannelSubscriberCountFromWatch, fetchChannelVideos, fetchChannelVideosDurations, fetchLiveInfo, fetchPlaylistFeed, fetchPlaylistSnapshot, fetchVideoInfo, fetchVideoPublishedAt, isPrivateVideoError } from "./youtube";
+import { classifyIsShort, fetchAllChannelStreams, fetchAllChannelVideos, fetchChannelAbout, fetchChannelFeed, fetchChannelPlaylists, fetchChannelStreams, fetchChannelSubscriberCountFromWatch, fetchChannelVideosDurations, fetchLiveInfo, fetchPlaylistFeed, fetchPlaylistSnapshot, fetchVideoInfo, fetchVideoPublishedAt, isPrivateVideoError } from "./youtube";
 import { MetadataCookieFallbackBudget } from "./videoMetadataFallback";
 import { applyAutoTags } from "./autotags";
 import { applyPlaylistRulesToVideo } from "./userPlaylists";
@@ -709,7 +709,7 @@ export async function refreshLiveStatus(channelId: string, options: { notify?: b
 }
 
 /**
- * Fetch the channel's /videos tab for more video IDs than the RSS feed provides (~30 vs 15).
+ * Fetch the complete channel /videos history, which is paginated beyond the RSS feed's ~15 entries.
  * Merges scraped data with RSS data (RSS has better quality: description + published_at).
  */
 export interface ChannelSyncResult {
@@ -733,14 +733,15 @@ async function runChannelSync(channelId: string, userId?: number): Promise<Chann
   });
   if (rateLimited) return { added: 0, rateLimited: true };
 
-  const [feed, scraped, streams] = await Promise.all([
-    fetchChannelFeed(channelId, userId).catch((error) => {
-      rateLimited ||= isYouTubeRateLimitError(error);
-      return { videos: [], channelTitle: "", channelId };
-    }),
-    fetchChannelVideos(channelId, userId),
-    fetchChannelStreams(channelId, userId),
-  ]);
+  const feed = await fetchChannelFeed(channelId, userId).catch((error) => {
+    rateLimited ||= isYouTubeRateLimitError(error);
+    return { videos: [], channelTitle: "", channelId };
+  });
+  if (rateLimited) return { added: 0, rateLimited: true };
+  // Full histories can require many continuation requests. Keep the two tabs
+  // sequential so one sync does not run parallel request chains into YouTube.
+  const scraped = await fetchAllChannelVideos(channelId, userId);
+  const streams = await fetchAllChannelStreams(channelId, userId);
   // A stream can occasionally also be listed in /videos. Keep one copy while
   // retaining the dedicated /streams results that are otherwise invisible.
   const scrapedVideos = [...new Map([...scraped, ...streams].map((v) => [v.videoId, v])).values()];

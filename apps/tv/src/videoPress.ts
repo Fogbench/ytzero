@@ -1,5 +1,5 @@
-/** Finish the remote gesture before presenting another native focus environment.
- * Opening a modal while Select is held can strand UIKit's select recognizer. */
+/** Present actions when the hold threshold is reached, consuming the gesture
+ * so releasing Select cannot also start playback. */
 export function createVideoPress(
   play: () => void,
   menu: () => void,
@@ -19,11 +19,9 @@ export function createVideoPress(
   };
   return {
     pressIn: () => { cancel(); pressing = true; long = false; cancelled = false; },
-    longPress: () => { if (pressing) long = true; },
-    pressOut: () => {
-      if (!pressing) return;
-      pressing = false;
-      if (!long) return;
+    longPress: () => {
+      if (!pressing || long) return;
+      long = true;
       const request = generation;
       cancelPending = schedule(() => {
         if (request !== generation) return;
@@ -31,6 +29,7 @@ export function createVideoPress(
         menu();
       });
     },
+    pressOut: () => { pressing = false; },
     press: () => { if (!long && !cancelled) play(); },
     cancel,
   };

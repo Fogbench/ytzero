@@ -124,9 +124,9 @@ export function PlaylistScreen({ api, language, t, playlistId, onBack, onOpen, v
             <Text accessibilityRole="header" style={styles.title}>{page.playlist.title}</Text>
             <Text style={styles.meta}>{page.playlist.channel_title} · {t("videos")}: {count.format(page.videos.length)}</Text>
             <View style={styles.actions}>
-              {continuation ? <TvButton ref={continueFocus.ref} label={t("continueWatching")} icon="play" onPress={() => { continueFocus.remember(); onOpen(continuation, context, true); }} nextFocusUp={backTarget ?? undefined} nextFocusDown={firstVideoTarget ?? undefined} /> : null}
-              {first ? <TvButton ref={playFocus.ref} label={t("playlistPlayAll")} icon="play" onPress={() => { playFocus.remember(); onOpen(first, context, true); }} nextFocusUp={backTarget ?? undefined} nextFocusDown={firstVideoTarget ?? undefined} /> : null}
-              <TvButton ref={sortTarget} label={`${t("playlistSort")}: ${sortOptions.find((option) => option.value === page.sort)?.label}`}
+              {continuation ? <TvButton ref={continueFocus.ref} deferPress label={t("continueWatching")} icon="play" onPress={() => { continueFocus.remember(); onOpen(continuation, context, true); }} nextFocusUp={backTarget ?? undefined} nextFocusDown={firstVideoTarget ?? undefined} /> : null}
+              {first ? <TvButton ref={playFocus.ref} deferPress label={t("playlistPlayAll")} icon="play" onPress={() => { playFocus.remember(); onOpen(first, context, true); }} nextFocusUp={backTarget ?? undefined} nextFocusDown={firstVideoTarget ?? undefined} /> : null}
+              <TvButton ref={sortTarget} deferPress label={`${t("playlistSort")}: ${sortOptions.find((option) => option.value === page.sort)?.label}`}
                 onPress={() => { restoreSortFocus.current?.(); sortVisible.current = true; setSortError(false); setSortOpen(true); }} nextFocusUp={backTarget ?? undefined} nextFocusDown={firstVideoTarget ?? undefined} />
             </View>
           </View>

@@ -80,6 +80,7 @@ export function FollowedPlaylistsScreen(props: Props) {
   const renderPlaylist = useCallback(({ item, index }: ListRenderItemInfo<FollowedPlaylist>) => (
     <TvListButton
       ref={targetRef(item.playlist_id, index)}
+      deferPress
       leading={<Image source={api.thumbnailSource(item.thumbnail)} style={styles.thumbnail} resizeMode="cover" />}
       label={item.title}
       detail={`${item.channel_title} · ${t("videos")}: ${count.format(Number(item.video_count) || 0)}`}

@@ -1,10 +1,11 @@
+import { memo } from "react";
 import { StyleSheet, View } from "react-native";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { useIncreasedContrast } from "../motion";
 import { colors } from "../theme";
 
 /** Quiet full-screen artwork keeps profile selection separate from the feed. */
-export function TvProfileBackdrop({ accent = colors.accentStrong }: { accent?: string }) {
+export const TvProfileBackdrop = memo(function TvProfileBackdrop({ accent = colors.accentStrong }: { accent?: string }) {
   const contrast = useIncreasedContrast();
   return <View accessible={false} pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}>
     {!contrast ? <Svg width="100%" height="100%">
@@ -22,4 +23,4 @@ export function TvProfileBackdrop({ accent = colors.accentStrong }: { accent?: s
       <Rect width="100%" height="100%" fill="url(#profile-corner)" />
     </Svg> : null}
   </View>;
-}
+});

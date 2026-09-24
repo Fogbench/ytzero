@@ -8,6 +8,9 @@
     "backgroundColor": "#050506",
     "icon": "./assets/brand/launcher-icon.png",
     "scheme": "ytzero",
+    "experiments": {
+      "reactCompiler": true
+    },
     "ios": {
       "bundleIdentifier": "app.ytzero.tv",
       "entitlements": {

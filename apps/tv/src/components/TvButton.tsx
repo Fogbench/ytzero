@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef } from "react";
 import { StyleSheet, Text, type PressableProps, type StyleProp, type View, type ViewStyle } from "react-native";
 import { colors } from "../theme";
 import { TvPressable } from "./TvPressable";
@@ -9,6 +9,7 @@ type Variant = "default" | "primary" | "danger" | "ghost";
 
 type Props = Omit<PressableProps, "children" | "style"> & {
   label: string;
+  deferPress?: boolean;
   variant?: Variant;
   preferredFocus?: boolean;
   focusScale?: number;
@@ -17,23 +18,23 @@ type Props = Omit<PressableProps, "children" | "style"> & {
 };
 
 export const TvButton = forwardRef<View, Props>(function TvButton(
-  { label, variant = "default", preferredFocus = false, focusScale, icon, disabled, style, onFocus, onBlur, ...props },
+  { label, deferPress, variant = "default", preferredFocus = false, focusScale, icon, disabled, style, onFocus, onBlur, ...props },
   ref,
 ) {
-  const [focused, setFocused] = useState(false);
   const radius = StyleSheet.flatten(style)?.borderRadius;
   return (
     <TvPressable
       {...props}
       ref={ref}
       disabled={disabled}
+      deferPress={deferPress}
       accessibilityRole="button"
       accessibilityState={{ ...props.accessibilityState, disabled: Boolean(disabled) }}
       focusScale={focusScale}
       hasTVPreferredFocus={preferredFocus}
-      onFocus={(event) => { setFocused(true); onFocus?.(event); }}
-      onBlur={(event) => { setFocused(false); onBlur?.(event); }}
-      style={({ pressed }) => [
+      onFocus={onFocus}
+      onBlur={onBlur}
+      style={({ focused, pressed }) => [
         styles.base,
         !label && styles.iconOnly,
         styles[variant],
@@ -43,9 +44,11 @@ export const TvButton = forwardRef<View, Props>(function TvButton(
         style,
       ]}
     >
-      <TvControlSurface radius={typeof radius === "number" ? radius : 33} focused={focused} filled={variant !== "ghost"} floating={variant !== "ghost"} emphasized={variant === "primary"} />
-      {icon ? <Svg accessible={false} width={26} height={26} viewBox="0 0 24 24"><Path fill={variant === "danger" && !focused ? colors.danger : colors.text} d={icons[icon]} /></Svg> : null}
-      {label ? <Text style={[styles.label, labelStyles[variant], focused && styles.focusedLabel, disabled && styles.disabledLabel]}>{label}</Text> : null}
+      {({ focused }) => <>
+        <TvControlSurface radius={typeof radius === "number" ? radius : 33} focused={focused} filled={variant !== "ghost"} floating={variant !== "ghost"} emphasized={variant === "primary"} />
+        {icon ? <Svg accessible={false} width={26} height={26} viewBox="0 0 24 24"><Path fill={variant === "danger" && !focused ? colors.danger : colors.text} d={icons[icon]} /></Svg> : null}
+        {label ? <Text style={[styles.label, labelStyles[variant], focused && styles.focusedLabel, disabled && styles.disabledLabel]}>{label}</Text> : null}
+      </>}
     </TvPressable>
   );
 });

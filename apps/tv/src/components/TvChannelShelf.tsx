@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useState, type Ref } from "react";
+import { forwardRef, useCallback, type Ref } from "react";
 import { Image, StyleSheet, Text, TVFocusGuideView, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import type { Channel } from "../types";
 import { colors, typography } from "../theme";
@@ -56,26 +56,25 @@ const ChannelItem = forwardRef<View, {
   source: { uri: string; headers?: Record<string, string> };
   onPress: () => void;
 }>(function ChannelItem({ channel, liveLabel, nextFocusUp, nextFocusDown, source, onPress }, ref) {
-  const [focused, setFocused] = useState(false);
   return (
-    <TvPressable focusScale={1.045}
+    <TvPressable deferPress focusScale={1.045}
       ref={ref}
       accessibilityRole="button"
       accessibilityLabel={channel.is_live === 1 ? `${channel.title}. ${liveLabel}` : channel.title}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocus={() => { setFocused(true); }}
-      onBlur={() => { setFocused(false); }}
       onPress={onPress}
-      style={({ pressed }) => [styles.item, focused && styles.itemFocused, pressed && styles.itemPressed]}
+      style={({ focused, pressed }) => [styles.item, focused && styles.itemFocused, pressed && styles.itemPressed]}
     >
-      <TvControlSurface radius={24} focused={focused} filled={false} />
-      <View style={styles.avatarWrap}>
-        {source.uri ? <Image source={source} style={styles.avatar} resizeMode="cover" /> : <View style={[styles.avatar, styles.placeholder]} />}
-        {channel.is_live === 1 && <TvLiveBadge label={liveLabel} placement="avatar" />}
-      </View>
-      <Text numberOfLines={2} style={[styles.name, focused && styles.nameFocused]}>{channel.title}</Text>
-      {channel.subscriber_count ? <Text numberOfLines={1} style={[styles.subscribers, focused && styles.subscribersFocused]}>{channel.subscriber_count}</Text> : null}
+      {({ focused }) => <>
+        <TvControlSurface radius={24} focused={focused} filled={false} />
+        <View style={styles.avatarWrap}>
+          {source.uri ? <Image source={source} style={styles.avatar} resizeMode="cover" /> : <View style={[styles.avatar, styles.placeholder]} />}
+          {channel.is_live === 1 && <TvLiveBadge label={liveLabel} placement="avatar" />}
+        </View>
+        <Text numberOfLines={2} style={[styles.name, focused && styles.nameFocused]}>{channel.title}</Text>
+        {channel.subscriber_count ? <Text numberOfLines={1} style={[styles.subscribers, focused && styles.subscribersFocused]}>{channel.subscriber_count}</Text> : null}
+      </>}
     </TvPressable>
   );
 });

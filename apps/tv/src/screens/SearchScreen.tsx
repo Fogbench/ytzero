@@ -175,7 +175,7 @@ export function SearchScreen({ api, t, language, focusRequest, profileFocusTarge
       <View style={styles.field}><TvTextField value={text} accessibilityLabel={t("searchHint")} placeholder={t("searchHint")} returnKeyType="search" autoCorrect={false}
         nextFocusUp={profileFocusTarget} nextFocusDown={searchTarget ?? undefined} onChangeText={setText} onSubmitEditing={(event) => runSearch(event.nativeEvent.text)} /></View>
       <TvButton ref={setSearchTarget} label="" icon="search" accessibilityLabel={t("searchTitle")} nextFocusUp={profileFocusTarget} onPress={() => search()} />
-      {text ? <TvButton label={t("searchClear")} variant="ghost" onPress={clear} /> : null}
+      {text ? <TvButton deferPress label={t("searchClear")} variant="ghost" onPress={clear} /> : null}
     </View>
     {opening ? <View style={styles.status}><ActivityIndicator size="small" color={colors.textMuted} /><Text style={styles.hint}>{t("loadingVideo")}</Text></View> : null}
     {openError ? <Text accessibilityLiveRegion="polite" style={styles.error}>{t("searchError")}</Text> : null}

@@ -125,9 +125,16 @@ export function TvNativePlayer(props: Props) {
       return result;
     });
     const pending = current.finished;
-    finishedSessions.current.set(current.entry.video.video_id, pending);
+    const videoId = current.entry.video.video_id;
+    finishedSessions.current.set(videoId, pending);
     pendingSaves.current.add(pending);
-    void pending.finally(() => pendingSaves.current.delete(pending));
+    const settled = () => {
+      pendingSaves.current.delete(pending);
+      // A newer visit may already have installed its own save chain for this
+      // video. Only release the entry owned by the promise that just settled.
+      if (finishedSessions.current.get(videoId) === pending) finishedSessions.current.delete(videoId);
+    };
+    void pending.then(settled, settled);
     return pending;
   };
 
@@ -269,7 +276,6 @@ export function TvNativePlayer(props: Props) {
       .finally(() => { if (activating.current === active) activating.current = null; });
   };
   useEffect(() => { present(); }, [active, ready]);
-  useEffect(() => { if (error && error !== "playbackRestricted") retryButton.current?.requestTVFocus(); }, [error]);
   useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close(); }, true);
 
   useEffect(() => {
@@ -363,10 +369,13 @@ export function TvNativePlayer(props: Props) {
   }, [api, buffer, isChild]);
 
   useEffect(() => {
-    if (!modalVisible || presented || dismissing) return;
+    // When the item is ready, the earlier present effect is handing focus to
+    // AVKit in this same commit. Stop any loading-panel focus retries instead
+    // of competing with the native fullscreen controller.
+    if (!modalVisible || presented || dismissing || (!error && active && ready)) return;
     const target = error && error !== "playbackRestricted" ? retryButton.current : detailsButton.current;
     if (target) return focusWhenReady(target, () => setPanelFocused(true));
-  }, [dismissing, error, modalVisible, presented]);
+  }, [active, dismissing, error, modalVisible, presented, ready]);
 
   const currentVideo = active?.video ?? video;
   return (
@@ -386,7 +395,7 @@ export function TvNativePlayer(props: Props) {
           <Text style={styles.description}>{error ? t(error) : currentVideo.channel_title}</Text>
           <View style={styles.actions}>
             <TvBackButton t={t} focusable={panelFocused} onPress={() => void close()} />
-            <TvButton ref={detailsButton} label={t("videoDetails")} preferredFocus={!error || error === "playbackRestricted"} onFocus={() => setPanelFocused(true)} onPress={() => { showDetails.current = true; void close(); }} />
+            <TvButton ref={detailsButton} deferPress label={t("videoDetails")} preferredFocus={!error || error === "playbackRestricted"} onFocus={() => setPanelFocused(true)} onPress={() => { showDetails.current = true; void close(); }} />
             {error && error !== "playbackRestricted" ? <TvButton ref={retryButton} label={t("tryAgain")} preferredFocus variant="primary" onPress={() => { switching.current = false; setAttempt((value) => value + 1); }} /> : null}
           </View>
         </View> : null}

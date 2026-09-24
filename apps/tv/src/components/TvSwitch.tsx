@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View, type FocusDestination } from "react-native";
 import { colors, typography } from "../theme";
 import { motion, useReducedMotion } from "../motion";
@@ -21,7 +21,6 @@ export const TvSwitch = forwardRef<View, Props>(function TvSwitch(
   { nextFocusUp, nextFocusDown, description, disabled = false, busy = false, label, onValueChange, preferredFocus = false, value },
   ref,
 ) {
-  const [focused, setFocused] = useState(false);
   const reduced = useReducedMotion();
   const offset = useRef(new Animated.Value(value ? 32 : 0)).current;
   useEffect(() => {
@@ -41,23 +40,23 @@ export const TvSwitch = forwardRef<View, Props>(function TvSwitch(
       accessibilityState={{ checked: value, disabled, busy }}
       disabled={disabled}
       hasTVPreferredFocus={preferredFocus}
-      onBlur={() => setFocused(false)}
-      onFocus={() => setFocused(true)}
       onPress={() => { if (!busy) onValueChange(!value); }}
-      style={[
+      style={({ focused }) => [
         styles.row,
         focused && styles.rowFocused,
         disabled && styles.disabled,
       ]}
     >
-      <TvControlSurface radius={28} focused={focused} />
-      <View style={styles.copy}>
-        <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
-        {description && <Text style={[styles.description, focused && styles.descriptionFocused]}>{description}</Text>}
-      </View>
-      <View style={[styles.track, value && styles.trackChecked]}>
-        <Animated.View style={[styles.thumb, value && styles.thumbChecked, { transform: [{ translateX: offset }] }]} />
-      </View>
+      {({ focused }) => <>
+        <TvControlSurface radius={28} focused={focused} />
+        <View style={styles.copy}>
+          <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
+          {description && <Text style={[styles.description, focused && styles.descriptionFocused]}>{description}</Text>}
+        </View>
+        <View style={[styles.track, value && styles.trackChecked]}>
+          <Animated.View style={[styles.thumb, value && styles.thumbChecked, { transform: [{ translateX: offset }] }]} />
+        </View>
+      </>}
     </TvPressable>
   );
 });

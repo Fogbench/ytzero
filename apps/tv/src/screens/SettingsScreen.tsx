@@ -41,7 +41,7 @@ export function SettingsScreen({ systemProfiles, openDetails, onOpenDetailsChang
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <TvPageHeading title={t("deviceSettingsTitle")} />
       <TvSettingsSection title={t("connection")}><TvSettingRow title={t("currentInstance")} detail={instanceUrl}>
-        <TvButton ref={setConnection} label={t("changeInstance")} accessibilityState={{ busy }} nextFocusUp={profileFocusTarget} nextFocusDown={session ?? undefined} onPress={() => void run(onChangeInstance)} />
+        <TvButton ref={setConnection} deferPress label={t("changeInstance")} accessibilityState={{ busy }} nextFocusUp={profileFocusTarget} nextFocusDown={session ?? undefined} onPress={() => void run(onChangeInstance)} />
       </TvSettingRow></TvSettingsSection>
       <TvSettingsSection title={t("session")}><TvSettingRow title={t("signOut")} detail={t("signOutHint")}>
         <TvButton ref={setSession} label={t("signOut")} variant="danger" accessibilityState={{ busy }} nextFocusUp={connection ?? undefined} nextFocusDown={preference ?? undefined} onPress={() => void run(onSignOut)} />

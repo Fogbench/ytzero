@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useState, type Ref } from "react";
+import { forwardRef, useCallback, type Ref } from "react";
 import { StyleSheet, Text, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import { colors, typography } from "../theme";
 import { TvPressable } from "./TvPressable";
@@ -56,7 +56,6 @@ const TabButton = forwardRef<View, {
   nextFocusDown?: FocusDestination;
   onPress: () => void;
 }>(function TabButton({ active, label, count, nextFocusUp, nextFocusDown, onPress }, ref) {
-  const [focused, setFocused] = useState(false);
   return (
     <TvPressable
       ref={ref}
@@ -64,19 +63,19 @@ const TabButton = forwardRef<View, {
       accessibilityState={{ selected: active }}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocus={() => { setFocused(true); }}
-      onBlur={() => { setFocused(false); }}
       onPress={onPress}
-      style={({ pressed }) => [styles.tab, focused && styles.tabFocused, pressed && styles.tabPressed]}
+      style={({ focused, pressed }) => [styles.tab, focused && styles.tabFocused, pressed && styles.tabPressed]}
     >
-      <TvControlSurface radius={33} focused={focused} emphasized={active} />
-      {active ? <Text accessible={false} style={styles.label}>✓</Text> : null}
-      <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
-      {typeof count === "number" && (
-        <View style={[styles.count, focused && styles.countFocused]}>
-          <Text style={[styles.countLabel, focused && styles.countLabelFocused]}>{count}</Text>
-        </View>
-      )}
+      {({ focused }) => <>
+        <TvControlSurface radius={33} focused={focused} emphasized={active} />
+        {active ? <Text accessible={false} style={styles.label}>✓</Text> : null}
+        <Text style={[styles.label, focused && styles.labelFocused]}>{label}</Text>
+        {typeof count === "number" && (
+          <View style={[styles.count, focused && styles.countFocused]}>
+            <Text style={[styles.countLabel, focused && styles.countLabelFocused]}>{count}</Text>
+          </View>
+        )}
+      </>}
     </TvPressable>
   );
 });

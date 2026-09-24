@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Image, StyleSheet, Text, TVFocusGuideView, View, type FocusDestination, type ImageURISource } from "react-native";
 import type { Translate } from "../i18n";
 import type { Video } from "../types";
@@ -24,11 +24,11 @@ export const TvFeaturedVideo = forwardRef<View, {
   onThumbnailsTarget: (target: View | null) => void;
 }>(function TvFeaturedVideo({ videos, height, t, active, thumbnailSource, nextFocusUp, nextFocusDown, onOpen, onBackdropChange, onThumbnailsTarget }, ref) {
   const [selectedId, setSelectedId] = useState(videos[0]?.video_id);
-  const [focusedControl, setFocusedControl] = useState<string | null>(null);
-  const [focusedThumbnail, setFocusedThumbnail] = useState<string | null>(null);
   const [foreground, setForeground] = useState(AppState.currentState === "active");
   const [playTarget, setPlayTarget] = useState<View | null>(null);
   const [thumbnailTarget, setThumbnailTarget] = useState<View | null>(null);
+  const interactionLocks = useRef(new Set<string>());
+  const rotationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reduced = useReducedMotion();
   const index = Math.max(0, videos.findIndex((video) => video.video_id === selectedId));
   const video = videos[index];
@@ -45,15 +45,35 @@ export const TvFeaturedVideo = forwardRef<View, {
   }, []);
   useEffect(() => { onBackdropChange(video?.thumbnail ?? ""); }, [onBackdropChange, video?.thumbnail]);
   useEffect(() => () => onBackdropChange(""), [onBackdropChange]);
+  const cancelRotation = useCallback(() => {
+    if (rotationTimer.current !== null) clearTimeout(rotationTimer.current);
+    rotationTimer.current = null;
+  }, []);
+  const scheduleRotation = useCallback(() => {
+    cancelRotation();
+    if (!active || !foreground || reduced || interactionLocks.current.size > 0 || videos.length < 2) return;
+    rotationTimer.current = setTimeout(() => {
+      rotationTimer.current = null;
+      setSelectedId(videos[(index + 1) % videos.length]!.video_id);
+    }, 8000);
+  }, [active, cancelRotation, foreground, index, reduced, videos]);
   useEffect(() => {
-    if (!active || !foreground || reduced || focusedControl || focusedThumbnail || videos.length < 2) return;
-    const timer = setTimeout(() => setSelectedId(videos[(index + 1) % videos.length]!.video_id), 8000);
-    return () => clearTimeout(timer);
-  }, [active, foreground, reduced, focusedControl, focusedThumbnail, index, videos]);
+    scheduleRotation();
+    return cancelRotation;
+  }, [cancelRotation, scheduleRotation]);
+  const setInteraction = useCallback((key: string, focused: boolean) => {
+    if (focused) {
+      interactionLocks.current.add(key);
+      cancelRotation();
+    } else {
+      interactionLocks.current.delete(key);
+      scheduleRotation();
+    }
+  }, [cancelRotation, scheduleRotation]);
   if (!video) return null;
   const controlFocus = (key: string) => ({
-    onFocus: () => setFocusedControl(key),
-    onBlur: () => setFocusedControl((current) => current === key ? null : current),
+    onFocus: () => setInteraction(`control:${key}`, true),
+    onBlur: () => setInteraction(`control:${key}`, false),
   });
   const step = (delta: number) => setSelectedId(videos[(index + delta + videos.length) % videos.length]!.video_id);
   return <>
@@ -66,9 +86,9 @@ export const TvFeaturedVideo = forwardRef<View, {
         {video.description ? <Text numberOfLines={2} style={styles.description}>{video.description}</Text> : null}
       </TvScreenTransition>
       <TVFocusGuideView autoFocus style={styles.controls}>
-        <TvButton {...controlFocus("play")} ref={playMemory.ref} label={t("playVideo")} icon="play" variant="primary"
+        <TvButton {...controlFocus("play")} ref={playMemory.ref} deferPress label={t("playVideo")} icon="play" variant="primary"
           nextFocusUp={nextFocusUp} nextFocusDown={thumbnailTarget ?? nextFocusDown} onPress={() => { playMemory.remember(); onOpen(video, true); }} />
-        <TvButton {...controlFocus("details")} ref={detailsMemory.ref} label={t("videoDetails")} nextFocusUp={nextFocusUp} nextFocusDown={thumbnailTarget ?? nextFocusDown} onPress={() => { detailsMemory.remember(); onOpen(video, false); }} />
+        <TvButton {...controlFocus("details")} ref={detailsMemory.ref} deferPress label={t("videoDetails")} nextFocusUp={nextFocusUp} nextFocusDown={thumbnailTarget ?? nextFocusDown} onPress={() => { detailsMemory.remember(); onOpen(video, false); }} />
         {videos.length > 1 ? <View style={styles.pagination}>
           <TvSurface radius={37}>
           <TvButton {...controlFocus("previous")} variant="ghost" style={styles.arrow} label="" icon="left" accessibilityLabel={t("previousSlide")} nextFocusUp={nextFocusUp} nextFocusDown={thumbnailTarget ?? nextFocusDown} onPress={() => step(-1)} />
@@ -84,20 +104,19 @@ export const TvFeaturedVideo = forwardRef<View, {
         renderItem={({ item, index: itemIndex }) => <FeaturedThumbnail ref={itemIndex === 0 ? setThumbnailTarget : undefined}
           video={item} source={thumbnailSource(item.thumbnail)} selected={item.video_id === video.video_id}
           nextFocusUp={playTarget ?? nextFocusUp} nextFocusDown={nextFocusDown}
-          onFocus={() => { setFocusedThumbnail(item.video_id); setSelectedId(item.video_id); }}
-          onBlur={() => setFocusedThumbnail((current) => current === item.video_id ? null : current)} onPress={() => onOpen(item)} />}
+          onFocus={() => { setInteraction(`thumbnail:${item.video_id}`, true); setSelectedId(item.video_id); }}
+          onBlur={() => setInteraction(`thumbnail:${item.video_id}`, false)} onPress={() => onOpen(item)} />}
       />
     </TVFocusGuideView>
   </>;
 });
 
 const FeaturedThumbnail = forwardRef<View, { video: Video; source: ImageURISource; selected: boolean; nextFocusUp?: FocusDestination; nextFocusDown?: FocusDestination; onFocus: () => void; onBlur: () => void; onPress: () => void }>(function FeaturedThumbnail({ video, source, selected, nextFocusUp, nextFocusDown, onFocus, onBlur, onPress }, ref) {
-  const [focused, setFocused] = useState(false);
   const memory = useVideoFocusMemory(ref);
-  return <TvPressable ref={memory.ref} focusScale={1.04} accessibilityRole="button" accessibilityLabel={video.title} accessibilityState={{ selected }}
+  return <TvPressable ref={memory.ref} deferPress focusScale={1.04} accessibilityRole="button" accessibilityLabel={video.title} accessibilityState={{ selected }}
     nextFocusUp={nextFocusUp} nextFocusDown={nextFocusDown} onPress={() => { memory.remember(); onPress(); }}
-    onFocus={() => { setFocused(true); onFocus(); }} onBlur={() => { setFocused(false); onBlur(); }}
-    style={[styles.thumbnail, selected && styles.selectedThumbnail, focused && styles.focusedThumbnail]}>
+    onFocus={onFocus} onBlur={onBlur}
+    style={({ focused }) => [styles.thumbnail, selected && styles.selectedThumbnail, focused && styles.focusedThumbnail]}>
     <Image source={source} resizeMode="contain" style={styles.image} />
   </TvPressable>;
 });

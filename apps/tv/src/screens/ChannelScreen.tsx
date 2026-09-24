@@ -3,7 +3,7 @@ import { usePaginationFocus } from "../usePaginationFocus";
 import { TvEmptyState } from "../components/TvEmptyState";
 import { TvPageBackButton } from "../components/TvPageBackButton";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, TVFocusGuideView, Image, StyleSheet, Text, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
+import { TVFocusGuideView, Image, StyleSheet, Text, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import type { YtZeroApi } from "../api";
 import { channelContentTabs, splitChannelVideos, type ChannelContentTab } from "../channelContent";
 import { TvButton } from "../components/TvButton";
@@ -14,7 +14,6 @@ import { TvVideoShelf } from "../components/TvVideoShelf";
 import type { VideoActionOptions } from "../components/TvVideoActionMenu";
 import { VideoCard } from "../components/VideoCard";
 import { sessionContext, type OpenVideo } from "../playbackQueue";
-import { useReducedMotion } from "../motion";
 import { focusWhenReady, useContentFocusAllowed } from "../focus";
 import type { Translate } from "../i18n";
 import { tvGridListPerformance } from "../listPerformance";
@@ -42,7 +41,6 @@ const videoKey = (video: Video) => video.video_id;
 
 export function ChannelScreen({ api, videoUpdate, channelId, focusRequest, language, onBack, onOpen, onPrimaryFocusTarget, onVideoLongPress, profileFocusTarget, shortsEnabled, t, viewportHeight: height, viewportWidth: width }: Props) {
   const contentFocusAllowed = useContentFocusAllowed();
-  const reduced = useReducedMotion();
   const columns = width >= 1400 ? 4 : 3;
   const contentWidth = Math.max(720, width - (screenPadding + 20) * 2);
   const cardWidth = Math.floor((contentWidth - (columns - 1) * 28) / columns);
@@ -72,7 +70,6 @@ export function ChannelScreen({ api, videoUpdate, channelId, focusRequest, langu
   const emptyRef = useRef<View>(null);
   const requestId = useRef(0);
   const handledFocusRequest = useRef<number | null>(null);
-  const reveal = useRef(new Animated.Value(0)).current;
 
   const load = useCallback(async (background = false) => {
     const currentRequest = ++requestId.current;
@@ -153,16 +150,6 @@ export function ChannelScreen({ api, videoUpdate, channelId, focusRequest, langu
   useEffect(() => {
     if (!tabs.some((item) => item.value === tab)) setTab("videos");
   }, [tab, tabs]);
-
-  useEffect(() => {
-    if (loading) {
-      reveal.setValue(0);
-      return;
-    }
-    const animation = Animated.timing(reveal, { toValue: 1, duration: reduced ? 0 : 190, useNativeDriver: true });
-    animation.start();
-    return () => animation.stop();
-  }, [loading, reduced, reveal]);
 
   useEffect(() => {
     if (loading || !contentFocusAllowed) return;
@@ -348,7 +335,7 @@ export function ChannelScreen({ api, videoUpdate, channelId, focusRequest, langu
   );
 
   return (
-    <Animated.View style={[styles.screen, { width, height, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+    <View style={[styles.screen, { width, height }]}>
       <TvPageBackButton ref={setBackTarget} t={t} nextFocusRight={profileFocusTarget} nextFocusDown={followTarget ?? firstTabTarget ?? undefined} onPress={onBack} />
       <TvGridList
         ref={listRef}
@@ -373,7 +360,7 @@ export function ChannelScreen({ api, videoUpdate, channelId, focusRequest, langu
         renderItem={renderVideo}
         {...gridPerformance}
       />
-    </Animated.View>
+    </View>
   );
 }
 

@@ -282,6 +282,7 @@ function VideoActionMenu({ api, actionConfig, onClose, onOpenChannel, onRemove, 
                 renderItem={({ item }) => item === "channel" ? (
                   <TvListButton
                     ref={item === firstAction ? setFirstTarget : undefined}
+                    deferPress
                     surface="filled"
                     label={t("goToChannel")}
                     hasTVPreferredFocus
@@ -295,6 +296,7 @@ function VideoActionMenu({ api, actionConfig, onClose, onOpenChannel, onRemove, 
                 ) : (
                   <TvListButton
                     ref={item === firstAction ? setFirstTarget : undefined}
+                    deferPress={item === "sessionQueue" || item === "schedule" || item === "playlist"}
                     surface="filled"
                     label={actionLabel(item)}
                     hasTVPreferredFocus={item === firstAction}

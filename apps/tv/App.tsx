@@ -1,10 +1,10 @@
 import { isFocusInteraction } from "./src/focusEntry";
 import { lastActivatedVideoTarget, requestTvFocus, TvContentFocusRequests, useTvShellFocus } from "./src/focus";
 import { restoreFocus } from "./src/focusRestoration";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Animated, BackHandler, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
 import { YtZeroApi } from "./src/api";
-import { deviceLanguage, normalizeLanguage, translator } from "./src/i18n";
+import { deviceLanguage, normalizeLanguage, translator, type Translate } from "./src/i18n";
 import { InstanceScreen } from "./src/screens/InstanceScreen";
 import { PairScreen } from "./src/screens/PairScreen";
 import { SearchScreen } from "./src/screens/SearchScreen";
@@ -32,7 +32,7 @@ import { clearAccessToken, loadConnection, saveConnection } from "./src/storage"
 import type { AuthStatus, Language, PairingAuthorization, Video } from "./src/types";
 import { colors, sidebarRailWidth, topBarMetrics } from "./src/theme";
 import { tvVideoCardActionConfig, type VideoCardActionConfig } from "./src/videoCardActions";
-import { SessionQueueProvider, useSessionQueue } from "./src/SessionQueue";
+import { SessionQueueProvider, useSessionQueueActions, useSessionQueueItems } from "./src/SessionQueue";
 import { TvQueueSheet } from "./src/components/TvQueueSheet";
 import { TvSurface } from "./src/components/TvSurface";
 import { TvButton } from "./src/components/TvButton";
@@ -75,6 +75,19 @@ function TvHomeBackdrop({ api, controller, height, opacity }: {
   </Animated.View>;
 }
 
+function TvQueueTrigger({ trigger, t, nextFocusDown, nextFocusRight, onOpen }: {
+  trigger: RefObject<View | null>;
+  t: Translate;
+  nextFocusDown?: FocusDestination;
+  nextFocusRight?: FocusDestination;
+  onOpen: () => void;
+}) {
+  const items = useSessionQueueItems();
+  return <TvButton ref={trigger} deferPress variant="ghost" label={items.length ? String(items.length) : ""} icon="queue"
+    accessibilityLabel={t("playQueue")} nextFocusDown={nextFocusDown} nextFocusRight={nextFocusRight}
+    style={styles.queueTrigger} onPress={onOpen} />;
+}
+
 export default function App() {
   return <TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider>;
 }
@@ -82,7 +95,7 @@ export default function App() {
 function TvApp() {
   const [launchVisible, setLaunchVisible] = useState(true);
   const [launchRevealing, setLaunchRevealing] = useState(false);
-  const { items: queueItems, clear: clearQueue } = useSessionQueue();
+  const { clear: clearQueue } = useSessionQueueActions();
   const [queueVisible, setQueueVisible] = useState(false);
   const queueTrigger = useRef<View>(null);
   const queueReturnFocus = useRef<View | null>(null);
@@ -170,6 +183,10 @@ function TvApp() {
     setAutoplay(shouldPlayVideo(openDetailsRef.current, play));
     setStartPosition(position);
     setScreen("detail");
+  }, []);
+  const openQueueFromTopBar = useCallback(() => {
+    queueReturnFocus.current = queueTrigger.current;
+    setQueueVisible(true);
   }, []);
 
   const openChannelVideo = useCallback<OpenVideo>((video, context, play, position) => {
@@ -579,8 +596,8 @@ function TvApp() {
   } else if (screen === "boot") {
     content = bootError
       ? <TvSetupLayout title={t("appleProfilesLoadError")} description={[t("appleProfilesLoadErrorHint"), instanceUrl ? `${t("addressLabel")}: ${instanceUrl}` : ""].filter(Boolean).join("\n\n")} t={t}>
-          <TvButton label={t("refresh")} preferredFocus onPress={() => setBootAttempt((value) => value + 1)} />
-          <TvButton label={t("changeInstance")} variant="ghost" onPress={() => setScreen("instance")} />
+          <TvButton deferPress label={t("refresh")} preferredFocus onPress={() => setBootAttempt((value) => value + 1)} />
+          <TvButton deferPress label={t("changeInstance")} variant="ghost" onPress={() => setScreen("instance")} />
         </TvSetupLayout>
       : <View style={styles.boot}><TvLoadingMark accessibilityLabel={t("booting")} size={64} /></View>;
   } else if (screen === "instance") {
@@ -713,9 +730,9 @@ function TvApp() {
       )}
       {hasShell ? <TVFocusGuideView ref={setTopBarTarget} autoFocus focusable={screen === "detail" || !shellFocus.pending} style={[styles.topBar, screen === "detail" && styles.detailTopBar]}>
         <View style={styles.accountControls}><TvSurface radius={33}>
-        <TvButton ref={queueTrigger} variant="ghost" label={queueItems.length ? String(queueItems.length) : ""} icon="queue" accessibilityLabel={t("playQueue")}
-          nextFocusDown={(screen === "detail" ? detailFocusTarget : contentFocusTarget) ?? undefined} nextFocusRight={profileFocusTarget ?? undefined} style={styles.queueTrigger}
-          onPress={() => { queueReturnFocus.current = queueTrigger.current; setQueueVisible(true); }} />
+        <TvQueueTrigger trigger={queueTrigger} t={t}
+          nextFocusDown={(screen === "detail" ? detailFocusTarget : contentFocusTarget) ?? undefined}
+          nextFocusRight={profileFocusTarget ?? undefined} onOpen={openQueueFromTopBar} />
       {profileState && api && (
         <TvProfileMenu
           api={api}
@@ -734,7 +751,7 @@ function TvApp() {
         />
       )}
       </TvSurface></View></TVFocusGuideView> : null}
-      <TVFocusGuideView autoFocus focusable={screen !== "detail"}
+      <TVFocusGuideView focusable={screen !== "detail"}
         onFocus={shellFocus.onContentFocus}
         accessibilityElementsHidden={screen === "detail"} importantForAccessibility={screen === "detail" ? "no-hide-descendants" : "auto"}
         style={[styles.content, hasShell && styles.contentWithSidebar, screen === "detail" && styles.hidden]}>

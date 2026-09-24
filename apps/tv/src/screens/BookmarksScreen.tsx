@@ -1,7 +1,7 @@
 import { TvEmptyState } from "../components/TvEmptyState";
 import { TvPageHeading } from "../components/TvPageHeading";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, FlatList, StyleSheet, Text, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
+import { FlatList, StyleSheet, Text, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import type { YtZeroApi } from "../api";
 import { BookmarkRow } from "../components/BookmarkRow";
 import { applyBookmarkVideoUpdate } from "../bookmarkUpdates";
@@ -9,7 +9,6 @@ import { TvButton } from "../components/TvButton";
 import { TvLoadingMark } from "../components/TvLoadingMark";
 import type { VideoActionOptions } from "../components/TvVideoActionMenu";
 import { sessionContext, type OpenVideo } from "../playbackQueue";
-import { useReducedMotion } from "../motion";
 import { focusWhenReady, useContentFocusAllowed } from "../focus";
 import { localeTags, type Translate } from "../i18n";
 import { tvVerticalListPerformance } from "../listPerformance";
@@ -35,7 +34,6 @@ const renderSeparator = () => <View style={styles.separator} />;
 
 export function BookmarksScreen({ api, videoUpdate, focusRequest, language, profileFocusTarget, onPrimaryFocusTarget, onOpen, onVideoLongPress, t, viewportHeight: height, viewportWidth: width }: Props) {
   const contentFocusAllowed = useContentFocusAllowed();
-  const reduced = useReducedMotion();
   const [bookmarks, setBookmarks] = useState<BookmarkVideo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -45,7 +43,6 @@ export function BookmarksScreen({ api, videoUpdate, focusRequest, language, prof
   const handledFocusRequest = useRef<number | null>(null);
   const retryRef = useRef<View>(null);
   const emptyRef = useRef<View>(null);
-  const reveal = useRef(new Animated.Value(0)).current;
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(localeTags[language], { dateStyle: "medium", timeStyle: "short" }),
     [language],
@@ -69,16 +66,6 @@ export function BookmarksScreen({ api, videoUpdate, focusRequest, language, prof
   }, [api]);
 
   useEffect(() => { void load(); }, [load]);
-
-  useEffect(() => {
-    if (loading) {
-      reveal.setValue(0);
-      return;
-    }
-    const animation = Animated.timing(reveal, { toValue: 1, duration: reduced ? 0 : 170, useNativeDriver: true });
-    animation.start();
-    return () => animation.stop();
-  }, [loading, reduced, reveal]);
 
   useEffect(() => {
     if (loading || !contentFocusAllowed) return;
@@ -131,7 +118,7 @@ export function BookmarksScreen({ api, videoUpdate, focusRequest, language, prof
   }
 
   return (
-    <Animated.View style={[styles.screen, { width, height, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+    <View style={[styles.screen, { width, height }]}>
       <FlatList
         style={[styles.list, { width, height }]}
         contentContainerStyle={[styles.content, { minHeight: height }]}
@@ -157,7 +144,7 @@ export function BookmarksScreen({ api, videoUpdate, focusRequest, language, prof
         renderItem={renderBookmark}
         {...tvVerticalListPerformance}
       />
-    </Animated.View>
+    </View>
   );
 }
 

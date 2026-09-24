@@ -387,7 +387,7 @@ export interface PlaylistInfo {
 }
 
 const playlistCache = new Map<string, { at: number; data: PlaylistInfo[]; complete: boolean }>();
-const MAX_PLAYLIST_CONTINUATION_PAGES = 50;
+const MAX_BROWSE_CONTINUATION_PAGES = 50;
 
 function collectChannelPlaylists(data: any, out: PlaylistInfo[], seen: Set<string>) {
   // Legacy markup.
@@ -440,7 +440,7 @@ export function playlistContinuationToken(data: any): string | null {
   return null;
 }
 
-function innertubePlaylistConfig(html: string): { apiKey: string; clientVersion: string } | null {
+function innertubeBrowseConfig(html: string): { apiKey: string; clientVersion: string } | null {
   const apiKey = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)?.[1];
   const clientVersion = html.match(/"INNERTUBE_CONTEXT_CLIENT_VERSION":"([^"]+)"/)?.[1];
   return apiKey && clientVersion ? { apiKey, clientVersion } : null;
@@ -453,14 +453,14 @@ export function playlistContinuationBody(token: string, clientVersion: string, l
   };
 }
 
-async function fetchPlaylistContinuation(token: string, config: { apiKey: string; clientVersion: string }, language: ResolvedYouTubeLanguage) {
+async function fetchBrowseContinuation(token: string, config: { apiKey: string; clientVersion: string }, language: ResolvedYouTubeLanguage) {
   const url = `https://www.youtube.com/youtubei/v1/browse?prettyPrint=false&key=${encodeURIComponent(config.apiKey)}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { ...youtubeRequestHeaders(language.userId, language), "Content-Type": "application/json", Origin: "https://www.youtube.com" },
     body: JSON.stringify(playlistContinuationBody(token, config.clientVersion, language.hl)),
   });
-  return JSON.parse(await readYouTubeResponseWithCookies(res, "playlist continuation fetch failed", language.userId, url));
+  return JSON.parse(await readYouTubeResponseWithCookies(res, "browse continuation fetch failed", language.userId, url));
 }
 
 export async function fetchChannelPlaylists(channelId: string, force = false, userId?: number): Promise<PlaylistInfo[]> {
@@ -481,13 +481,13 @@ export async function fetchChannelPlaylists(channelId: string, force = false, us
   const seen = new Set<string>();
   collectChannelPlaylists(data, out, seen);
 
-  const config = innertubePlaylistConfig(html);
+  const config = innertubeBrowseConfig(html);
   let token = playlistContinuationToken(data);
   let complete = true;
-  for (let page = 0; config && token && page < MAX_PLAYLIST_CONTINUATION_PAGES; page++) {
+  for (let page = 0; config && token && page < MAX_BROWSE_CONTINUATION_PAGES; page++) {
     const previousToken = token;
     try {
-      const continuation = await fetchPlaylistContinuation(token, config, language);
+      const continuation = await fetchBrowseContinuation(token, config, language);
       collectChannelPlaylists(continuation, out, seen);
       token = playlistContinuationToken(continuation);
       if (token === previousToken) break;
@@ -652,13 +652,13 @@ export async function fetchPlaylistSnapshot(playlistId: string, force = false, u
   const videos: PlaylistVideo[] = [];
   const seen = new Set<string>();
   collectPlaylistVideos(data, videos, seen);
-  const config = innertubePlaylistConfig(html);
+  const config = innertubeBrowseConfig(html);
   let token = playlistContinuationToken(data);
   let complete = true;
-  for (let page = 0; config && token && page < MAX_PLAYLIST_CONTINUATION_PAGES; page++) {
+  for (let page = 0; config && token && page < MAX_BROWSE_CONTINUATION_PAGES; page++) {
     const previousToken = token;
     try {
-      const continuation = await fetchPlaylistContinuation(token, config, language);
+      const continuation = await fetchBrowseContinuation(token, config, language);
       collectPlaylistVideos(continuation, videos, seen);
       token = playlistContinuationToken(continuation);
       if (token === previousToken) { complete = false; break; }
@@ -741,13 +741,7 @@ function relativePublishedFromNode(node: any): string | null {
   return parsed ? relativePublishedAt(parsed) : null;
 }
 
-/** Scrape a channel tab for uploads or completed livestreams. */
-async function fetchChannelTabVideos(channelId: string, tab: "videos" | "streams", userId?: number): Promise<ScrapedVideo[]> {
-  const url = `https://www.youtube.com/channel/${channelId}/${tab}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId) });
-  const data = extractInitialData(await readYouTubeResponseWithCookies(res, `channel ${tab} request failed`, userId, url));
-  const out: ScrapedVideo[] = [];
-  const seen = new Set<string>();
+function collectChannelTabVideos(data: any, out: ScrapedVideo[], seen: Set<string>) {
   for (const r of deepCollect(data, "videoRenderer")) {
     if (!r?.videoId || seen.has(r.videoId)) continue;
     seen.add(r.videoId);
@@ -772,7 +766,8 @@ async function fetchChannelTabVideos(channelId: string, tab: "videos" | "streams
   // cards instead of videoRenderer. This is notably used by /streams, so
   // without it completed streams are silently skipped.
   for (const vm of deepCollect(data, "lockupViewModel")) {
-    const videoId = deepCollect(vm, "watchEndpoint")[0]?.videoId;
+    const contentId = vm?.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" ? vm?.contentId : null;
+    const videoId = contentId ?? deepCollect(vm, "watchEndpoint")[0]?.videoId;
     if (!videoId || seen.has(videoId)) continue;
     const title = vm?.metadata?.lockupMetadataViewModel?.title?.content;
     if (!title) continue;
@@ -794,17 +789,61 @@ async function fetchChannelTabVideos(channelId: string, tab: "videos" | "streams
       isLive: hasLiveBadge(vm),
     });
   }
+}
+
+/** Scrape a channel tab for uploads or completed livestreams. Full-history
+ * pagination is opt-in because the lightweight streams lookup also runs as
+ * part of frequent live-status refreshes. */
+async function fetchChannelTabVideos(
+  channelId: string,
+  tab: "videos" | "streams",
+  userId?: number,
+  fullHistory = false,
+): Promise<ScrapedVideo[]> {
+  const language = resolveYouTubeLanguage(userId);
+  const url = `https://www.youtube.com/channel/${channelId}/${tab}`;
+  const res = await fetch(url, { headers: youtubeRequestHeaders(userId, language) });
+  const html = await readYouTubeResponseWithCookies(res, `channel ${tab} request failed`, language.userId, url);
+  const data = extractInitialData(html);
+  if (!data) throw new Error(`channel ${tab} data missing`);
+  const out: ScrapedVideo[] = [];
+  const seen = new Set<string>();
+  collectChannelTabVideos(data, out, seen);
+  if (!fullHistory) return out;
+
+  const config = innertubeBrowseConfig(html);
+  let token = playlistContinuationToken(data);
+  if (token && !config) throw new Error(`channel ${tab} continuation configuration missing`);
+  const requestedTokens = new Set<string>();
+  for (let page = 0; config && token && page < MAX_BROWSE_CONTINUATION_PAGES; page++) {
+    if (requestedTokens.has(token)) throw new Error(`channel ${tab} continuation repeated`);
+    requestedTokens.add(token);
+    const continuation = await fetchBrowseContinuation(token, config, language);
+    collectChannelTabVideos(continuation, out, seen);
+    token = playlistContinuationToken(continuation);
+  }
+  if (token) throw new Error(`channel ${tab} history exceeded ${MAX_BROWSE_CONTINUATION_PAGES} continuation pages`);
   return out;
 }
 
-/** Scrape the channel's ordinary uploads tab. */
+/** Scrape the first page of the channel's ordinary uploads tab. */
 export async function fetchChannelVideos(channelId: string, userId?: number): Promise<ScrapedVideo[]> {
   return fetchChannelTabVideos(channelId, "videos", userId);
 }
 
-/** Scrape the channel's current and archived livestreams tab. */
+/** Scrape the complete ordinary upload history for a full channel sync. */
+export async function fetchAllChannelVideos(channelId: string, userId?: number): Promise<ScrapedVideo[]> {
+  return fetchChannelTabVideos(channelId, "videos", userId, true);
+}
+
+/** Scrape the first page of current and archived livestreams. */
 export async function fetchChannelStreams(channelId: string, userId?: number): Promise<ScrapedVideo[]> {
   return (await fetchChannelTabVideos(channelId, "streams", userId)).map((video) => ({ ...video, isStream: true }));
+}
+
+/** Scrape the complete livestream history for a full channel sync. */
+export async function fetchAllChannelStreams(channelId: string, userId?: number): Promise<ScrapedVideo[]> {
+  return (await fetchChannelTabVideos(channelId, "streams", userId, true)).map((video) => ({ ...video, isStream: true }));
 }
 
 export interface SearchResult {

@@ -56,15 +56,16 @@ export function TvQueueSheet({ t, language, onClose, onOpen, preserveMenuKey }: 
           renderItem={({ item, index }) => <View style={styles.row}>
             <View style={styles.video}>
               <TvListButton ref={(target) => { if (target) targets.current.set(item.video_id, target); else targets.current.delete(item.video_id); }}
+                deferPress
                 label={`${index + 1}. ${item.title}`} labelLines={2} detail={item.channel_title} hasTVPreferredFocus={index === 0}
                 onPress={() => { onClose(); onOpen(item, sessionContext(queue.items), true); }} />
             </View>
             <TvButton label="" icon="up" accessibilityLabel={t("moveEarlier")} disabled={index === 0} onPress={() => move(item.video_id, -1)} />
             <TvButton label="" icon="down" accessibilityLabel={t("moveLater")} disabled={index === queue.items.length - 1} onPress={() => move(item.video_id, 1)} />
-            <TvButton label="" icon="remove" accessibilityLabel={t("removeFromQueue")} onPress={() => { focusAfterRemoval(index); queue.remove(item.video_id); }} />
+            <TvButton deferPress label="" icon="remove" accessibilityLabel={t("removeFromQueue")} onPress={() => { focusAfterRemoval(index); queue.remove(item.video_id); }} />
           </View>}
         />
-        {queue.items.length ? <View style={styles.footer}><TvButton label={t("clearQueue")} variant="ghost" onPress={() => { pendingFocus.current = {}; queue.clear(); }} /></View> : null}
+        {queue.items.length ? <View style={styles.footer}><TvButton deferPress label={t("clearQueue")} variant="ghost" onPress={() => { pendingFocus.current = {}; queue.clear(); }} /></View> : null}
       </TvScreenTransition>
     </TVFocusGuideView></TvFocusScope>
   </Modal>;

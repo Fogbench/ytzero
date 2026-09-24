@@ -65,7 +65,7 @@ export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeIns
       <View style={styles.codePanel}><Text style={styles.codeLabel}>{t("enterCode")}</Text><Text style={styles.code} numberOfLines={1}>{displayCode}</Text></View>
       {!expired ? <View style={styles.waiting}><View style={styles.spinner}><ActivityIndicator color={networkError ? colors.danger : colors.textMuted} size="small" style={styles.spinnerScale} /></View><Text style={[styles.waitingText, networkError && styles.error]}>{networkError ? t("cannotConnect") : t("waiting")}</Text></View>
         : <View style={styles.expired}><Text style={styles.error}>{networkError ? t("cannotConnect") : t("pairExpired")}</Text><TvButton label={t("retry")} variant="primary" onPress={() => void onRetry().catch(() => setNetworkError(true))} /></View>}
-      <TvButton label={t("changeInstance")} preferredFocus variant="ghost" onPress={onChangeInstance} style={styles.changeButton} />
+      <TvButton deferPress label={t("changeInstance")} preferredFocus variant="ghost" onPress={onChangeInstance} style={styles.changeButton} />
     </>}>
     <View style={styles.qrPanel}><View style={styles.qr}><QRCode value={pairing.verificationUriComplete} size={286} backgroundColor={colors.white} color={colors.black} /></View><Text style={styles.uri}>{pairing.verificationUriComplete}</Text></View>
   </TvSetupLayout>;

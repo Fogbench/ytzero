@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useMemo, useRef, useState, type Ref } from "react";
+import { forwardRef, useCallback, useMemo, useRef, type Ref } from "react";
 import { StyleSheet, Text, TVFocusGuideView, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
 import { requestTvFocus } from "../focus";
 import type { Tag } from "../types";
@@ -73,7 +73,6 @@ const TagChip = forwardRef<View, { tag: Tag; selected: boolean; nextFocusUp?: Fo
   { tag, selected, nextFocusUp, nextFocusDown, onFocusChange, onPress },
   ref,
 ) {
-  const [focused, setFocused] = useState(false);
   return (
     <TvPressable
       ref={ref}
@@ -81,14 +80,16 @@ const TagChip = forwardRef<View, { tag: Tag; selected: boolean; nextFocusUp?: Fo
       accessibilityState={{ selected }}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocus={() => { setFocused(true); onFocusChange(true); }}
-      onBlur={() => { setFocused(false); onFocusChange(false); }}
+      onFocus={() => onFocusChange(true)}
+      onBlur={() => onFocusChange(false)}
       onPress={onPress}
-      style={({ pressed }) => [styles.chip, focused && styles.chipFocused, pressed && styles.pressed]}
+      style={({ focused, pressed }) => [styles.chip, focused && styles.chipFocused, pressed && styles.pressed]}
     >
-      <TvControlSurface radius={33} focused={focused} emphasized={selected} />
-      {selected ? <Text accessible={false} style={styles.label}>✓</Text> : null}
-      <Text style={[styles.label, focused && styles.labelFocused]}>{tag.name}</Text>
+      {({ focused }) => <>
+        <TvControlSurface radius={33} focused={focused} emphasized={selected} />
+        {selected ? <Text accessible={false} style={styles.label}>✓</Text> : null}
+        <Text style={[styles.label, focused && styles.labelFocused]}>{tag.name}</Text>
+      </>}
     </TvPressable>
   );
 });
@@ -100,20 +101,21 @@ function ClearChip({ label, nextFocusUp, nextFocusDown, onFocusChange, onPress }
   onFocusChange: (focused: boolean) => void;
   onPress: () => void;
 }) {
-  const [focused, setFocused] = useState(false);
   return (
     <TvPressable
       accessibilityRole="button"
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocus={() => { setFocused(true); onFocusChange(true); }}
-      onBlur={() => { setFocused(false); onFocusChange(false); }}
+      onFocus={() => onFocusChange(true)}
+      onBlur={() => onFocusChange(false)}
       onPress={onPress}
-      style={({ pressed }) => [styles.chip, styles.clearChip, focused && styles.chipFocused, pressed && styles.pressed]}
+      style={({ focused, pressed }) => [styles.chip, styles.clearChip, focused && styles.chipFocused, pressed && styles.pressed]}
     >
-      <TvControlSurface radius={33} focused={focused} filled={false} />
-      <Text accessible={false} style={[styles.clearIcon, focused && styles.labelFocused]}>×</Text>
-      <Text style={[styles.label, styles.clearLabel, focused && styles.labelFocused]}>{label}</Text>
+      {({ focused }) => <>
+        <TvControlSurface radius={33} focused={focused} filled={false} />
+        <Text accessible={false} style={[styles.clearIcon, focused && styles.labelFocused]}>×</Text>
+        <Text style={[styles.label, styles.clearLabel, focused && styles.labelFocused]}>{label}</Text>
+      </>}
     </TvPressable>
   );
 }

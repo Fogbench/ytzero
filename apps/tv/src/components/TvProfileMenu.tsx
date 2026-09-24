@@ -1,7 +1,7 @@
 import { TvPageBackButton } from "./TvPageBackButton";
 import { TvProfileBackdrop } from "./TvProfileBackdrop";
 import { TvCloseButton } from "./TvCloseButton";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   Image,
   Modal,
@@ -47,6 +47,106 @@ type Props = {
 type MenuView = "menu" | "profiles";
 
 const profileKey = (profile: Profile) => String(profile.id);
+const profileAccentSettleMs = 90;
+
+type ProfileBackdropHandle = {
+  restoreAccent: (leavingAccent: string, restingAccent: string) => void;
+  showAccent: (accent: string) => void;
+};
+
+/** Keep gradient work outside the picker tree and off the critical focus frame. */
+const DeferredProfileBackdrop = memo(forwardRef<ProfileBackdropHandle, { initialAccent: string }>(function DeferredProfileBackdrop({ initialAccent }, ref) {
+  const [accent, setAccent] = useState(initialAccent);
+  const renderedAccent = useRef(initialAccent);
+  const requestedAccent = useRef(initialAccent);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPending = useCallback(() => {
+    if (timer.current === null) return;
+    clearTimeout(timer.current);
+    timer.current = null;
+  }, []);
+  const showAccent = useCallback((next: string) => {
+    requestedAccent.current = next;
+    cancelPending();
+    if (renderedAccent.current === next) return;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      const settled = requestedAccent.current;
+      if (renderedAccent.current === settled) return;
+      renderedAccent.current = settled;
+      setAccent(settled);
+    }, profileAccentSettleMs);
+  }, [cancelPending]);
+  const restoreAccent = useCallback((leavingAccent: string, restingAccent: string) => {
+    // UIKit normally blurs the old card before focusing the next one. If those
+    // events arrive in the opposite order, never overwrite the newer preview.
+    if (requestedAccent.current === leavingAccent) showAccent(restingAccent);
+  }, [showAccent]);
+  useImperativeHandle(ref, () => ({ restoreAccent, showAccent }), [restoreAccent, showAccent]);
+  useEffect(() => {
+    cancelPending();
+    requestedAccent.current = initialAccent;
+    renderedAccent.current = initialAccent;
+    setAccent(initialAccent);
+  }, [cancelPending, initialAccent]);
+  useEffect(() => cancelPending, [cancelPending]);
+  return <TvProfileBackdrop accent={accent} />;
+}));
+
+type ProfilePickerCardProps = {
+  api: YtZeroApi;
+  busy: boolean;
+  nextFocusDown?: FocusDestination;
+  onChoose: (profile: Profile) => void;
+  onLeaveAccent: (accent: string) => void;
+  onPreviewAccent: (accent: string) => void;
+  preferredProfileId: number;
+  profile: Profile;
+  t: Translate;
+};
+
+/** Each card owns its visual focus state through TvPressable. Moving focus no
+ * longer invalidates the FlatList or the other profile cards. */
+const ProfilePickerCard = memo(function ProfilePickerCard({ api, busy, nextFocusDown, onChoose, onLeaveAccent, onPreviewAccent, preferredProfileId, profile, t }: ProfilePickerCardProps) {
+  const active = profile.active;
+  return (
+    <TvPressable
+      accessibilityRole="button"
+      deferPress
+      accessibilityState={{ selected: active, disabled: Boolean(profile.pin_locked), busy }}
+      accessibilityLabel={profile.pin_locked ? `${profile.name}. ${t("profileLocked")}` : profile.name}
+      disabled={profile.pin_locked}
+      nextFocusDown={nextFocusDown}
+      focusScale={1.065}
+      hasTVPreferredFocus={profile.id === preferredProfileId}
+      onBlur={() => onLeaveAccent(profile.avatar_color)}
+      onFocus={() => onPreviewAccent(profile.avatar_color)}
+      onPress={() => onChoose(profile)}
+      style={({ focused, pressed }) => [
+        styles.profileCard,
+        focused && styles.profileCardFocused,
+        profile.pin_locked && styles.profileCardDisabled,
+        pressed && styles.pressed,
+      ]}
+    >
+      {({ focused }) => <>
+        <View style={[styles.profilePortrait, focused && styles.profilePortraitFocused]}>
+          <ProfileAvatar api={api} profile={profile} size={168} />
+          {active ? <View accessible={false} style={styles.currentBadge}>
+            <Svg width={26} height={26} viewBox="0 0 24 24"><Path fill={colors.white} d="m9 16.2-4.2-4.2L3.4 13.4 9 19l12-12-1.4-1.4z" /></Svg>
+          </View> : null}
+        </View>
+        <Text numberOfLines={2} style={[styles.profileName, focused && styles.profileNameFocused]}>{profile.name}</Text>
+        {(active || profile.pin_locked) && (
+          <Text numberOfLines={1} style={[styles.profileMeta, focused && styles.profileMetaFocused]}>
+            {active ? t("currentProfile") : t("profileLocked")}
+          </Text>
+        )}
+        {profile.has_pin && <Text style={[styles.pinBadge, focused && styles.pinBadgeFocused]}>PIN</Text>}
+      </>}
+    </TvPressable>
+  );
+});
 
 export function TvProfileMenu({
   selection,
@@ -66,8 +166,6 @@ export function TvProfileMenu({
 }: Props) {
   const [open, setOpen] = useState(Boolean(selection));
   const [view, setView] = useState<MenuView>(selection ? "profiles" : "menu");
-  const [triggerFocused, setTriggerFocused] = useState(false);
-  const [focusedProfile, setFocusedProfile] = useState<number | null>(null);
   const [pickerBackTarget, setPickerBackTarget] = useState<View | null>(null);
   const [pinFor, setPinFor] = useState<Profile | null>(null);
   const [profilePin, setProfilePin] = useState("");
@@ -75,6 +173,7 @@ export function TvProfileMenu({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const triggerRef = useRef<View>(null);
+  const pickerBackdrop = useRef<ProfileBackdropHandle>(null);
   const hadOverlay = useRef(false);
   const switchableProfiles = useMemo(
     () => profiles.filter((profile) => profile.id === active.id || (canSwitch && profile.can_switch)),
@@ -150,22 +249,7 @@ export function TvProfileMenu({
     setOpen(true);
   };
 
-  const choose = (profile: Profile) => {
-    if (profile.active && !selection) return setView("menu");
-    if (profile.pin_locked || busy) return;
-    const childPinRequired = profile.id !== active.id && active.is_child && childLockEnabled;
-    if (profile.has_pin || childPinRequired) {
-      setOpen(false);
-      setPinFor(profile);
-      setProfilePin("");
-      setChildLockPin("");
-      setError(false);
-      return;
-    }
-    void performSwitch(profile);
-  };
-
-  const performSwitch = async (requestedProfile?: Profile) => {
+  const performSwitch = useCallback(async (requestedProfile?: Profile) => {
     const profile = requestedProfile ?? pinFor;
     if (!profile || busy) return;
     setBusy(true);
@@ -184,27 +268,63 @@ export function TvProfileMenu({
     } finally {
       setBusy(false);
     }
-  };
+  }, [busy, childLockPin, onSwitch, pinFor, profilePin]);
+
+  const choose = useCallback((profile: Profile) => {
+    if (profile.active && !selection) return setView("menu");
+    if (profile.pin_locked || busy) return;
+    const childPinRequired = profile.id !== active.id && active.is_child && childLockEnabled;
+    if (profile.has_pin || childPinRequired) {
+      setOpen(false);
+      setPinFor(profile);
+      setProfilePin("");
+      setChildLockPin("");
+      setError(false);
+      return;
+    }
+    void performSwitch(profile);
+  }, [active.id, active.is_child, busy, childLockEnabled, performSwitch, selection]);
+
+  const previewProfileAccent = useCallback((accent: string) => {
+    pickerBackdrop.current?.showAccent(accent);
+  }, []);
+  const leaveProfileAccent = useCallback((accent: string) => {
+    pickerBackdrop.current?.restoreAccent(accent, active.avatar_color);
+  }, [active.avatar_color]);
+  const renderProfile = useCallback(({ item: profile }: ListRenderItemInfo<Profile>) => (
+    <ProfilePickerCard
+      api={api}
+      busy={busy}
+      nextFocusDown={pickerBackTarget ?? undefined}
+      onChoose={choose}
+      onLeaveAccent={leaveProfileAccent}
+      onPreviewAccent={previewProfileAccent}
+      preferredProfileId={preferredProfileId}
+      profile={profile}
+      t={t}
+    />
+  ), [api, busy, choose, leaveProfileAccent, pickerBackTarget, preferredProfileId, previewProfileAccent, t]);
 
   return (
     <>
       {!selection && <View style={styles.triggerWrap}>
         <TvPressable
           ref={setTriggerRef}
+          deferPress
           accessibilityRole="button"
           accessibilityLabel={`${t("currentProfile")}: ${active.name}. ${t("profiles")}`}
           nextFocusDown={contentFocusTarget}
-          onBlur={() => setTriggerFocused(false)}
-          onFocus={() => setTriggerFocused(true)}
           onPress={openMenu}
-          style={[styles.trigger, triggerFocused && styles.triggerFocused]}
+          style={({ focused }) => [styles.trigger, focused && styles.triggerFocused]}
         >
-          <TvControlSurface focused={triggerFocused} floating filled={false} radius={33} />
-          <View>
-            <ProfileAvatar api={api} profile={active} size={48} />
-            {incognito && <View style={styles.incognitoDot} />}
-          </View>
-          <Text numberOfLines={1} style={[styles.triggerName, triggerFocused && styles.triggerNameFocused]}>{active.name}</Text>
+          {({ focused }) => <>
+            <TvControlSurface focused={focused} floating filled={false} radius={33} />
+            <View>
+              <ProfileAvatar api={api} profile={active} size={48} />
+              {incognito && <View style={styles.incognitoDot} />}
+            </View>
+            <Text numberOfLines={1} style={[styles.triggerName, focused && styles.triggerNameFocused]}>{active.name}</Text>
+          </>}
         </TvPressable>
       </View>}
 
@@ -212,7 +332,7 @@ export function TvProfileMenu({
       <TvSurfaceRoot><TvFocusScope style={{ flex: 1 }}>
       {open && (
         <TVFocusGuideView accessibilityViewIsModal autoFocus trapFocusDown trapFocusLeft trapFocusRight trapFocusUp style={[styles.overlay, view === "profiles" && styles.fullscreenOverlay]}>
-          {view === "profiles" ? <TvProfileBackdrop accent={switchableProfiles.find((profile) => profile.id === focusedProfile)?.avatar_color ?? active.avatar_color} /> : null}
+          {view === "profiles" ? <DeferredProfileBackdrop ref={pickerBackdrop} initialAccent={active.avatar_color} /> : null}
           {view === "profiles" && !selection ? <TvPageBackButton ref={setPickerBackTarget} t={t} onPress={() => { setError(false); setView("menu"); }} /> : null}
           {view === "menu" ? (
             <TvScreenTransition surface="glass" radius={40} style={styles.menuPanel}>
@@ -229,6 +349,7 @@ export function TvProfileMenu({
               <View style={styles.menuActions}>
                 <TvButton
                   disabled={!canChooseProfile}
+                  deferPress
                   focusScale={1.025}
                   label={t("switchProfile")}
                   preferredFocus={canChooseProfile}
@@ -265,50 +386,14 @@ export function TvProfileMenu({
                 itemExtent={312}
                 keyExtractor={profileKey}
                 persistentRenderIndices={persistentProfileIndices}
-                renderItem={({ item: profile }: ListRenderItemInfo<Profile>) => {
-                  const rowFocused = focusedProfile === profile.id;
-                  return (
-                    <TvPressable
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: profile.active, disabled: Boolean(profile.pin_locked), busy }}
-                      accessibilityLabel={profile.pin_locked ? `${profile.name}. ${t("profileLocked")}` : profile.name}
-                      disabled={profile.pin_locked}
-                      nextFocusDown={pickerBackTarget ?? undefined}
-                      focusScale={1.065}
-                      hasTVPreferredFocus={profile.id === (selection?.preferredProfileId ?? active.id)}
-                      onBlur={() => setFocusedProfile((id) => id === profile.id ? null : id)}
-                      onFocus={() => setFocusedProfile(profile.id)}
-                      onPress={() => choose(profile)}
-                      style={({ pressed }) => [
-                        styles.profileCard,
-                        rowFocused && styles.profileCardFocused,
-                        profile.pin_locked && styles.profileCardDisabled,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <View style={[styles.profilePortrait, rowFocused && styles.profilePortraitFocused]}>
-                        <ProfileAvatar api={api} profile={profile} size={168} />
-                        {profile.active ? <View accessible={false} style={styles.currentBadge}>
-                          <Svg width={26} height={26} viewBox="0 0 24 24"><Path fill={colors.white} d="m9 16.2-4.2-4.2L3.4 13.4 9 19l12-12-1.4-1.4z" /></Svg>
-                        </View> : null}
-                      </View>
-                      <Text numberOfLines={2} style={[styles.profileName, rowFocused && styles.profileNameFocused]}>{profile.name}</Text>
-                      {(profile.active || profile.pin_locked) && (
-                        <Text numberOfLines={1} style={[styles.profileMeta, rowFocused && styles.profileMetaFocused]}>
-                          {profile.active ? t("currentProfile") : t("profileLocked")}
-                        </Text>
-                      )}
-                      {profile.has_pin && <Text style={[styles.pinBadge, rowFocused && styles.pinBadgeFocused]}>PIN</Text>}
-                    </TvPressable>
-                  );
-                }}
+                renderItem={renderProfile}
                 style={styles.profileList}
                 contentContainerStyle={styles.profileListContent}
                 wrapperStyle={styles.profileListWrap}
               />
               {error && <Text style={styles.error}>{t("actionFailed")}</Text>}
               {selection
-                ? <TvButton ref={setPickerBackTarget} label={t("changeInstance")} variant="ghost" disabled={busy} onPress={selection.onCancel} />
+                ? <TvButton ref={setPickerBackTarget} deferPress label={t("changeInstance")} variant="ghost" disabled={busy} onPress={selection.onCancel} />
                 : null}
             </TvScreenTransition>
           )}
@@ -347,7 +432,7 @@ export function TvProfileMenu({
             )}
             {error && <Text style={styles.error}>{t("invalidPin")}</Text>}
             <View style={styles.pinActions}>
-              <TvButton label={busy ? t("switchingProfile") : t("switchProfile")} variant="primary" disabled={!pinComplete || busy} onPress={() => void performSwitch()} />
+              <TvButton deferPress label={busy ? t("switchingProfile") : t("switchProfile")} variant="primary" disabled={!pinComplete || busy} onPress={() => void performSwitch()} />
             </View>
           </TvScreenTransition>
         </TVFocusGuideView>

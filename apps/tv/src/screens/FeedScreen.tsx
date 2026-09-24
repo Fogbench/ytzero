@@ -10,7 +10,6 @@ import { navigationLabelKey, type TvBrowseDestination } from "../navigation";
 import type { Channel, Language, Tag, Video } from "../types";
 import { TvButton } from "../components/TvButton";
 import { TvFeaturedVideo } from "../components/TvFeaturedVideo";
-import { useReducedMotion } from "../motion";
 import { TvChannelShelf } from "../components/TvChannelShelf";
 import { TvLoadingMark } from "../components/TvLoadingMark";
 import { TvShortCard } from "../components/TvShortCard";
@@ -52,7 +51,6 @@ type Props = {
 };
 
 export function FeedScreen({ active, api, videoUpdate, destination, feedSort, focusRequest, language, profileFocusTarget, showTopChannels, onPrimaryFocusTarget, onBackdropChange, onBackdropScroll, t, onOpenChannel, onSearch, onOpen, onVideoLongPress, viewportHeight: height, viewportWidth: width }: Props) {
-  const reduced = useReducedMotion();
   const contentFocusAllowed = useContentFocusAllowed();
   const home = destination === "/";
   const shortsView = destination === "/shorts";
@@ -100,7 +98,6 @@ export function FeedScreen({ active, api, videoUpdate, destination, feedSort, fo
   const hasContent = useRef(false);
   const contentSwap = useContentSwap();
   const setFilterFocused = useCallback((focused: boolean) => { filterFocused.current = focused; }, []);
-  const reveal = useRef(new Animated.Value(0)).current;
 
   const load = useCallback(async (nextPage: number, beforeAppend?: () => Promise<void>) => {
     const requestId = ++feedRequestId.current;
@@ -170,16 +167,6 @@ export function FeedScreen({ active, api, videoUpdate, destination, feedSort, fo
   }, [api, home, showTopChannels]);
 
   const screenLoading = !initialFeedLoaded || preludeLoading;
-
-  useEffect(() => {
-    if (screenLoading) {
-      reveal.setValue(0);
-      return;
-    }
-    const animation = Animated.timing(reveal, { toValue: 1, duration: reduced ? 0 : 220, useNativeDriver: true });
-    animation.start();
-    return () => animation.stop();
-  }, [reduced, reveal, screenLoading]);
 
   useEffect(() => {
     if (screenLoading || !contentFocusAllowed) return;
@@ -355,7 +342,7 @@ export function FeedScreen({ active, api, videoUpdate, destination, feedSort, fo
 
   return (
     <Animated.View
-      style={[styles.screen, home && styles.homeScreen, { width, height, transform: [{ translateY: Animated.add(contentSwap.translateY, reveal.interpolate({ inputRange: [0, 1], outputRange: [12, 0] })) }] }]}
+      style={[styles.screen, home && styles.homeScreen, { width, height, transform: [{ translateY: contentSwap.translateY }] }]}
     >
       <TvGridList
         ref={listRef}
@@ -373,7 +360,7 @@ export function FeedScreen({ active, api, videoUpdate, destination, feedSort, fo
         ListHeaderComponent={header}
         ListEmptyComponent={!error ? (
           <TvEmptyState art={emptyPresentation.art} icon={emptyPresentation.icon} title={t(emptyPresentation.title)} description={t(emptyPresentation.description)}
-            action={<TvButton ref={emptyRef} label={t(home && appliedFilter.tags.length ? "clearFilters" : home && hasSubscriptions === false ? "searchTitle" : "refresh")} nextFocusUp={profileFocusTarget} onPress={() => home && appliedFilter.tags.length ? clearTags() : home && hasSubscriptions === false ? onSearch() : void load(0)} />} />
+            action={<TvButton ref={emptyRef} deferPress={home && hasSubscriptions === false} label={t(home && appliedFilter.tags.length ? "clearFilters" : home && hasSubscriptions === false ? "searchTitle" : "refresh")} nextFocusUp={profileFocusTarget} onPress={() => home && appliedFilter.tags.length ? clearTags() : home && hasSubscriptions === false ? onSearch() : void load(0)} />} />
         ) : null}
         ListFooterComponent={(
           <>

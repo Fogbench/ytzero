@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   findNodeHandle,
-  LayoutAnimation,
   ScrollView,
   StyleSheet,
   TVFocusGuideView,
@@ -69,18 +69,13 @@ const SidebarEntry = memo(function SidebarEntry({
   onClose,
   onTarget,
 }: SidebarEntryProps) {
-  const [focused, setFocused] = useState(false);
-  useEffect(() => { if (!focusable) setFocused(false); }, [focusable]);
-
   const captureTarget = useCallback((target: View | null) => {
     onTarget(itemKey, target);
   }, [itemKey, onTarget]);
   const handleFocus = useCallback(() => {
-    setFocused(true);
     onOpen(itemKey);
   }, [itemKey, onOpen]);
   const handleBlur = useCallback(() => {
-    setFocused(false);
     onClose();
   }, [onClose]);
   const handlePress = useCallback(() => {
@@ -88,10 +83,10 @@ const SidebarEntry = memo(function SidebarEntry({
     else onActivate?.();
   }, [destination, onActivate, onNavigate]);
 
-  const iconColor = focused || active ? colors.text : colors.textMuted;
   return (
     <TvPressable
       ref={captureTarget}
+      deferPress={Boolean(destination)}
       focusScale={1.015}
       focusable={focusable}
       accessibilityRole="button"
@@ -103,19 +98,25 @@ const SidebarEntry = memo(function SidebarEntry({
       onPress={handlePress}
       style={styles.item}
     >
-      <TvControlSurface focused={focused} filled={false} radius={33} />
-      <View style={styles.iconSlot}>
-        <View style={[styles.iconTile, active && styles.iconTileActive, focused && styles.iconTileFocused]}>
-          <SidebarIcon name={icon} color={iconColor} />
-        </View>
-      </View>
-      <Animated.Text numberOfLines={1} style={[styles.label, {
-        color: iconColor,
-        opacity: labelOpacity,
-        transform: [{ translateX: labelTranslateX }],
-      }]}>
-        {label}
-      </Animated.Text>
+      {({ focused }) => {
+        const visibleFocus = focusable && focused;
+        const iconColor = visibleFocus || active ? colors.text : colors.textMuted;
+        return <>
+          <TvControlSurface focused={visibleFocus} filled={false} radius={33} />
+          <View style={styles.iconSlot}>
+            <View style={[styles.iconTile, active && styles.iconTileActive, visibleFocus && styles.iconTileFocused]}>
+              <SidebarIcon name={icon} color={iconColor} />
+            </View>
+          </View>
+          <Animated.Text numberOfLines={1} style={[styles.label, {
+            color: iconColor,
+            opacity: labelOpacity,
+            transform: [{ translateX: labelTranslateX }],
+          }]}>
+            {label}
+          </Animated.Text>
+        </>;
+      }}
     </TvPressable>
   );
 });
@@ -140,8 +141,10 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
     ? contentFocusTarget
     : contentFocusTarget ? findNodeHandle(contentFocusTarget) ?? undefined : undefined;
   const progress = useRef(new Animated.Value(0)).current;
+  const clipWidth = useRef(new Animated.Value(sidebarRailWidth)).current;
   const reduced = useReducedMotion();
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animateNextExpansion = useRef(true);
   const handledFocusRequest = useRef(focusRequest);
   const expandedChange = useRef(onExpandedChange);
   expandedChange.current = onExpandedChange;
@@ -156,16 +159,17 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
     else targets.current.delete(key);
   }, []);
   const updateExpanded = useCallback((next: boolean, animate = true) => {
+    if (!animate) {
+      clipWidth.stopAnimation();
+      progress.stopAnimation();
+      clipWidth.setValue(next ? sidebarExpandedWidth : sidebarRailWidth);
+      progress.setValue(next ? 1 : 0);
+    }
     if (expandedRef.current === next) return;
     expandedRef.current = next;
-    if (animate && !reduced) {
-      LayoutAnimation.configureNext({
-        duration: 210,
-        update: { type: LayoutAnimation.Types.easeInEaseOut },
-      });
-    }
+    animateNextExpansion.current = animate;
     setExpanded(next);
-  }, [reduced]);
+  }, [clipWidth, progress]);
   const open = useCallback((_key: string) => {
     if (!focusable) return;
     clearCloseTimer();
@@ -180,8 +184,8 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
   }, [clearCloseTimer, updateExpanded]);
   const navigate = useCallback((destination: TvDestination) => {
     clearCloseTimer();
-    // Route transitions have their own motion. Avoid applying the global
-    // LayoutAnimation transaction to the destination screen as well.
+    // Collapse before mounting the destination so its entry animation starts
+    // from the final content bounds.
     updateExpanded(false, false);
     onNavigate(destination);
   }, [clearCloseTimer, onNavigate, updateExpanded]);
@@ -203,20 +207,34 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
   useEffect(() => () => { expandedChange.current(false); }, []);
 
   useEffect(() => {
+    clipWidth.stopAnimation();
     progress.stopAnimation();
-    if (reduced) {
+    const animate = animateNextExpansion.current;
+    animateNextExpansion.current = true;
+    if (reduced || !animate) {
+      clipWidth.setValue(expanded ? sidebarExpandedWidth : sidebarRailWidth);
       progress.setValue(expanded ? 1 : 0);
       return;
     }
-    const animation = Animated.spring(progress, {
+    // Only the clipping viewport changes size. The Liquid Glass material below
+    // keeps expanded bounds, avoiding a blur re-layout on every animation frame.
+    const reveal = Animated.timing(clipWidth, {
+      toValue: expanded ? sidebarExpandedWidth : sidebarRailWidth,
+      duration: 210,
+      easing: Easing.inOut(Easing.ease),
+      isInteraction: false,
+      useNativeDriver: false,
+    });
+    const labels = Animated.spring(progress, {
       toValue: expanded ? 1 : 0,
       ...motion.focus,
       isInteraction: false,
       useNativeDriver: true,
     });
-    animation.start();
-    return () => animation.stop();
-  }, [expanded, progress, reduced]);
+    reveal.start();
+    labels.start();
+    return () => { reveal.stop(); labels.stop(); };
+  }, [clipWidth, expanded, progress, reduced]);
 
   useEffect(() => clearCloseTimer, [clearCloseTimer]);
 
@@ -253,7 +271,8 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
 
   return (
     <>
-      <View pointerEvents="box-none" style={[styles.sidebar, { width: expanded ? sidebarExpandedWidth : sidebarRailWidth }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.sidebar, { width: clipWidth }]}>
+        <View style={styles.material}>
         <TvSurface radius={40}>
           <TVFocusGuideView autoFocus focusable={focusable} destinations={!expanded && entryTarget ? [entryTarget] : undefined} trapFocusLeft style={styles.focusGuide}>
             <View style={styles.brand}>
@@ -285,7 +304,8 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
             </ScrollView>
           </TVFocusGuideView>
         </TvSurface>
-      </View>
+        </View>
+      </Animated.View>
       {focusable && !expanded && entryTarget && (
         <TVFocusGuideView destinations={[entryTarget]} style={styles.sidebarFocusBridge} />
       )}
@@ -310,6 +330,7 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     shadowOffset: { width: 16, height: 0 },
   },
+  material: { flex: 1, width: sidebarExpandedWidth },
   contentFocusBridge: { position: "absolute", zIndex: 101, left: sidebarExpandedWidth + 24, top: 0, bottom: 0, width: 240 },
   sidebarFocusBridge: { position: "absolute", zIndex: 101, left: sidebarRailWidth + 24, top: 0, bottom: 0, width: 48 },
   focusGuide: { flex: 1, width: sidebarExpandedWidth },

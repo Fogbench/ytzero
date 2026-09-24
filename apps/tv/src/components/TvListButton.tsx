@@ -1,4 +1,4 @@
-import { forwardRef, useState, type ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { StyleSheet, Text, View, type PressableProps } from "react-native";
 import { TvPressable } from "./TvPressable";
 import { TvControlSurface } from "./TvSurface";
@@ -6,6 +6,7 @@ import { colors, typography } from "../theme";
 
 /** A large remote-friendly choice with a secondary line of context. */
 export const TvListButton = forwardRef<View, Omit<PressableProps, "children"> & {
+  deferPress?: boolean;
   label: string;
   detail?: string;
   leading?: ReactNode;
@@ -16,20 +17,21 @@ export const TvListButton = forwardRef<View, Omit<PressableProps, "children"> & 
 }>(function TvListButton(
   { label, detail, leading, indicator = "chevron", surface = "filled", labelLines = 1, destructive = false, disabled, onFocus, onBlur, style, ...props }, ref,
 ) {
-  const [focused, setFocused] = useState(false);
   return (
     <TvPressable {...props} ref={ref} disabled={disabled} accessibilityRole={props.accessibilityRole ?? "button"} accessibilityState={{ ...props.accessibilityState, disabled: Boolean(disabled) }}
       focusScale={1.025}
-      onFocus={(event) => { setFocused(true); onFocus?.(event); }}
-      onBlur={(event) => { setFocused(false); onBlur?.(event); }}
+      onFocus={onFocus}
+      onBlur={onBlur}
       style={(state) => [styles.row, !detail && styles.compact, typeof style === "function" ? style(state) : style]}>
-      <TvControlSurface radius={detail ? 24 : 20} focused={focused} filled={surface === "filled"} />
-      {leading}
-      <View style={styles.text}>
-        <Text numberOfLines={labelLines} style={[styles.label, destructive && styles.destructive, focused && styles.focused, disabled && styles.disabled]}>{label}</Text>
-        {detail ? <Text numberOfLines={1} style={[styles.detail, focused && styles.focused]}>{detail}</Text> : null}
-      </View>
-      {indicator ? <Text accessible={false} style={[styles.chevron, focused && styles.focused]}>{indicator === "check" ? "✓" : "›"}</Text> : null}
+      {({ focused }) => <>
+        <TvControlSurface radius={detail ? 24 : 20} focused={focused} filled={surface === "filled"} />
+        {leading}
+        <View style={styles.text}>
+          <Text numberOfLines={labelLines} style={[styles.label, destructive && styles.destructive, focused && styles.focused, disabled && styles.disabled]}>{label}</Text>
+          {detail ? <Text numberOfLines={1} style={[styles.detail, focused && styles.focused]}>{detail}</Text> : null}
+        </View>
+        {indicator ? <Text accessible={false} style={[styles.chevron, focused && styles.focused]}>{indicator === "check" ? "✓" : "›"}</Text> : null}
+      </>}
     </TvPressable>
   );
 });

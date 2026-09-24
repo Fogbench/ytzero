@@ -13,7 +13,6 @@ import { TvFocusScope } from "./TvFocusScope";
 
 export const TvTextDetails = forwardRef<View, { text: string; title: string; t: Translate; nextFocusUp?: FocusDestination; nextFocusDown?: FocusDestination }>(function TvTextDetails({ text, title, t, nextFocusUp, nextFocusDown }, ref) {
   const [open, setOpen] = useState(false);
-  const [focused, setFocused] = useState(false);
   const [textFocused, setTextFocused] = useState(false);
   const reduced = useReducedMotion();
   const closeTarget = useRef<View>(null);
@@ -26,8 +25,8 @@ export const TvTextDetails = forwardRef<View, { text: string; title: string; t: 
   const close = () => { setOpen(false); requestAnimationFrame(() => previewTarget.current?.requestTVFocus()); };
   useTvModalBack(open, close, true);
   return <>
-    <TvPressable ref={setPreviewTarget} focusScale={1.01} accessibilityRole="button" accessibilityLabel={title} nextFocusUp={nextFocusUp} nextFocusDown={nextFocusDown}
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} onPress={() => setOpen(true)} style={[styles.preview, focused && styles.focused]}>
+    <TvPressable ref={setPreviewTarget} deferPress focusScale={1.01} accessibilityRole="button" accessibilityLabel={title} nextFocusUp={nextFocusUp} nextFocusDown={nextFocusDown}
+      onPress={() => setOpen(true)} style={({ focused }) => [styles.preview, focused && styles.focused]}>
       <Text numberOfLines={2} style={styles.text}>{text}</Text><Text style={styles.more}>{t("more")} ›</Text>
     </TvPressable>
     {open ? <Modal transparent animationType="none" onRequestClose={close} onShow={() => requestAnimationFrame(() => requestTvFocus(closeTarget.current))}>

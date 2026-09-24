@@ -65,7 +65,10 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   const { width, height } = useWindowDimensions();
   const [video, setVideo] = useState(preview);
   const [related, setRelated] = useState<Video[]>([]);
-  const [settings, setSettings] = useState<TvProfileSettings | null>(null);
+  // `undefined` means that profile settings are still loading. Keep the
+  // resolved value for the whole AVKit session instead of fetching it again
+  // for every Short selected inside the native player.
+  const [settings, setSettings] = useState<TvProfileSettings | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [playingFrom, setPlayingFrom] = useState<number | null>(autoplay ? initialPosition ?? resumePosition(preview.watch_position, preview.watch_duration, preview.watched) : null);
@@ -76,10 +79,19 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   const [saveFailed, setSaveFailed] = useState(false);
   const alive = useRef(true);
   const requestVersion = useRef(0);
+  const loadedDetailsId = useRef<string | null>(null);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; };
   }, []);
+  useEffect(() => {
+    let current = true;
+    setSettings(undefined);
+    void api.settings()
+      .then((result) => { if (current) setSettings(result.settings); })
+      .catch(() => { if (current) setSettings(null); });
+    return () => { current = false; };
+  }, [api]);
   const [portraitFailed, setPortraitFailed] = useState(false);
   const [comments, setComments] = useState<VideoComment[] | null>(null);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -128,35 +140,35 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
     setLoadError(false);
     setSaveFailed(false);
     try {
-      const [page, settingsResult] = await Promise.all([
-        api.video(preview.video_id),
-        api.settings().catch(() => null),
-      ]);
+      const page = await api.video(preview.video_id);
       if (!current()) return;
+      loadedDetailsId.current = preview.video_id;
       setVideo(page.video);
       setRelated(page.related);
-      setSettings(settingsResult?.settings ?? null);
-      if (commentsMode(settingsResult?.settings.watch_show_comments) === "auto") {
-        void loadComments();
-      }
     } catch {
       if (current()) setLoadError(true);
     } finally {
       if (current()) setLoading(false);
     }
-  }, [api, loadComments, preview.video_id]);
+  }, [api, preview.video_id]);
 
+  const detailsVisible = playingFrom === null && !returnToBrowse.current;
   useEffect(() => {
-    setVideo(preview);
+    if (!detailsVisible || loadedDetailsId.current === preview.video_id) return;
+    setVideo((current) => current.video_id === preview.video_id ? current : preview);
     setRelated([]);
-    setSettings(null);
     setComments(null);
     setCommentsLoading(false);
     setCommentsError(false);
     setPortraitFailed(false);
     void load();
     return () => { requestVersion.current++; };
-  }, [load, preview.video_id]);
+  }, [detailsVisible, load, preview, preview.video_id]);
+
+  useEffect(() => {
+    if (!detailsVisible || settings === undefined || loading || loadError || loadedDetailsId.current !== preview.video_id) return;
+    if (commentsMode(settings?.watch_show_comments) === "auto" && comments === null && !commentsLoading && !commentsError) void loadComments();
+  }, [comments, commentsError, commentsLoading, detailsVisible, loadComments, loadError, loading, preview.video_id, settings]);
 
   const closePlayer = (result: PlaybackResult, next?: Video, playedVideo = video) => {
     if (!alive.current) return;
@@ -284,13 +296,13 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
           {video.description ? <TvTextDetails ref={setDescriptionTarget} text={video.description} title={t("descriptionTitle")} t={t}
             nextFocusUp={channelTarget ?? backTarget ?? undefined} nextFocusDown={firstActionTarget ?? undefined} /> : null}
           <View style={styles.actions}>
-            <TvButton ref={setFirstActionTarget} preferredFocus icon="play"
+            <TvButton ref={setFirstActionTarget} deferPress preferredFocus icon="play"
               label={startAt > 0 ? `${t("resumePlayback")} · ${playbackTime(startAt)}` : t("playVideo")}
               variant="primary" nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined}
               nextFocusDown={queueTarget ?? relatedTarget ?? commentsTarget ?? undefined}
               onPress={() => setPlayingFrom(startAt)}
             />
-            {startAt > 0 ? <TvButton label={t("playFromStart")}
+            {startAt > 0 ? <TvButton deferPress label={t("playFromStart")}
               nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined}
               nextFocusDown={queueTarget ?? relatedTarget ?? commentsTarget ?? undefined}
               onPress={() => setPlayingFrom(0)} /> : null}
@@ -298,7 +310,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
               disabled={!queued && queue.items.length >= SESSION_QUEUE_LIMIT}
               nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined} nextFocusDown={queueTarget ?? relatedTarget ?? undefined}
               onPress={() => queued ? queue.remove(video.video_id) : queue.add(video)} /> : null}
-            <TvButton label={t("more")} icon="more"
+            <TvButton deferPress label={t("more")} icon="more"
               nextFocusUp={descriptionTarget ?? channelTarget ?? backTarget ?? undefined}
               nextFocusDown={queueTarget ?? relatedTarget ?? commentsTarget ?? undefined}
               onPress={openActions} />
@@ -310,10 +322,10 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
       {sequence.next || queue.items.length ? <TVFocusGuideView autoFocus style={styles.queueSection}>
         <Text accessibilityRole="header" style={styles.sectionTitle}>{t(sequence.next ? "upNext" : "playQueue")}</Text>
         <View style={styles.queueHeading}>
-          {sequence.next ? <View style={{ flex: 1 }}><TvListButton ref={setNextTarget} label={sequence.next.title} detail={sequence.next.channel_title}
+          {sequence.next ? <View style={{ flex: 1 }}><TvListButton ref={setNextTarget} deferPress label={sequence.next.title} detail={sequence.next.channel_title}
             nextFocusUp={firstActionTarget ?? undefined} nextFocusDown={relatedTarget ?? commentsTarget ?? undefined}
             onPress={() => onOpenVideo(sequence.next!, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true)} /></View> : null}
-          <TvButton ref={setQueueButtonTarget} label={`${t("playQueue")} · ${queue.items.length}`} icon="queue"
+          <TvButton ref={setQueueButtonTarget} deferPress label={`${t("playQueue")} · ${queue.items.length}`} icon="queue"
             nextFocusUp={firstActionTarget ?? undefined} nextFocusDown={relatedTarget ?? commentsTarget ?? undefined} onPress={() => onShowQueue(queueButtonTarget)} />
         </View>
       </TVFocusGuideView> : null}
@@ -377,26 +389,26 @@ function MetaBadge({ label, strong = false }: { label: string; strong?: boolean 
 }
 
 function ChannelButton({ api, video, nextFocusUp, nextFocusDown, onTargetReady, onPress }: { api: YtZeroApi; video: Video; nextFocusUp?: FocusDestination; nextFocusDown?: FocusDestination; onTargetReady: (target: View | null) => void; onPress: () => void }) {
-  const [focused, setFocused] = useState(false);
   const avatar = video.channel_thumbnail ? api.thumbnailSource(video.channel_thumbnail) : null;
   return (
     <TvPressable
       ref={onTargetReady}
+      deferPress
       accessibilityRole="button"
       accessibilityLabel={video.channel_title}
       nextFocusUp={nextFocusUp}
       nextFocusDown={nextFocusDown}
-      onFocus={() => { setFocused(true); }}
-      onBlur={() => { setFocused(false); }}
       onPress={onPress}
-      style={({ pressed }) => [styles.channelButton, focused && styles.channelButtonFocused, pressed && styles.channelButtonPressed]}
+      style={({ focused, pressed }) => [styles.channelButton, focused && styles.channelButtonFocused, pressed && styles.channelButtonPressed]}
     >
-      <TvControlSurface radius={39} focused={focused} filled={false} />
-      {avatar?.uri ? <Image source={avatar} style={styles.channelAvatar} /> : <View style={[styles.channelAvatar, styles.channelAvatarPlaceholder]} />}
-      <View style={styles.channelCopy}>
-        <Text numberOfLines={1} style={[styles.channelTitle, focused && styles.channelTextFocused]}>{video.channel_title}</Text>
-        {video.channel_subscriber_count ? <Text style={[styles.channelSubscribers, focused && styles.channelSubTextFocused]}>{video.channel_subscriber_count}</Text> : null}
-      </View>
+      {({ focused }) => <>
+        <TvControlSurface radius={39} focused={focused} filled={false} />
+        {avatar?.uri ? <Image source={avatar} style={styles.channelAvatar} /> : <View style={[styles.channelAvatar, styles.channelAvatarPlaceholder]} />}
+        <View style={styles.channelCopy}>
+          <Text numberOfLines={1} style={[styles.channelTitle, focused && styles.channelTextFocused]}>{video.channel_title}</Text>
+          {video.channel_subscriber_count ? <Text style={[styles.channelSubscribers, focused && styles.channelSubTextFocused]}>{video.channel_subscriber_count}</Text> : null}
+        </View>
+      </>}
     </TvPressable>
   );
 }
