@@ -55,6 +55,18 @@
   box-shadow: 0 10px 32px rgba(0,0,0,.38);
   backdrop-filter: blur(18px);
 }
+/* The decision history is a plain list, unlike every other item in this
+   panel — without its own chip it looks like it slid out from under the
+   pill instead of belonging to it. */
+.child-watching-list .child-request-history {
+  padding: 10px 4px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 15px;
+  background: rgba(27,27,30,.92);
+  box-shadow: 0 10px 32px rgba(0,0,0,.38);
+  backdrop-filter: blur(18px);
+}
+.child-watching-list .child-request-history-title { padding-left: 8px; }
 .child-watching-card {
   padding: 12px;
   overflow: hidden;

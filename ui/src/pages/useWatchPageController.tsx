@@ -22,6 +22,7 @@ import { effectivePlaybackQueue } from "../sessionPlayQueuePlayback";
 import { isContinuousPlaylistQueue, playbackEndAction } from "../playlistPlayback";
 import { restoreSidebarVisibility } from "../app-shell/sidebarVisibility";
 import { canAutoArchiveVideo, isMissingVideoError, loadYouTubeApi, resolveShareTimestamp, resolveWatchPlayerTarget, resolveWatchRoutePreview } from "./watchRuntime";
+import { captionPlayerVars, resolveWatchCaptions } from "./watchCaptions";
 import { useWatchTogetherPlayback } from "./useWatchTogetherPlayback";
 import { useYouTubeKeyboardShortcuts, type WatchShortcutKind } from "./useYouTubeKeyboardShortcuts";
 import { useUpNextQueue } from "./useUpNextQueue";
@@ -367,12 +368,16 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
         : Math.min(48, Math.max(12, Number(rawSubtitleSize) || 19));
   // A channel can either inherit the profile preference, explicitly turn
   // captions off, or force one language. These values apply to both players.
-  const channelCaptionsOff = video?.channel_caption_mode === "off";
-  const channelCaptionLanguage = video?.channel_caption_mode === "language"
-    ? video.channel_caption_language
-    : null;
-  const captionsDefaultOn = !channelCaptionsOff && (Boolean(channelCaptionLanguage) || settings?.player_cc === "1");
-  const captionsDefaultLang = channelCaptionLanguage || settings?.player_cc_lang || settings?.player_hl || "en";
+  const captions = resolveWatchCaptions({
+    channelMode: video?.channel_caption_mode,
+    channelLanguage: video?.channel_caption_language,
+    playerCc: settings?.player_cc,
+    playerCcLang: settings?.player_cc_lang,
+    playerHl: settings?.player_hl,
+  });
+  const channelCaptionsOff = captions.channelOff;
+  const captionsDefaultOn = captions.defaultOn;
+  const captionsDefaultLang = captions.language;
 
   const takeEmbeddedScreenshot = useCallback(() => {
     if (!video) {
@@ -943,14 +948,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     };
     if (startSeconds > 10) playerVars.start = startSeconds;
     if (settings?.player_hl) playerVars.hl = settings.player_hl;
-    if (captionsDefaultOn) {
-      playerVars.cc_load_policy = 1;
-      playerVars.cc_lang_pref = captionsDefaultLang;
-    } else if (channelCaptionsOff) {
-      // Do not merely omit cc_load_policy: the embedded player can otherwise
-      // restore a caption track from the browser's YouTube preference.
-      playerVars.cc_load_policy = 0;
-    }
+    Object.assign(playerVars, captionPlayerVars(captionsDefaultOn, captionsDefaultLang));
     if (settings?.player_quality && settings.player_quality !== "auto") playerVars.vq = settings.player_quality;
 
     let pollInterval: ReturnType<typeof setInterval>;
