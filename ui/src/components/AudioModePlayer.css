@@ -133,6 +133,7 @@
   box-sizing: border-box;
   padding: 0;
 }
+.audio-mode-player:focus { outline: none; }
 
 .audio-mode-play {
   flex: 0 0 auto;

@@ -34,7 +34,6 @@ import { useWatchPlaybackPosition } from "./useWatchPlaybackPosition";
 import { useYouTubeMediaSession } from "./useYouTubeMediaSession";
 import { resolveShortcutBindings, SHORTCUT_CLOSE_EVENT, shortcutActionMatches } from "../keyboardShortcuts";
 import { normalizeWatchCommentsMode } from "../../../shared/watchComments";
-import { applyEmbeddedPlayerCommand } from "./embeddedPlayerCommand";
 
 const CINEMA_MODE_KEY = "watchCinemaMode";
 export function useWatchPageController(audioModeRequested: boolean = false) {
@@ -978,8 +977,12 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
           onReady: (e: any) => {
             if (destroyed) return;
             applySpeed(e.target);
+            const iframe = e.target?.getIframe?.() as HTMLIFrameElement | undefined;
+            if (iframe) {
+              iframe.setAttribute("aria-label", video?.title ?? "");
+              iframe.removeAttribute("title");
+            }
             if (watchTogetherTransportLockedRef.current) {
-              const iframe = e.target?.getIframe?.() as HTMLIFrameElement | undefined;
               if (iframe) iframe.tabIndex = -1;
             }
             if (channelCaptionsOff) {
@@ -1168,17 +1171,13 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
       else if (matches("close", e)) { e.preventDefault(); closeWatchMode(); }
       else if (matches("toggleFullscreen", e) && playerKind !== "local" && playerKind !== "stream" && playerKind !== "direct") {
         e.preventDefault();
-        if (!e.repeat) void applyEmbeddedPlayerCommand({
-          audioActive,
-          command: "toggle-fullscreen",
-          fallback: () => {
-            const el = playerWrapRef.current ?? document.documentElement;
-            if (!document.fullscreenElement) el.requestFullscreen?.();
-            else document.exitFullscreen?.();
-          },
-          playerKind,
-          videoId: id,
-        });
+        if (!e.repeat) {
+          const el = playerWrapRef.current ?? document.documentElement;
+          // requestFullscreen needs the keydown's user activation. Waiting for
+          // an extension command result can leave the fallback unable to open.
+          if (!document.fullscreenElement) void el.requestFullscreen?.();
+          else void document.exitFullscreen?.();
+        }
       }
     };
     document.addEventListener("keydown", onKey);

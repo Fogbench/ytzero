@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
 import "./WatchPage.css";
 import { emitToast } from "../events";
 import { Link } from "react-router-dom";
@@ -78,6 +78,29 @@ export default function WatchPage() {
   // The controller derives the effective active state from video/profile/room
   // eligibility before it decides whether to mount the iframe.
   const controller = useWatchPageController(audioMode);
+  const activeVideoId = controller?.id;
+  const focusPlayerKind = controller?.playerKind;
+  const focusAudioActive = controller?.audioActive;
+  const focusPlayerWrapRef = controller?.playerWrapRef;
+  const playerReady = Boolean(controller);
+  useEffect(() => {
+    const wrap = focusPlayerWrapRef?.current;
+    if (!activeVideoId || !wrap || (!focusAudioActive && !["local", "stream", "direct", "youtube"].includes(focusPlayerKind ?? ""))) return;
+    // The top bar survives route changes. Focus the player surface, keeping
+    // YouTube keys in this document: iframe key events cannot reach F here.
+    const focusPlayer = () => {
+      const target = wrap.querySelector<HTMLElement>(focusAudioActive ? ".audio-mode-player" : focusPlayerKind === "youtube" ? ".watch-player-yt" : ".lp-video");
+      if (!target) return false;
+      target.focus({ preventScroll: true });
+      return true;
+    };
+    if (focusPlayer()) return;
+    const observer = new MutationObserver(() => {
+      if (focusPlayer()) observer.disconnect();
+    });
+    observer.observe(wrap, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [activeVideoId, focusAudioActive, focusPlayerKind, focusPlayerWrapRef, playerReady]);
   if (!controller) return null;
   const {
     activePlaylistItemRef,
@@ -350,7 +373,7 @@ export default function WatchPage() {
                   downloadLabel={t("downloadLocally")}
                 />
               ) : playerKind === "youtube" ? (
-                <div ref={ytWrapRef} className="watch-player-yt" />
+                <div ref={ytWrapRef} className="watch-player-yt" tabIndex={-1} aria-label={video?.title} />
               ) : playerKind === "loading" ? (
                 <div className="wp-panel" style={video ? { backgroundImage: `url(${videoThumbnail(video.thumbnail)})` } : undefined}>
                   <div className="wp-panel-scrim" />

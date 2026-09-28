@@ -62,7 +62,7 @@ const PublicYouTubePlayer = forwardRef<WatchPlayerHandle, {
       start: String(Math.max(0, Math.floor(startSeconds))),
     });
     iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${query}`;
-    iframe.title = title;
+    iframe.setAttribute("aria-label", title);
     iframe.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
     iframe.allowFullscreen = true;
     iframe.referrerPolicy = "origin";
@@ -74,7 +74,12 @@ const PublicYouTubePlayer = forwardRef<WatchPlayerHandle, {
       if (!target.YT?.Player) return;
       player = new target.YT.Player(iframe, {
         events: {
-          onReady: (event: { target: WatchPlayerHandle }) => { playerRef.current = event.target; },
+          onReady: (event: { target: WatchPlayerHandle }) => {
+            playerRef.current = event.target;
+            // The YouTube API may add its own title when it adopts the iframe.
+            // Keep the accessible name without the browser hover tooltip.
+            event.target.getIframe?.()?.removeAttribute("title");
+          },
           onStateChange: (event: { data: number }) => { if (event.data === 0) onEndedRef.current?.(); },
         },
       });

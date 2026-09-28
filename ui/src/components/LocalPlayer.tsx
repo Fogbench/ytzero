@@ -721,7 +721,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     >
       <video
         ref={videoRef}
+        tabIndex={-1}
         className="lp-video"
+        aria-label={title}
         src={hls ? undefined : src}
         poster={poster}
         autoPlay={autoplay}
