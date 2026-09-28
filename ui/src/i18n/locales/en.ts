@@ -605,6 +605,8 @@ export const en = {
     feedMaxAge: "Oldest videos in the feed",
     feedMaxAgeHint: "Videos published before this are kept in your library and on channel pages, but never appear in the feed.",
     feedMaxAgeOff: "No limit",
+    keepWatchedInFeed: "Keep watched videos in feed",
+    keepWatchedInFeedHint: "Keeps watched videos in your feeds with their normal watched appearance and full progress bar.",
     watchShowRelated: "Suggested videos on the watch page",
     watchShowRelatedHint: "Shows the \"More like this\" list next to the player. Turn it off to keep a session to what you deliberately opened.",
     watchShowComments: "Comments on the watch page",

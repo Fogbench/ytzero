@@ -7,6 +7,7 @@ import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import { img } from "../img";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { EmptyState, RevealList } from "../components/ui";
 import { searchResultVideo } from "../searchResultVideo";
@@ -133,7 +134,7 @@ export default function SearchPage({ onPlay, hideExternalSearch = false }: { onP
               expanded={localResultsExpanded}
               onToggle={toggleLocalResults}
               busy={localLoadingMore}
-              renderRow={(video) => <VideoCard key={video.video_id} video={video} onPlay={onPlay} onChanged={reloadLocalVideos} searchResultLayout />}
+              renderRow={(video) => <VideoCard key={video.video_id} video={video} onPlay={onPlay} onChanged={reloadLocalVideos} keepAfter={STATE_ONLY_FEEDBACK} searchResultLayout />}
             />
           )}
           </div>}

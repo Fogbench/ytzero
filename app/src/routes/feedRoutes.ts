@@ -2,7 +2,7 @@ import type { Context, Hono } from "hono";
 import { database } from "../database";
 import { getUserSetting } from "../db";
 import { childHidesLive } from "../childTime";
-import { feedVisibilityWhere, feedSortSql, feedSourceExists, tagFilterSql, filterOnlySql, shortsUiVisibilitySql } from "../feedQuery";
+import { feedVisibilityWhere, feedSortSql, feedSourceExists, keepsWatchedInFeed, tagFilterSql, filterOnlySql, shortsUiVisibilitySql } from "../feedQuery";
 import { videoSelect, type VideoRow } from "../videoRoutesSupport";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
@@ -70,6 +70,9 @@ api.get("/feed", async (c) => {
     }
     if (c.req.query("only_shorts") === "1") {
       where.push("v.is_short = 1");
+      // The Shorts feed is the same inbox as Main — a finished short leaves it under the same
+      // rule, whether it was completed in the player or marked from a card.
+      if (!keepsWatchedInFeed(uid)) where.push("COALESCE(uv.watched, 0) = 0");
     }
     // Keep live/upcoming streams available in the dedicated Live tab, while
     // allowing each profile to keep its main feed focused on regular uploads.
@@ -120,9 +123,10 @@ api.get("/feed", async (c) => {
 });
 
 // The next/previous video in the selected main-feed order, skipping
-// anything already watched. Backs the "autoplay my feed" setting — resolved
-// server-side (rather than walking the client's loaded pages) so it always
-// matches the full feed regardless of how many pages the UI has fetched.
+// anything already watched — including for a profile that keeps watched videos on
+// display. Backs the "autoplay my feed" setting — resolved server-side (rather than
+// walking the client's loaded pages) so it always matches the full feed regardless
+// of how many pages the UI has fetched.
 api.get("/feed/adjacent", async (c) => {
   const uid = currentUserId(c);
   const videoId = c.req.query("video_id");
@@ -134,7 +138,7 @@ api.get("/feed/adjacent", async (c) => {
   const anchorTime = feedSort === "arrival" ? anchor?.created_at : anchor?.published_at;
   if (!anchor || !anchorTime) return c.json({ video: null });
 
-  const { where, params } = feedVisibilityWhere(c.req.query(), uid);
+  const { where, params } = feedVisibilityWhere(c.req.query(), uid, { skipWatched: true });
   where.push(shortsUiVisibilitySql(uid));
   const comparison = direction === "oldest" ? ">" : "<";
   where.push(`(${sortColumn} ${comparison} ? OR (${sortColumn} = ? AND v.video_id ${comparison} ?))`);

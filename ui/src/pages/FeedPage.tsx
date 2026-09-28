@@ -10,7 +10,8 @@ import { img } from "../img";
 import ChildTimeRequestBanner from "../components/ChildTimeRequestBanner";
 import EmptyArt from "../components/illustrations/EmptyArt";
 import TagFilterBar from "../components/TagFilterBar";
-import VideoCard, { type CardFeedback } from "../components/VideoCard";
+import VideoCard from "../components/VideoCard";
+import { keepsCard, videoAfterFeedback, WATCHED_FEEDBACK, type CardFeedback } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { GRID_SIZES, persistGridSize, readGridSize, type GridSize } from "../gridSize";
 import { Button, ButtonLink, Divider, EmptyState, IconButton, RevealRegion } from "../components/ui";
@@ -128,11 +129,13 @@ export default function FeedPage({
   onPlay,
   showToast,
   feedSort,
+  keepWatchedInFeed,
   showTopChannels,
 }: {
   onPlay: PlayVideo;
   showToast: (m: string) => void;
   feedSort: FeedSort;
+  keepWatchedInFeed: boolean;
   showTopChannels: boolean;
 }) {
   const { t } = useI18n();
@@ -357,8 +360,16 @@ export default function FeedPage({
     loadInProgress();
   };
 
-  const removeFromFeed = (videoId?: string) => {
-    if (videoId) setVideos((current) => current.filter((v) => v.video_id !== videoId));
+  // A profile that keeps watched videos in the feed sees the card stay in place, marked watched,
+  // with the full progress bar the watched appearance setting already draws.
+  const handleFeedCardChanged = (videoId?: string, feedback?: CardFeedback) => {
+    if (videoId && feedback && keepWatchedInFeed && keepsCard(WATCHED_FEEDBACK, feedback)) {
+      setVideos((current) => current.map((video) => video.video_id === videoId
+        ? videoAfterFeedback(video, feedback)
+        : video));
+    } else if (videoId) {
+      setVideos((current) => current.filter((video) => video.video_id !== videoId));
+    }
     loadQueued();
     loadInProgress();
   };
@@ -367,7 +378,11 @@ export default function FeedPage({
     if (!videoId) return;
     loadQueued();
 
-    if (feedback !== "unwatched") {
+    // Both finishing and un-finishing a video take it out of Continue watching. It returns to the
+    // chronological grid below either as unwatched again, or — for a profile that keeps watched
+    // videos — marked watched.
+    const returningFeedback = feedback === "unwatched" || (keepWatchedInFeed && feedback === "watched") ? feedback : null;
+    if (!returningFeedback) {
       setVideos((current) => current.filter((video) => video.video_id !== videoId));
       loadInProgress();
       return;
@@ -375,7 +390,7 @@ export default function FeedPage({
 
     api.inProgress().then((result) => {
       setVideos((current) => current.map((video) => video.video_id === videoId
-        ? { ...video, watched: null, watch_position: null, watch_duration: null, status: "inbox" }
+        ? videoAfterFeedback(video, returningFeedback)
         : video));
       setEnteringFeedVideoId(videoId);
       setInProgress(result.videos.filter((video) => video.is_short === 0));
@@ -539,7 +554,8 @@ export default function FeedPage({
                 key={v.video_id}
                 video={v}
                 onPlay={handleFeedPlay}
-                onChanged={removeFromFeed}
+                onChanged={handleFeedCardChanged}
+                keepAfter={keepWatchedInFeed ? WATCHED_FEEDBACK : undefined}
                 entering={v.video_id === enteringFeedVideoId}
                 showFoundTime={feedSort === "arrival"}
               />

@@ -34,6 +34,7 @@ import { Badge } from "./ui";
 import { useDeArrowBranding } from "../dearrow";
 import { readAppliedVideoCardActionsMode, type VideoCardActionsMode } from "../videoCardActions";
 import { videoCardSwipeEnabled } from "../videoCardSwipeRuntime";
+import { keepsCard as listKeepsCard, videoAfterFeedback, type CardFeedback } from "../videoCardKeep";
 import { useAppliedVideoCardActionConfig, type VideoCardActionConfig, type VideoCardActionId } from "../videoCardActionConfig";
 import { otherPlaybackModeIsAudioOnly, playVideoInOtherPlaybackMode } from "../videoCardPlaybackMode";
 import { claimVideoCardPreview, readVideoCardPreviewMode, releaseVideoCardPreview } from "../videoCardPreview";
@@ -52,7 +53,7 @@ const SWIPE_FEEDBACK_MS = 720;
 const FINAL_EXIT_MS = 280;
 const ACTION_HOVER_DELAY_MS = 3_000;
 const VIDEO_PREVIEW_HOVER_DELAY_MS = 700;
-export type CardFeedback = "watched" | "unwatched" | "rejected" | "restored" | "scheduled" | "unscheduled" | "removed";
+export type { CardFeedback } from "../videoCardKeep";
 
 /** Duration in seconds for sorting/comparing; null when the string is unparseable. */
 export function parseVideoDurationSeconds(duration: string | null): number | null {
@@ -142,6 +143,7 @@ export function VideoCard({
   readOnly = false,
   allowReject = true,
   allowMarkWatched = true,
+  keepAfter,
   entering = false,
   showFoundTime = false,
   processing = video.published_at == null || video.published_at === "",
@@ -168,6 +170,9 @@ export function VideoCard({
   allowReject?: boolean;
   /** Keep watched/unwatched actions and the right-swipe gesture available. */
   allowMarkWatched?: boolean;
+  /** Feedback kinds after which this list keeps the card. The card shows the usual confirmation,
+   *  then returns in place carrying the new state instead of animating out. */
+  keepAfter?: readonly CardFeedback[];
   /** Briefly animate a card that has just moved into this grid. */
   entering?: boolean;
   /** Main-feed arrival view: show both YouTube publication and first-seen times. */
@@ -190,6 +195,9 @@ export function VideoCard({
   const navigate = useNavigate();
   const [fading, setFading] = useState(false);
   const [removed, setRemoved] = useState(false);
+  // Set the moment a kept action succeeds so the card already reads as watched or archived while
+  // the parent list is still refetching; cleared once the incoming video carries the change.
+  const [keptFeedback, setKeptFeedback] = useState<CardFeedback | null>(null);
   const [actionProximity, setActionProximity] = useState(0);
   const [actionsPinned, setActionsPinned] = useState(false);
   const [actionsHovered, setActionsHovered] = useState(false);
@@ -209,6 +217,12 @@ export function VideoCard({
   const previewTimerRef = useRef<number | null>(null);
   const blockNextThumbClickRef = useRef(false);
   const blockClickAfterDragRef = useRef(false);
+  const dismissalStateRef = useRef(`${video.status}:${isWatched ?? video.watched === 1}`);
+  const keptHoldRef = useRef(false);
+  const shownVideo = keptFeedback ? videoAfterFeedback(video, keptFeedback) : video;
+  const status = shownVideo.status;
+  // A kept action already knows what it did to this card; otherwise the list decides.
+  const watched = keptFeedback ? shownVideo.watched === 1 : isWatched ?? video.watched === 1;
   const appliedActionsMode = readAppliedVideoCardActionsMode();
   const swipeEnabledForDevice = videoCardSwipeEnabled();
   const appliedActionConfig = useAppliedVideoCardActionConfig();
@@ -225,6 +239,25 @@ export function VideoCard({
     releaseVideoCardPreview(stopPreview);
     setPreviewActive(false);
   }, []);
+
+  useEffect(() => {
+    const next = `${video.status}:${isWatched ?? video.watched === 1}`;
+    if (dismissalStateRef.current === next) return;
+    dismissalStateRef.current = next;
+    // The incoming video now carries what a kept action applied ahead of the list.
+    setKeptFeedback(null);
+    // That action is still showing its confirmation and settles the card itself.
+    if (keptHoldRef.current) return;
+    // A parent list may keep the same video after refreshing its watched or
+    // archive state. Reset the transient swipe dismissal so the updated card
+    // can return without requiring a full page remount.
+    setRemoved(false);
+    setFading(false);
+    setSwipeX(0);
+    setSwiping(false);
+    setCommittedDir(null);
+    setCommittedFeedback(null);
+  }, [isWatched, video.status, video.watched]);
 
   const schedulePreview = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType !== "mouse" || previewTimerRef.current != null || previewActive) return;
@@ -253,8 +286,29 @@ export function VideoCard({
     }, FINAL_EXIT_MS);
   };
 
-  const fade = (fn: () => Promise<unknown>, feedback: CardFeedback = "rejected") => {
+  const keepsCard = (feedback?: CardFeedback) => listKeepsCard(keepAfter, feedback);
+
+  /** Apply a kept action in place: mark the video, tell the list, then settle the card back. */
+  const keepAfterAction = (feedback: CardFeedback) => {
+    setKeptFeedback(feedback);
+    keptHoldRef.current = true;
+    onChanged(video.video_id, feedback);
+    window.setTimeout(() => {
+      keptHoldRef.current = false;
+      setSwipeX(0);
+      setFading(false);
+      setCommittedDir(null);
+      setCommittedFeedback(null);
+    }, SWIPE_FEEDBACK_MS);
+  };
+
+  const fade = (fn: () => Promise<unknown>, feedback: CardFeedback) => {
     fn().then(() => {
+      // A kept card needs no exit: the new watched or archived state is the confirmation.
+      if (keepsCard(feedback)) {
+        keepAfterAction(feedback);
+        return;
+      }
       setCommittedFeedback(feedback);
       setCommittedDir(feedback === "watched" ? "right" : "left");
       setFading(true);
@@ -262,7 +316,7 @@ export function VideoCard({
     });
   };
 
-  const act = (e: MouseEvent, fn: () => Promise<unknown>, feedback?: CardFeedback) => {
+  const act = (e: MouseEvent, fn: () => Promise<unknown>, feedback: CardFeedback) => {
     e.stopPropagation();
     fade(fn, feedback);
   };
@@ -273,8 +327,7 @@ export function VideoCard({
       return result;
     });
 
-  const markWatchedAndArchive = () =>
-    api.complete(video.video_id).then(() => api.archiveVideo(video.video_id));
+  const markWatched = () => api.complete(video.video_id);
 
   const markUnwatched = () => api.markUnwatched(video.video_id);
 
@@ -299,7 +352,7 @@ export function VideoCard({
 
   const bind = useDrag(
     ({ active, movement: [mx], tap, cancel, last }) => {
-      if (tap || video.status === "archived") return;
+      if (tap || status === "archived") return;
       const allowedMovement = (mx < 0 && !allowReject) || (mx > 0 && !allowMarkWatched) ? 0 : mx;
 
       if (active) {
@@ -340,15 +393,23 @@ export function VideoCard({
       const cardWidth = cardRef.current?.getBoundingClientRect().width ?? SWIPE_MAX_DRAG;
       const exitX = (dir === "left" ? -1 : 1) * (cardWidth + SWIPE_EXIT_GUTTER);
       setSwiping(false);
+      // The right swipe mirrors this card's own watched button: on an already watched video it
+      // takes the mark back instead of completing it a second time.
+      const feedback: CardFeedback = dir === "left" ? "rejected" : watched ? "unwatched" : "watched";
       setCommittedDir(dir);
-      setCommittedFeedback(dir === "left" ? "rejected" : "watched");
+      setCommittedFeedback(feedback);
       setSwipeX(exitX);
       setFading(true);
       const action = dir === "left"
         ? api.archiveVideo(video.video_id)
-        : markWatchedAndArchive();
+        : feedback === "unwatched" ? markUnwatched() : markWatched();
       action.then(() => {
-        setTimeout(() => removeWithLayoutAnimation(dir === "left" ? "rejected" : "watched"), SWIPE_FEEDBACK_MS);
+        // The swipe reveal reads the same either way; a kept card then slides back marked.
+        if (keepsCard(feedback)) {
+          keepAfterAction(feedback);
+          return;
+        }
+        setTimeout(() => removeWithLayoutAnimation(feedback), SWIPE_FEEDBACK_MS);
       });
     } else {
       setCommittedDir(null);
@@ -461,7 +522,7 @@ export function VideoCard({
   const swipeDir = swipeX < -4 ? "left" : swipeX > 4 ? "right" : null;
   const activeSwipeDir = committedDir ?? swipeDir;
   const revealFeedback: CardFeedback | null = committedFeedback
-    ?? (activeSwipeDir === "right" ? "watched" : activeSwipeDir === "left" ? "rejected" : null);
+    ?? (activeSwipeDir === "right" ? (watched ? "unwatched" : "watched") : activeSwipeDir === "left" ? "rejected" : null);
   const RevealIcon = revealFeedback === "watched"
     ? Eye
     : revealFeedback === "unwatched"
@@ -499,7 +560,6 @@ export function VideoCard({
           : revealFeedback === "unscheduled"
             ? "swipe-reveal--unscheduled"
             : "swipe-reveal--right";
-  const watched = isWatched ?? video.watched === 1;
   const visibleActionIds = actionConfig.actions.filter((action) => !action.hidden).map((action) => action.id);
   const otherPlaybackModeIsAudio = otherPlaybackModeIsAudioOnly();
   const scheduleIndex = visibleActionIds.indexOf("schedule");
@@ -533,19 +593,20 @@ export function VideoCard({
           <button className="action-btn" aria-label={video.downloads_enabled ? t("downloadLocally") : t("enableDownloadsFeature")} onClick={requestLocalDownload}><ArrowDownToLine /></button>
         </Tooltip>;
       case "archive":
-        return allowReject && video.status !== "archived" ? <Tooltip key={id} text={t("reject")} portal={actionsInBar}>
+        return allowReject && status !== "archived" ? <Tooltip key={id} text={t("reject")} portal={actionsInBar}>
           <button className="action-btn" aria-label={t("reject")} onClick={(e) => act(e, () => api.archiveVideo(video.video_id), "rejected")}><Archive /></button>
         </Tooltip> : null;
       case "watched":
         return allowMarkWatched && watched ? <Tooltip key={id} text={t("markUnwatched")} portal={actionsInBar}>
           <button className="action-btn" aria-label={t("markUnwatched")} onClick={(e) => act(e, markUnwatched, "unwatched")}><EyeOff /></button>
-        </Tooltip> : allowMarkWatched && video.status !== "archived" ? <Tooltip key={id} text={t("markWatched")} portal={actionsInBar}>
-          <button className="action-btn" aria-label={t("markWatched")} onClick={(e) => act(e, markWatchedAndArchive, "watched")}><Eye /></button>
+        </Tooltip> : allowMarkWatched && status !== "archived" ? <Tooltip key={id} text={t("markWatched")} portal={actionsInBar}>
+          <button className="action-btn" aria-label={t("markWatched")} onClick={(e) => act(e, markWatched, "watched")}><Eye /></button>
         </Tooltip> : null;
       case "restore":
-        return showRestore ? <button key={id} className="action-btn" aria-label={t("restore")} onClick={(e) => act(e, () => api.restore(video.video_id), "restored")}><Undo2 /></button> : null;
+        // A list that keeps rejected cards also has to offer the way back out of the archive.
+        return showRestore || (status === "archived" && keepsCard("restored")) ? <button key={id} className="action-btn" aria-label={t("restore")} onClick={(e) => act(e, () => api.restore(video.video_id), "restored")}><Undo2 /></button> : null;
       case "remove":
-        if (onRemoveFromPlaylist) return <button key={id} className="action-btn" aria-label={t("removeFromPlaylist")} onClick={(e) => act(e, () => onRemoveFromPlaylist(video.video_id))}><Trash2 /></button>;
+        if (onRemoveFromPlaylist) return <button key={id} className="action-btn" aria-label={t("removeFromPlaylist")} onClick={(e) => act(e, () => onRemoveFromPlaylist(video.video_id), "removed")}><Trash2 /></button>;
         return onRemoveFromHistory && video.history_id != null ? <button key={id} className="action-btn" aria-label={t("removeFromHistory")} onClick={(e) => act(e, () => onRemoveFromHistory(video.history_id!), "removed")}><Trash2 /></button> : null;
       case "otherPlaybackMode": {
         if (otherPlaybackModeIsAudio && (video.is_private === 1 || video.members_only === 1 || video.live_status === "upcoming")) return null;
@@ -652,8 +713,8 @@ export function VideoCard({
                 <VideoThumbnail
                   src={displayThumbnail}
                   watched={watched}
-                  progress={video.status !== "archived" || showWatchProgress
-                    ? watchProgress(video.watch_position, video.watch_duration)
+                  progress={status !== "archived" || showWatchProgress
+                    ? watchProgress(shownVideo.watch_position, shownVideo.watch_duration)
                     : null}
                   variant="card"
                   loading="lazy"

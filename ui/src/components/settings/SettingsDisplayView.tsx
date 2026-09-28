@@ -62,6 +62,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     isCurrentTabLocked,
     isPrimary,
     keyboardSeekSeconds,
+    keepWatchedInFeed,
     language,
     load,
     membersOnlyVisibility,
@@ -108,6 +109,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     timeZone, timeZoneLocked,
     toggleFeedAutoplay,
     toggleLiveFromFeed,
+    toggleKeepWatchedInFeed,
     toggleSb,
     toggleSbCategory,
     toggleTopChannels, toggleChannelPostsTab,
@@ -263,6 +265,10 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
                 ]}
               />
             </Inline>
+          </SettingRow>
+
+          <SettingRow label={t("keepWatchedInFeed")} description={t("keepWatchedInFeedHint")}>
+            <Switch checked={keepWatchedInFeed} onCheckedChange={toggleKeepWatchedInFeed} />
           </SettingRow>
 
           <SettingRow label={t("membersOnlyVisibility")} description={t("membersOnlyVisibilityHint")}>

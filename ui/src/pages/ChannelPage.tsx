@@ -9,6 +9,7 @@ import TagCreateForm from "../components/TagCreateForm";
 import TagPickerMenu from "../components/TagPickerMenu";
 import Tooltip from "../components/Tooltip";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { img } from "../img";
 import { emit } from "../events";
@@ -649,7 +650,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
           <SectionHeader title={t("liveBadge")} icon={<Radio />} variant="uppercase" className="channel-live-title" />
           <div className="video-grid">
             {liveStreams.map((v) => (
-              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} />
+              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} keepAfter={STATE_ONLY_FEEDBACK} />
             ))}
           </div>
         </section>
@@ -695,7 +696,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
             </section>}
             {searchVideos.length > 0 && <section>
               <SectionHeader title={t("videos")} icon={<VideoIcon />} />
-              <div className="video-grid">{searchVideos.map((video) => <VideoCard key={video.video_id} video={video} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} />)}</div>
+              <div className="video-grid">{searchVideos.map((video) => <VideoCard key={video.video_id} video={video} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} keepAfter={STATE_ONLY_FEEDBACK} />)}</div>
             </section>}
           </div>
       )}
@@ -711,7 +712,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
         ) : (
           <div className="video-grid">
             {regularVideos.map((v) => (
-              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} />
+              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} keepAfter={STATE_ONLY_FEEDBACK} />
             ))}
           </div>
         ))}
@@ -722,7 +723,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
         ) : (
           <div className="video-grid">
             {shorts.map((v) => (
-              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} />
+              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} keepAfter={STATE_ONLY_FEEDBACK} />
             ))}
           </div>
         )
@@ -736,7 +737,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
         ) : (
           <div className="video-grid">
             {processingVideos.map((v) => (
-              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} />
+              <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={reload} showChannelAvatar={false} keepAfter={STATE_ONLY_FEEDBACK} />
             ))}
           </div>
         )

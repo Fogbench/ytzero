@@ -83,7 +83,7 @@ export function useAppPreferences() {
       .finally(() => setPermissionsReady(true));
   }, []);
   useEffect(() => {
-    const events = ["app-name-changed", "sidebar-nav-changed", "watched-style-changed", "video-card-size-changed",
+    const events = ["app-name-changed", "sidebar-nav-changed", "watched-style-changed", "video-card-size-changed", "feed-visibility-settings-changed",
       "video-card-actions-changed", "player-settings-changed", "child-watching-settings-changed", "top-channels-changed", "shorts-settings-changed"];
     const unsubscribes = events.map((event) => subscribe(event, loadSettings));
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());

@@ -33,6 +33,7 @@ type AppRoutesProps = {
   childStatus: ChildStatus | null;
   enabledPluginRoutes: Set<string> | null;
   feedSort: "published" | "arrival";
+  keepWatchedInFeed: boolean;
   isAdmin: boolean;
   onPlay: (video: Video, playbackQueue?: PlaybackQueueContext) => void;
   profilePermissions: ProfilePermissions;
@@ -46,6 +47,7 @@ export default function AppRoutes({
   childStatus,
   enabledPluginRoutes,
   feedSort,
+  keepWatchedInFeed,
   isAdmin,
   onPlay,
   profilePermissions,
@@ -56,7 +58,7 @@ export default function AppRoutes({
   return (
     <Suspense fallback={<DelayedPageSkeleton delay={200} />}>
       <Routes>
-        <Route path="/" element={<FeedPage onPlay={onPlay} showToast={showToast} feedSort={feedSort} showTopChannels={showTopChannels} />} />
+        <Route path="/" element={<FeedPage onPlay={onPlay} showToast={showToast} feedSort={feedSort} keepWatchedInFeed={keepWatchedInFeed} showTopChannels={showTopChannels} />} />
         <Route path="/search" element={<SearchPage onPlay={onPlay} hideExternalSearch={childStatus?.local_only ?? false} />} />
         <Route path="/recommendations" element={enabledPluginRoutes?.has("/recommendations")
           ? <RecommendationsPage onPlay={onPlay} loadRecommendations={api.recommendations} />

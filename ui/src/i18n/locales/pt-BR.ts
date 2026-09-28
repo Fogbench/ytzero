@@ -697,6 +697,8 @@ export const ptBR: Locale = {
     "feedMaxAge": "Vídeos mais antigos no feed",
     "feedMaxAgeHint": "Vídeos publicados antes disso são mantidos em sua biblioteca e em páginas de canal, mas nunca aparecem no feed.",
     "feedMaxAgeOff": "Sem limite",
+    "keepWatchedInFeed": "Manter vídeos assistidos no feed",
+    "keepWatchedInFeedHint": "Mantém os vídeos assistidos nos feeds com a aparência configurada e a barra de progresso completa.",
     "watchShowRelated": "Vídeos sugeridos na página de observação",
     "watchShowRelatedHint": "Mostra a lista \"Mais como esta\" ao lado do jogador. Desliga-o para manter uma sessão daquilo que deliberadamente abriste.",
     "watchShowComments": "Comentários na página de observação",

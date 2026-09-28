@@ -70,6 +70,13 @@ export default function ShortCard({
       .catch(() => {});
   };
 
+  const markWatched = (e: MouseEvent) => {
+    e.stopPropagation();
+    api.complete(video.video_id)
+      .then(() => onWatched(video.video_id, true))
+      .catch(() => {});
+  };
+
   const views = formatViewsCount(video.views, language);
   const timeAgo = formatTimeAgo(video.published_at, language);
   const meta = [views, timeAgo].filter(Boolean).join(" · ");
@@ -123,12 +130,7 @@ export default function ShortCard({
           </Tooltip>
         ) : video.status !== "archived" ? (
           <Tooltip text={t("markWatched")}>
-            <button
-              className="sc-btn"
-              onClick={removeWith(() =>
-                api.complete(video.video_id).then(() => api.archiveVideo(video.video_id))
-              )}
-            >
+            <button className="sc-btn" onClick={markWatched}>
               <Eye size={16} />
             </button>
           </Tooltip>

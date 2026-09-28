@@ -4,6 +4,7 @@ import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { Button, Chip, EmptyState, PageHeader } from "../components/ui";
 import EmptyArt from "../components/illustrations/EmptyArt";
@@ -65,7 +66,7 @@ export default function LikedPage({ onPlay, shortsEnabled }: { onPlay: PlayVideo
         <>
           <div className="video-grid">
             {videos.map((v) => (
-              <VideoCard key={v.video_id} video={v} onPlay={(video) => onPlay(video, playbackQueue)} onChanged={() => { setPage(0); load(0); }} />
+              <VideoCard key={v.video_id} video={v} onPlay={(video) => onPlay(video, playbackQueue)} onChanged={() => { setPage(0); load(0); }} keepAfter={STATE_ONLY_FEEDBACK} />
             ))}
           </div>
           {loadingMore && <VideoGridSkeleton count={4} />}

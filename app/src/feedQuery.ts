@@ -22,6 +22,12 @@ export interface FeedVisibilityQuery {
 
 export type ShortsFeedMode = "disabled" | "0" | "selected" | "1";
 
+// Whether completed videos stay in this profile's feeds. Shared by the main feed, the Shorts
+// feed and the cleanup view so "what a feed shows" stays one rule.
+export function keepsWatchedInFeed(userId: number): boolean {
+  return getUserSetting(userId, "keep_watched_in_feed") === "1";
+}
+
 export function shortsFeedMode(userId: number): ShortsFeedMode {
   const value = getUserSetting(userId, "show_shorts");
   return value === "disabled" || value === "1" || value === "selected" ? value : "0";
@@ -52,11 +58,13 @@ export function appendShortsFeedVisibility(where: string[], userId: number): voi
 // `includeHidden` skips every taste-based hiding rule (shorts, live, members-only
 // visibility, filter-only tags) while keeping the core "belongs to this profile's
 // library" + status conditions — used by cleanup's "also match videos hidden from
-// the feed" toggle.
+// the feed" toggle. `skipWatched` leaves completed videos out even for a profile that
+// keeps them on display — what autoplay needs, since nobody wants to be played into
+// something they have already finished.
 export function feedVisibilityWhere(
   q: FeedVisibilityQuery,
   uid: number,
-  opts: { includeHidden?: boolean } = {},
+  opts: { includeHidden?: boolean; skipWatched?: boolean } = {},
 ): { where: string[]; params: any[] } {
   const where: string[] = [];
   const params: any[] = [];
@@ -67,10 +75,12 @@ export function feedVisibilityWhere(
     where.push("COALESCE(uv.status, 'inbox') = ?");
     params.push(status);
   }
-  // Watched state is independent from inbox/archive state. Takeout imports and
-  // older clients may mark a video watched without archiving it, but the main
-  // feed is an inbox of things still left to watch.
-  where.push("COALESCE(uv.watched, 0) = 0");
+  // Watched state is independent from inbox/archive state. By default the main
+  // feed remains an inbox of things left to watch; profiles that prefer a full
+  // chronological view can keep completed inbox items visible.
+  if (opts.skipWatched || !keepsWatchedInFeed(uid)) {
+    where.push("COALESCE(uv.watched, 0) = 0");
+  }
   // Following is the profile-level source of truth. A video may have first
   // entered storage as a temporary Recommendation (`external = 1`), but once
   // its channel is followed it belongs in Main just like an RSS-first upload.

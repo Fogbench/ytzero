@@ -3,6 +3,7 @@ import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { Button, EmptyState, PageHeader, SectionHeader } from "../components/ui";
 import EmptyArt from "../components/illustrations/EmptyArt";
@@ -109,6 +110,7 @@ export default function HistoryPage({ onPlay, allowHistoryDeletion }: { onPlay: 
                     onPlay={(video) => onPlay(video, playbackQueue)}
                     onChanged={refresh}
                     onRemoveFromHistory={allowHistoryDeletion ? api.removeFromHistory : undefined}
+                    keepAfter={STATE_ONLY_FEEDBACK}
                     showWatchProgress
                   />
                 ))}

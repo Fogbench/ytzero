@@ -506,6 +506,7 @@ describe("portable backup classification and restore", () => {
     setUserSetting(1, "enhance_frame_fps", "60");
     setUserSetting(1, "player_speed_options", '["2.3","2.75"]');
     setUserSetting(1, "feed_sort", "arrival");
+    setUserSetting(1, "keep_watched_in_feed", "1");
     setUserSetting(1, "youtube_title_language", "fr");
     setUserSetting(1, "video_card_actions", "delay");
     const cardActionButtons = '{"version":1,"actions":[{"id":"playlist","hidden":false},{"id":"schedule","hidden":true},{"id":"download","hidden":false},{"id":"archive","hidden":false},{"id":"watched","hidden":false},{"id":"restore","hidden":false},{"id":"remove","hidden":false}]}';
@@ -551,8 +552,9 @@ describe("portable backup classification and restore", () => {
     const exportedEntries = backup.readPortableZip(zip);
     const exportedManifest = JSON.parse(decoder.decode(exportedEntries.get("manifest.json")!));
     const profileSettingsSection = exportedManifest.sections.find((section: any) => section.id === "profile.settings");
-    expect(profileSettingsSection.schemaVersion).toBe(10);
+    expect(profileSettingsSection.schemaVersion).toBe(11);
     expect(JSON.parse(decoder.decode(exportedEntries.get(profileSettingsSection.path)!)).settings.watch_show_comments).toBe("auto");
+    expect(JSON.parse(decoder.decode(exportedEntries.get(profileSettingsSection.path)!)).settings.keep_watched_in_feed).toBe("1");
     const followedSection = exportedManifest.sections.find((section: any) => section.id === "profile.followed-playlists");
     expect(followedSection.schemaVersion).toBe(4);
     expect(decoder.decode(exportedEntries.get(followedSection.path)!)).toContain('"offline_policy":"keep"');
@@ -570,6 +572,7 @@ describe("portable backup classification and restore", () => {
     setUserSetting(1, "enhance_frame_fps", "24");
     setUserSetting(1, "player_speed_options", "[]");
     setUserSetting(1, "feed_sort", "published");
+    setUserSetting(1, "keep_watched_in_feed", "0");
     setUserSetting(1, "youtube_title_language", "profile");
     setUserSetting(1, "video_card_actions", "hover");
     setUserSetting(1, "video_card_action_buttons", SETTING_DEFAULTS.video_card_action_buttons);
@@ -612,6 +615,7 @@ describe("portable backup classification and restore", () => {
     expect(getUserSetting(1, "enhance_frame_fps")).toBe("60");
     expect(getUserSetting(1, "player_speed_options")).toBe('["2.3","2.75"]');
     expect(getUserSetting(1, "feed_sort")).toBe("arrival");
+    expect(getUserSetting(1, "keep_watched_in_feed")).toBe("1");
     expect(getUserSetting(1, "youtube_title_language")).toBe("fr");
     expect(getUserSetting(1, "video_card_actions")).toBe("delay");
     expect(getUserSetting(1, "video_card_action_buttons")).toBe(videoCardActions.normalizeVideoCardActionConfig(cardActionButtons));

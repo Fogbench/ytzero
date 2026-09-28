@@ -697,6 +697,8 @@ export const ja: Locale = {
     "feedMaxAge": "フィードで最も古いビデオ",
     "feedMaxAgeHint": "この前に公開された動画はライブラリとチャンネルページに保存されますが、フィードには表示されません。",
     "feedMaxAgeOff": "制限なし",
+    "keepWatchedInFeed": "視聴済み動画をフィードに残す",
+    "keepWatchedInFeedHint": "視聴済み動画を設定した表示と完全な進行状況バーでフィードに残します。",
     "watchShowRelated": "時計ページで動画をお勧め",
     "watchShowRelatedHint": "プレイヤーの横にある「いいね!」リストを表示します。 あなたが意図的に開いたものにセッションを維持するためにそれをオフにします。",
     "watchShowComments": "時計のページへのコメント",

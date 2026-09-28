@@ -605,6 +605,8 @@ export const de: Locale = {
     feedMaxAge: "Älteste Videos im Feed",
     feedMaxAgeHint: "Ältere Videos bleiben in der Bibliothek und auf den Kanalseiten, erscheinen aber nicht im Feed.",
     feedMaxAgeOff: "Kein Limit",
+    keepWatchedInFeed: "Angesehene Videos im Feed behalten",
+    keepWatchedInFeedHint: "Behält angesehene Videos mit der festgelegten Darstellung und einem vollen Fortschrittsbalken in den Feeds.",
     watchShowRelated: "Vorgeschlagene Videos auf der Videoseite",
     watchShowRelatedHint: "Zeigt die Liste „Mehr in dieser Art“ neben dem Player. Deaktiviere sie, damit eine Sitzung auf das beschränkt bleibt, was du bewusst öffnest.",
     watchShowComments: "Kommentare auf der Videoseite",

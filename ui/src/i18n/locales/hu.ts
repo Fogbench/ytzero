@@ -603,6 +603,8 @@ export const hu: Locale = {
     feedMaxAge: "A hírfolyamban megjelenő legrégebbi videók",
     feedMaxAgeHint: "Az ez előtt közzétett videók megmaradnak a könyvtáradban és a csatornaoldalakon, de soha nem jelennek meg a hírfolyamban.",
     feedMaxAgeOff: "Nincs korlát",
+    keepWatchedInFeed: "Megnézett videók megtartása a hírfolyamban",
+    keepWatchedInFeedHint: "A megnézett videókat a beállított megjelenéssel és teljes folyamatjelzővel a hírfolyamokban tartja.",
     watchShowRelated: "Ajánlott videók a lejátszó oldalon",
     watchShowRelatedHint: "Megjeleníti a „Hasonlók” listát a lejátszó mellett. Kapcsold ki, ha csak azt szeretnéd nézni, amit tudatosan megnyitottál.",
     watchShowComments: "Hozzászólások a lejátszó oldalon",

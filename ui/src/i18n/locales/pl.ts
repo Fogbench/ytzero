@@ -605,6 +605,8 @@ export const pl: Locale = {
     feedMaxAge: "Najstarsze filmy na feedzie",
     feedMaxAgeHint: "Ukrywa starsze filmy z feedu, ale pozostawia je w bibliotece i na stronach kanałów.",
     feedMaxAgeOff: "Bez limitu",
+    keepWatchedInFeed: "Pozostaw obejrzane filmy na feedzie",
+    keepWatchedInFeedHint: "Pozostawia obejrzane filmy na feedach z ustawionym wyglądem obejrzenia i pełnym paskiem postępu.",
     watchShowRelated: "Proponowane filmy na stronie filmu",
     watchShowRelatedHint: "Pokazuje propozycje podobnych filmów obok odtwarzacza.",
     watchShowComments: "Komentarze na stronie filmu",

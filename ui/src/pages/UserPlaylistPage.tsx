@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Download, Edit3, Gauge, ListFilter, MoreHorizontal, Save, Trash2, X } from "lucide-react";
 import { api, type DownloadQuality, type UserPlaylist, type Video } from "../api";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { PlaylistIcon, PlaylistIconPicker } from "../components/PlaylistIcon";
 import Popconfirm from "../components/Popconfirm";
@@ -270,6 +271,7 @@ export default function UserPlaylistPage({ onPlay }: { onPlay: PlayVideo }) {
               video={v}
               onPlay={playPlaylistVideo}
               onChanged={load}
+              keepAfter={STATE_ONLY_FEEDBACK}
               onRemoveFromPlaylist={(videoId) => api.removeVideoFromUserPlaylist(playlist.id, videoId)}
             />
           ))}

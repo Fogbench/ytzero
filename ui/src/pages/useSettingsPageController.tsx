@@ -179,6 +179,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const [channelPostsTab, setChannelPostsTab] = useState(false);
   const [feedMaxAgeValue, setFeedMaxAgeValue] = useState("6");
   const [feedMaxAgeUnit, setFeedMaxAgeUnit] = useState<FeedMaxAgeUnit>("months");
+  const [keepWatchedInFeed, setKeepWatchedInFeed] = useState(false);
   const [feedAutoplayEnabled, setFeedAutoplayEnabled] = useState(false);
   const [feedAutoplayBehavior, setFeedAutoplayBehavior] = useState<"autoplay" | "prompt">("autoplay");
   const [feedAutoplayDirection, setFeedAutoplayDirection] = useState<"oldest" | "newest">("newest");
@@ -453,6 +454,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       setChannelPostsTab(r.settings.channel_posts_tab === "1");
       setFeedMaxAgeValue(r.settings.feed_max_age_value || "6");
       setFeedMaxAgeUnit(isFeedMaxAgeUnit(r.settings.feed_max_age_unit) ? r.settings.feed_max_age_unit : "off");
+      setKeepWatchedInFeed(r.settings.keep_watched_in_feed === "1");
       setFeedAutoplayEnabled(r.settings.feed_autoplay_enabled === "1");
       setFeedAutoplayBehavior(r.settings.feed_autoplay_behavior === "prompt" ? "prompt" : "autoplay");
       setFeedAutoplayDirection(r.settings.feed_autoplay_direction === "newest" ? "newest" : "oldest");
@@ -693,6 +695,20 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     setFeedMaxAgeUnit(unit);
     await api.updateSettings({ feed_max_age_value: value, feed_max_age_unit: unit });
     showToast(t("displaySettingsSaved"));
+  };
+
+  const toggleKeepWatchedInFeed = async () => {
+    const previous = keepWatchedInFeed;
+    const next = !previous;
+    setKeepWatchedInFeed(next);
+    try {
+      await api.updateSettings({ keep_watched_in_feed: next ? "1" : "0" });
+      emit("feed-visibility-settings-changed");
+      showToast(t("displaySettingsSaved"));
+    } catch (error) {
+      setKeepWatchedInFeed(previous);
+      showToast(error instanceof Error ? error.message : t("error"));
+    }
   };
 
   const toggleFeedAutoplay = async () => {
@@ -1248,6 +1264,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     isCurrentTabLocked,
     isPrimary,
     keyboardSeekSeconds,
+    keepWatchedInFeed,
     language,
     load,
     loadFollowedPlaylists,
@@ -1372,6 +1389,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     toggleChannelTag,
     toggleFeedAutoplay,
     toggleLiveFromFeed,
+    toggleKeepWatchedInFeed,
     togglePlugin,
     toggleSb,
     toggleSbCategory,

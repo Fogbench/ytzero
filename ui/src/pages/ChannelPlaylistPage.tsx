@@ -4,6 +4,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Bell, Download, FileClock, Gauge, ListFilter, ListMinus, ListPlus, MoreHorizontal, RefreshCw } from "lucide-react";
 import { api, type DownloadQuality, type FollowedPlaylist, type Video } from "../api";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
@@ -295,10 +296,10 @@ export default function ChannelPlaylistPage() {
           </Popover>
         </>} />
     {loading ? <VideoGridSkeleton gridSize="sm" /> : videos.length === 0 && processingVideos.length === 0 ? <EmptyState title={t("playlistIsEmpty")} /> : videos.length > 0 ?
-      <div className="video-grid video-grid--sm">{videos.map((video) => <VideoCard key={video.video_id} video={video} onPlay={playPlaylistVideo} onChanged={load} />)}</div> : null}
+      <div className="video-grid video-grid--sm">{videos.map((video) => <VideoCard key={video.video_id} video={video} onPlay={playPlaylistVideo} onChanged={load} keepAfter={STATE_ONLY_FEEDBACK} />)}</div> : null}
     {!loading && processingVideos.length > 0 && <section className="channel-playlist-processing">
       <SectionHeader title={t("processing")} icon={<FileClock />} />
-      <div className="video-grid video-grid--sm">{processingVideos.map((video) => <VideoCard key={video.video_id} video={video} onPlay={playPlaylistVideo} onChanged={load} />)}</div>
+      <div className="video-grid video-grid--sm">{processingVideos.map((video) => <VideoCard key={video.video_id} video={video} onPlay={playPlaylistVideo} onChanged={load} keepAfter={STATE_ONLY_FEEDBACK} />)}</div>
     </section>}
   </>;
 }

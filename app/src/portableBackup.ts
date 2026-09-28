@@ -55,7 +55,7 @@ export const BACKUP_SECTIONS: readonly BackupSectionDefinition[] = [
   { id: "instance.channels", schemaVersion: 4, scope: "instance", sensitivity: "normal", dependencies: [], category: "organization", path: () => "instance/channels.jsonl" },
   { id: "profiles.index", schemaVersion: 1, scope: "instance", sensitivity: "normal", dependencies: [], category: "profiles", path: () => "profiles/index.json" },
   { id: "profile.avatar", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "profiles", optional: true, path: (uuid = "") => `assets/avatars/${uuid}` },
-  { id: "profile.settings", schemaVersion: 10, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("settings.json") },
+  { id: "profile.settings", schemaVersion: 11, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("settings.json") },
   { id: "profile.feed-builder", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "profile.subscriptions", "profile.followed-playlists", "profile.tags", "profile.playlists"], category: "configuration", path: profilePath("feed-builder.json") },
   { id: "profile.notification-preferences", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("notification-preferences.jsonl") },
   { id: "profile.access-control", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.access-control"], category: "configuration", path: profilePath("access-control.json") },

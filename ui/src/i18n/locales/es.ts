@@ -701,6 +701,8 @@ export const es: Locale = {
     feedMaxAge: "Vídeos más antiguos del feed",
     feedMaxAgeHint: "Los vídeos publicados antes de esta fecha se conservan en la biblioteca y en las páginas de los canales, pero nunca aparecen en el feed.",
     feedMaxAgeOff: "Sin límite",
+    keepWatchedInFeed: "Mantener los vídeos vistos en el feed",
+    keepWatchedInFeedHint: "Mantiene los vídeos vistos en tus feeds con su aspecto habitual y la barra de progreso completa.",
     watchShowRelated: "Vídeos sugeridos en la página de reproducción",
     watchShowRelatedHint: "Muestra la lista «Más como este» junto al reproductor. Desactívala para limitar la sesión a lo que abras expresamente.",
     watchShowComments: "Comentarios en la página de reproducción",

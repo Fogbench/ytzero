@@ -5,6 +5,7 @@ import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import VideoCard from "../components/VideoCard";
+import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { img } from "../img";
 import { Badge, EmptyState, PageHeader, SectionHeader } from "../components/ui";
@@ -59,7 +60,7 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
               <SectionHeader title={t("liveNow")} variant="uppercase" />
               <div className="video-grid">
                 {individualLive.map((v) => (
-                  <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={load} />
+                  <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={load} keepAfter={STATE_ONLY_FEEDBACK} />
                 ))}
               </div>
             </>
@@ -79,7 +80,7 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
                 </Link>
                 <div className="video-grid live-channel-group-grid">
                   {group.map((v) => (
-                    <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={load} />
+                    <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={load} keepAfter={STATE_ONLY_FEEDBACK} />
                   ))}
                 </div>
               </section>
@@ -90,7 +91,7 @@ export default function LivePage({ onPlay }: { onPlay: (v: Video) => void }) {
               <SectionHeader title={t("upcoming")} variant="uppercase" className={live.length > 0 ? "live-upcoming-header" : undefined} />
               <div className="video-grid">
                 {upcoming.map((v) => (
-                  <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={load} />
+                  <VideoCard key={v.video_id} video={v} onPlay={onPlay} onChanged={load} keepAfter={STATE_ONLY_FEEDBACK} />
                 ))}
               </div>
             </>

@@ -22,6 +22,7 @@ const CATALOG: CatalogEntry[] = [
   { view: "display:feed", label: "hideLiveFromFeed", description: "hideLiveFromFeedHint" },
   { view: "display:feed", label: "showShorts", description: "showShortsHint" },
   { view: "display:feed", label: "feedMaxAge", description: "feedMaxAgeHint" },
+  { view: "display:feed", label: "keepWatchedInFeed", description: "keepWatchedInFeedHint" },
   { view: "display:feed", label: "membersOnlyVisibility", description: "membersOnlyVisibilityHint" },
   { view: "display:playback", label: "watchShowRelated", description: "watchShowRelatedHint" },
   { view: "display:playback", label: "watchShowComments", description: "watchShowCommentsHint" },

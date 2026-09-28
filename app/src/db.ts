@@ -277,6 +277,9 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   // Unit "off" disables the limit entirely.
   feed_max_age_value: "6",
   feed_max_age_unit: "months",
+  // Keep completed videos in the chronological feed. Watched state remains
+  // independent from inbox/archive state; this only changes feed visibility.
+  keep_watched_in_feed: "0",
   hide_live_from_feed: "0",
   // "More like this" on the watch page. Off keeps a session strictly to what the
   // viewer chose to open, with no suggested next thing.

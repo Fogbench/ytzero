@@ -91,6 +91,7 @@ export default function AppShell({ isAdmin }: { isAdmin: boolean }) {
                 <AppRoutes appIconColor={preferences.appIconColor} childStatus={profile.childStatus}
                   enabledPluginRoutes={plugins.enabledPluginRoutes}
                   feedSort={preferences.feedSort}
+                  keepWatchedInFeed={preferences.appSettings?.keep_watched_in_feed === "1"}
                   isAdmin={isAdmin}
                   onPlay={play}
                   profilePermissions={preferences.profilePermissions}

@@ -697,6 +697,8 @@ export const fr: Locale = {
     "feedMaxAge": "Vidéos les plus anciennes dans le flux",
     "feedMaxAgeHint": "Les vidéos publiées avant cette limite sont conservées dans votre bibliothèque et sur les pages de chaîne, mais n'apparaissent jamais dans le flux.",
     "feedMaxAgeOff": "Aucune limite",
+    "keepWatchedInFeed": "Conserver les vidéos regardées dans le flux",
+    "keepWatchedInFeedHint": "Conserve les vidéos regardées dans vos flux avec leur apparence habituelle et une barre de progression complète.",
     "watchShowRelated": "Vidéos suggérées sur la page de lecture",
     "watchShowRelatedHint": "Affiche la liste « Plus comme ça » à côté du lecteur. Désactivez-la pour limiter la session à ce que vous avez délibérément ouvert.",
     "watchShowComments": "Commentaires sur la page de lecture",
