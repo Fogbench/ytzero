@@ -98,8 +98,10 @@ api.get("/in-progress", async (c) => {
 
 api.get("/search/youtube", async (c) => {
   const uid = currentUserId(c);
-  // Restricted child profiles search only the local library.
-  if (childLocalOnly(uid)) return c.json({ results: [] });
+  // Restricted child profiles search only the local library. `restricted` tells
+  // the client this is a profile boundary rather than a search that found
+  // nothing, so it can say so instead of showing an empty result list.
+  if (childLocalOnly(uid)) return c.json({ results: [], channels: [], restricted: true });
   const q = c.req.query("q");
   if (!q?.trim()) return c.json({ results: [] });
   try {

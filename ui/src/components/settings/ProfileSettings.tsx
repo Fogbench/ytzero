@@ -244,7 +244,10 @@ function ChildProfileSettings({ profile, onSaved, showToast }: {
   showToast: (m: string) => void;
 }) {
   const { t } = useI18n();
-  const cfg = profile.child_config ?? { limit_minutes: 0, local_only: true, hide_shorts: false, hide_live: false, downloads_only: false };
+  const cfg = profile.child_config ?? {
+    limit_minutes: 0, local_only: true, hide_shorts: false, hide_live: false,
+    downloads_only: false, download_requests: true, auto_approve_downloads: "off" as const,
+  };
   const [minutes, setMinutes] = useState(cfg.limit_minutes > 0 ? String(cfg.limit_minutes) : "60");
   const [childLockEnabled, setChildLockEnabled] = useState(true);
 
@@ -291,6 +294,26 @@ function ChildProfileSettings({ profile, onSaved, showToast }: {
       <Switch label={t("childHideLive")} description={t("childHideLiveHint")} checked={cfg.hide_live} onCheckedChange={(next) => save({ hide_live: next })} />
 
       <Switch label={t("childDownloadsOnly")} description={t("childDownloadsOnlyHint")} checked={cfg.downloads_only} onCheckedChange={(next) => save({ downloads_only: next })} />
+
+      {cfg.downloads_only && (
+        <>
+          <Switch label={t("childDownloadRequestsSetting")} description={t("childDownloadRequestsSettingHint")} checked={cfg.download_requests} onCheckedChange={(next) => save({ download_requests: next })} />
+          {cfg.download_requests && (
+            <SettingRow label={t("childAutoApproveDownloads")} description={t("childAutoApproveDownloadsHint")}>
+              <SelectMenu
+                label={t("childAutoApproveDownloads")}
+                value={cfg.auto_approve_downloads}
+                options={[
+                  { value: "off" as const, label: t("childAutoApproveOff") },
+                  { value: "subscribed" as const, label: t("childAutoApproveSubscribed") },
+                  { value: "all" as const, label: t("childAutoApproveAll") },
+                ]}
+                onChange={(auto_approve_downloads) => save({ auto_approve_downloads })}
+              />
+            </SettingRow>
+          )}
+        </>
+      )}
 
       {!childLockEnabled && <Alert variant="warning">{t("childPinWarning")}</Alert>}
 

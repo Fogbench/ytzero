@@ -155,6 +155,8 @@ export interface ChildStatus {
   hide_shorts: boolean;
   hide_live: boolean;
   downloads_only: boolean;
+  /** The child may ask a parent to download a video they cannot play yet. */
+  can_request_download: boolean;
   has_pending_request: boolean;
 }
 
@@ -164,7 +166,7 @@ export async function childStatus(userId: number): Promise<ChildStatus> {
       is_child: false, limit_seconds: null, used_seconds: 0, extra_seconds: 0,
       unlimited_today: false, remaining_seconds: null, locked: false, lock_reason: null,
       local_only: false, hide_shorts: false, hide_live: false, downloads_only: false,
-      has_pending_request: false,
+      can_request_download: false, has_pending_request: false,
     };
   }
   const limit = childLimitSeconds(userId);
@@ -193,6 +195,8 @@ export async function childStatus(userId: number): Promise<ChildStatus> {
     hide_shorts: getUserSetting(userId, "child_hide_shorts") === "1",
     hide_live: getUserSetting(userId, "child_hide_live") === "1",
     downloads_only: getUserSetting(userId, "child_downloads_only") === "1",
+    can_request_download: getUserSetting(userId, "child_downloads_only") === "1"
+      && getUserSetting(userId, "child_download_requests") !== "0",
     has_pending_request: Boolean(pending),
   };
 }

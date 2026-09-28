@@ -85,6 +85,13 @@ describe("delivery messages", () => {
     expect(message.tags).toContain("error");
   });
 
+  test("names the child and the video a download was requested for", () => {
+    const message = buildDeliveryMessage("child_request", { childName: "Kid", videoTitle: "Clip", channelTitle: "Channel" }, "/", base);
+    expect(message.title).toBe("Kid asked for a download");
+    expect(message.body).toBe("Clip · Channel");
+    expect(message.tags).toContain("child");
+  });
+
   test("shortens long bodies to one line", () => {
     expect(excerpt("a".repeat(300))).toHaveLength(240);
     expect(excerpt("one\ntwo")).toBe("one two");

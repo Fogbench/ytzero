@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./SearchPage.css";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Search, ShieldBan } from "lucide-react";
 import { api, type Channel, type ChannelSearchResult, type SearchResult, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
@@ -138,6 +138,14 @@ export default function SearchPage({ onPlay, hideExternalSearch = false }: { onP
             />
           )}
           </div>}
+        </section>
+      )}
+
+      {hideExternalSearch && (
+        /* Without this the page just stops after the local results, which reads
+           as a broken YouTube search rather than a profile restriction. */
+        <section className="search-results-section">
+          <EmptyState compact icon={<ShieldBan />} title={t("childSearchRestricted")} description={t("childSearchRestrictedHint")} />
         </section>
       )}
 

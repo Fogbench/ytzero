@@ -35,9 +35,11 @@ import {
   type ChannelShortsFeedVisibility,
   type ChannelSyncJob,
   type ChildConfig,
+  type ChildDownloadRequest,
   type ChildGrant,
   type ChildLockStatus,
   type ChildNowWatching,
+  type ChildOwnDownloadRequest,
   type ChildStatus,
   type ChildTimeRequest,
   type CleanupFilter,
@@ -184,7 +186,7 @@ export const api = {
     }),
   cleanupUndo: () => http<{ restored: number }>("/cleanup/undo", { method: "POST", body: "{}" }),
   inProgress: () => sharedGet<{ videos: Video[] }>("in-progress", "/in-progress"),
-  youtubeSearch: (q: string) => http<{ results: SearchResult[]; channels: ChannelSearchResult[] }>(`/search/youtube?q=${encodeURIComponent(q)}`),
+  youtubeSearch: (q: string) => http<{ results: SearchResult[]; channels: ChannelSearchResult[]; restricted?: boolean }>(`/search/youtube?q=${encodeURIComponent(q)}`),
   plugins: () => sharedGet<{ plugins: PluginManifest[] }>("plugins", "/plugins"),
   updatePlugin: (id: string, enabled: boolean) =>
     http<{ plugins: PluginManifest[] }>(`/plugins/${id}`, { method: "PUT", body: JSON.stringify({ enabled }) }),
@@ -541,6 +543,13 @@ export const api = {
   childTimeRequests: () => sharedGet<{ requests: ChildTimeRequest[] }>("child-time-requests", "/child/time-requests"),
   resolveChildTimeRequest: (id: number, action: "dismiss" | "approve", grant?: ChildGrant, pin?: string) =>
     http<{ ok: boolean }>(`/child/time-requests/${id}/resolve`, { method: "POST", body: JSON.stringify({ action, grant, pin }) }),
+  requestChildDownload: (videoId: string) =>
+    http<{ id: number; status: "pending" | "approved" }>("/child/download-request", { method: "POST", body: JSON.stringify({ video_id: videoId }) }),
+  childDownloadRequest: (videoId: string) =>
+    http<{ request: ChildOwnDownloadRequest | null }>(`/child/download-request?video_id=${encodeURIComponent(videoId)}`),
+  childDownloadRequests: () => sharedGet<{ requests: ChildDownloadRequest[]; history: ChildDownloadRequest[]; monitor_visible: boolean }>("child-download-requests", "/child/download-requests"),
+  resolveChildDownloadRequest: (id: number, action: "approve" | "deny", pin?: string) =>
+    http<{ ok: boolean }>(`/child/download-requests/${id}/resolve`, { method: "POST", body: JSON.stringify({ action, pin }) }),
 
   config: () => sharedGet<{ app_url: string }>("config", "/config"),
   // ---------- authentication ----------

@@ -5,7 +5,7 @@ import { scheduleSettingWrite } from "../settingsWriteQueue";
 import { flushProgressWrite, queueProgressWrite } from "../progressWriteQueue";
 import { isIncognitoMode } from "../incognitoMode";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { api, type AppSettings, type Bucket, type PlaylistVideo, type SponsorSegment, type UserPlaylist, type Video, type VideoChapter, type VideoChannelPlaylist, type VideoCreator, type VideoInfo } from "../api";
+import { api, type AppSettings, type Bucket, type ChildOwnDownloadRequest, type PlaylistVideo, type SponsorSegment, type UserPlaylist, type Video, type VideoChapter, type VideoChannelPlaylist, type VideoCreator, type VideoInfo } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import { parseVideoDurationSeconds } from "../components/VideoCard";
@@ -124,6 +124,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     downloadsEnabled: boolean;
     isChildProfile: boolean;
     childDownloadsOnly: boolean;
+    childCanRequestDownload: boolean;
     downloadWatchMode: WatchSourceMode;
     experimentalStreaming: boolean;
     defaultPlayer: "youtube" | "direct";
@@ -132,6 +133,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     downloadsEnabled: false,
     isChildProfile: false,
     childDownloadsOnly: false,
+    childCanRequestDownload: false,
     downloadWatchMode: "youtube",
     experimentalStreaming: false,
     defaultPlayer: "youtube",
@@ -141,10 +143,16 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     downloadsEnabled,
     isChildProfile,
     childDownloadsOnly,
+    childCanRequestDownload,
     downloadWatchMode,
     experimentalStreaming,
     defaultPlayer,
   } = playbackPolicy;
+  const [childDownloadRequest, setChildDownloadRequest] = useState<ChildOwnDownloadRequest | null>(null);
+  const [childRequesting, setChildRequesting] = useState(false);
+  const [childRequestError, setChildRequestError] = useState(false);
+  /** The granted request whose video row was already pulled in again. */
+  const grantedRequestRef = useRef<number | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [speedOpen, setSpeedOpen] = useState(false);
@@ -232,6 +240,10 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const enhancePlayerStateRef = useRef<{ state: EnhancePlayerState; updatedAt: number } | null>(null);
   const archivedRef = useRef(false);
   const canAutoArchiveRef = useRef(false);
+  // Auto-archiving on natural playback completion has to respect the same "keep watched videos
+  // in feed" profile setting as the card's own mark-watched action — otherwise finishing a video
+  // in the player would silently defeat the setting the card action already honors.
+  const keepWatchedInFeedRef = useRef(false);
   const sbSegmentsRef = useRef<SponsorSegment[]>([]);
   const sbPausedRef = useRef(false);
   const disabledSegsRef = useRef<Set<string>>(new Set());
@@ -279,6 +291,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
         downloadsEnabled,
         isChildProfile: childStatus?.is_child ?? false,
         childDownloadsOnly: !!(childStatus?.is_child && childStatus.downloads_only),
+        childCanRequestDownload: !!(childStatus?.is_child && childStatus.can_request_download),
         downloadWatchMode,
         experimentalStreaming,
         defaultPlayer,
@@ -314,6 +327,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const membersOnlyNotice = matchingVideo?.members_only === 1 && !isChildProfile && !privateVideoNotice;
   const playerTargetId = resolveWatchPlayerTarget(id, video?.video_id, missingVideoId);
   canAutoArchiveRef.current = canAutoArchiveVideo(video, id);
+  keepWatchedInFeedRef.current = settings?.keep_watched_in_feed === "1";
   const audioModeAvailable = canUseWatchAudioMode({
     childProfile: isChildProfile,
     hasVideo: Boolean(matchingVideo),
@@ -844,7 +858,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
             queueProgressWrite(activeVideoId, playerDuration, playerDuration);
             flushProgressWrite(activeVideoId);
             api.complete(activeVideoId).catch(() => {});
-            api.archiveVideo(activeVideoId).catch(() => {});
+            if (!keepWatchedInFeedRef.current) api.archiveVideo(activeVideoId).catch(() => {});
           }
         }
         if (!watchTogetherTransportLockedRef.current && !sbPausedRef.current) {
@@ -1236,6 +1250,51 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     setBackgroundDownload({ percent: null, speed: null, error: null });
   }, [id]);
 
+  // A child locked to downloaded videos cannot queue a download, so the blocked
+  // panel shows where their request for this video stands instead. Parents
+  // answer elsewhere, hence the server event rather than local state only.
+  useEffect(() => {
+    grantedRequestRef.current = null;
+    if (!id || !childCanRequestDownload) { setChildDownloadRequest(null); return; }
+    let cancelled = false;
+    const load = () => {
+      api.childDownloadRequest(id)
+        .then((result) => {
+          if (cancelled) return;
+          setChildDownloadRequest(result.request);
+          // An approval means the file is on its way. Pulling the video row in
+          // again is what starts the usual download tracking — without it the
+          // child would sit on the blocked panel until they reload the page,
+          // instead of watching the download finish and the player take over.
+          if (result.request?.status === "approved" && grantedRequestRef.current !== result.request.id) {
+            grantedRequestRef.current = result.request.id;
+            api.video(id).then((fresh) => { if (!cancelled) setVideo(fresh.video); }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    };
+    load();
+    const unsubscribe = subscribeServerEvent("child-requests", load);
+    return () => { cancelled = true; unsubscribe(); };
+  }, [id, childCanRequestDownload]);
+
+  const requestChildDownload = () => {
+    if (!id || childRequesting) return;
+    setChildRequesting(true);
+    setChildRequestError(false);
+    api.requestChildDownload(id)
+      .then((result) => {
+        setChildDownloadRequest({ id: result.id, status: result.status, created_at: new Date().toISOString() });
+        // An auto-approval already queued the download, so pick it up at once.
+        if (result.status === "approved") {
+          grantedRequestRef.current = result.id;
+          api.video(id).then((fresh) => setVideo(fresh.video)).catch(() => {});
+        }
+      })
+      .catch(() => setChildRequestError(true))
+      .finally(() => setChildRequesting(false));
+  };
+
   const requestDownload = (keep = false) => {
     if (!video) return;
     setDownloadRequestError(false);
@@ -1435,7 +1494,11 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     changeSpeed,
     changeSubtitleSize,
     chapters,
+    childCanRequestDownload,
+    childDownloadRequest,
     childDownloadsOnly,
+    childRequestError,
+    childRequesting,
     chooseYouTube,
     cinemaMode,
     cinemaVisible,
@@ -1488,6 +1551,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     related,
     reload,
     reloadDownloadedPlayer,
+    requestChildDownload,
     requestDownload,
     requestYouTubePlayback,
     sbPaused,

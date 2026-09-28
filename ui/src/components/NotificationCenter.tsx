@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Bell, Hash, ListVideo, MessageCircle, Sparkles, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowDownToLine, Bell, Hash, ListVideo, MessageCircle, Sparkles, UsersRound } from "lucide-react";
 import { api, type AppNotification } from "../api";
 import { subscribe } from "../events";
 import { useI18n } from "../i18n";
@@ -83,6 +83,7 @@ export default function NotificationCenter() {
               const channelVideo = notification.kind === "channel_video";
               const downloadFailed = notification.kind === "download_failed";
               const tagRule = notification.kind === "tag_rule";
+              const childRequest = notification.kind === "child_request";
               const social = notification.kind.startsWith("social_");
               const media = social && notification.payload.actor
                 ? notification.payload.actor.avatar
@@ -90,6 +91,8 @@ export default function NotificationCenter() {
                   : <span className="profile-notification-avatar profile-notification-avatar--fallback" style={{ background: notification.payload.actor.avatar_color }}>{notification.payload.actor.name.trim()[0]?.toUpperCase() ?? "?"}</span>
                 : downloadFailed
                 ? <span className="profile-notification-icon profile-notification-icon--danger"><AlertTriangle /></span>
+                : childRequest
+                ? <span className="profile-notification-icon"><ArrowDownToLine /></span>
                 : tagRule
                 ? <span className="profile-notification-icon" style={{ color: notification.payload.tagColor }}><Hash /></span>
                 : playlistVideo || channelVideo
@@ -103,6 +106,7 @@ export default function NotificationCenter() {
                 ? t(notification.kind === "social_post" ? "socialNotificationNewPost" : notification.kind === "social_comment" ? "socialNotificationComment" : notification.kind === "social_mention" ? "socialNotificationMention" : notification.kind === "social_comment_like" ? "socialNotificationCommentLike" : "socialNotificationReaction", { profile: socialActor })
                 : downloadFailed
                 ? notification.payload.videoTitle || t("downloadFailedNotificationTitle")
+                : childRequest ? notification.payload.videoTitle || t("childDownloadRequestNotificationTitle")
                 : tagRule ? notification.payload.videoTitle || t("tagRuleNotificationTitle")
                 : channelVideo ? notification.payload.videoTitle || t("channelVideoNotificationTitle")
                 : playlistVideo ? notification.payload.videoTitle || t("playlistVideoNotificationTitle") : t("updateNotificationTitle");
@@ -112,17 +116,18 @@ export default function NotificationCenter() {
                   : t("socialNotificationOpen")
                 : downloadFailed
                 ? t("downloadFailedNotificationDescription")
+                : childRequest ? t("childDownloadRequestNotificationDescription", { name: notification.payload.childName || "" })
                 : tagRule ? t("tagRuleNotificationDescription", { tag: notification.payload.tagName || "", pattern: notification.payload.rulePattern || "" })
                 : channelVideo ? t("channelVideoNotificationDescription", { channel: notification.payload.channelTitle || "" })
                 : playlistVideo ? t("playlistVideoNotificationDescription", { playlist: notification.payload.playlistTitle || "" }) : t("updateNotificationDescription", { version: notification.payload.version ?? "" });
               return <ListButton
-                  className={`profile-notification profile-notification--${social ? "social" : downloadFailed ? "download-failed" : tagRule ? "tag-rule" : playlistVideo || channelVideo ? "playlist" : "update"}${notification.read_at ? " is-read" : " is-unread"}`}
+                  className={`profile-notification profile-notification--${social ? "social" : downloadFailed ? "download-failed" : childRequest ? "child-request" : tagRule ? "tag-rule" : playlistVideo || channelVideo ? "playlist" : "update"}${notification.read_at ? " is-read" : " is-unread"}`}
                   key={notification.id}
                   onClick={() => void select(notification)}
                   media={media}
                   title={title}
                   description={description}
-                  meta={(playlistVideo || channelVideo || downloadFailed || tagRule) ? <img className="profile-notification-thumbnail" src={videoThumbnail(notification.payload.thumbnail)} alt="" onError={handleVideoThumbnailError} /> : undefined}
+                  meta={(playlistVideo || channelVideo || downloadFailed || tagRule || childRequest) ? <img className="profile-notification-thumbnail" src={videoThumbnail(notification.payload.thumbnail)} alt="" onError={handleVideoThumbnailError} /> : undefined}
                 >
                   <time>{notificationTime(notification.created_at, locale, timeZone, t("notificationJustNow"))}</time>
                 </ListButton>;

@@ -628,6 +628,22 @@ CREATE TABLE IF NOT EXISTS child_time_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_child_time_requests_status ON child_time_requests(status, created_at);
 
+-- Download requests from child profiles locked to downloaded videos. Pending
+-- rows are what a parent approves or denies; resolved rows (including the ones
+-- an auto-approval rule settled on its own) stay as the review history.
+CREATE TABLE IF NOT EXISTS child_download_requests (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  video_id    TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending',
+  auto        INTEGER NOT NULL DEFAULT 0,
+  resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  resolved_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_child_download_requests_status ON child_download_requests(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_child_download_requests_user ON child_download_requests(user_id, created_at);
+
 -- ---------- Authentication ----------
 -- WebAuthn / passkey credentials. user_id NULL = the shared-account credential
 -- (auth_method = 'shared'); a real user_id = a per-profile passkey.

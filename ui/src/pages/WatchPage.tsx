@@ -94,7 +94,11 @@ export default function WatchPage() {
     changeSpeed,
     changeSubtitleSize,
     chapters,
+    childCanRequestDownload,
+    childDownloadRequest,
     childDownloadsOnly,
+    childRequestError,
+    childRequesting,
     chooseYouTube,
     cinemaMode,
     cinemaVisible,
@@ -147,6 +151,7 @@ export default function WatchPage() {
     related,
     reload,
     reloadDownloadedPlayer,
+    requestChildDownload,
     requestDownload,
     requestYouTubePlayback,
     sbPaused,
@@ -360,12 +365,27 @@ export default function WatchPage() {
                     <div className="wp-panel-content">
                       <ArrowDownToLine size={34} />
                       <h3>{t("watchChildDownloadsOnly")}</h3>
-                      {(downloadStatus === "queued" || downloadStatus === "downloading") && (
+                      {downloadStatus === "queued" || downloadStatus === "downloading" ? (
                         <p className="wp-panel-sub">
                           <LoaderCircle className="spin" size={14} />{" "}
                           {downloadStatus === "queued" ? t("downloadQueued") : t("downloading")}
                         </p>
-                      )}
+                      ) : childDownloadRequest?.status === "pending" ? (
+                        <p className="wp-panel-sub">{t("childDownloadRequestWaiting")}</p>
+                      ) : childDownloadRequest?.status === "approved" ? (
+                        <p className="wp-panel-sub">{t("childDownloadRequestGranted")}</p>
+                      ) : childDownloadRequest?.status === "denied" ? (
+                        <p className="wp-panel-sub">{t("childDownloadRequestRefused")}</p>
+                      ) : childCanRequestDownload ? (
+                        <Button
+                          variant="primary"
+                          disabled={childRequesting}
+                          onClick={requestChildDownload}
+                        >
+                          <ArrowDownToLine size={15} /> {t("childDownloadRequestAsk")}
+                        </Button>
+                      ) : null}
+                      {childRequestError && <p className="wp-panel-sub wp-panel-error">{t("childDownloadRequestFailed")}</p>}
                     </div>
                   )}
                   {playerKind === "choice" && (

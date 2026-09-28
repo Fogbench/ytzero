@@ -3,8 +3,9 @@ import "./ChildProfiles.css";
 import { X } from "lucide-react";
 import { api, type ChildGrant, type ChildTimeRequest } from "../api";
 import { useI18n, type I18nKey } from "../i18n";
+import ChildApprovalPin from "./ChildApprovalPin";
 import { ProfileAvatar } from "./ProfileMenu";
-import { Button, IconButton, Input } from "./ui";
+import { Button, IconButton } from "./ui";
 import { subscribeServerEvent } from "../serverEvents";
 import { parseAppTimestamp } from "../dateTime";
 
@@ -22,8 +23,6 @@ export default function ChildTimeRequestBanner() {
   const { t } = useI18n();
   const [requests, setRequests] = useState<ChildTimeRequest[]>([]);
   const [pinFor, setPinFor] = useState<{ request: ChildTimeRequest; grant: ChildGrant } | null>(null);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState(false);
 
   const load = useCallback(() => {
     api.childTimeRequests().then((r) => setRequests(r.requests)).catch(() => {});
@@ -45,22 +44,16 @@ export default function ChildTimeRequestBanner() {
     try {
       await api.resolveChildTimeRequest(request.id, grant ? "approve" : "dismiss", grant, enteredPin);
       setPinFor(null);
-      setPin("");
       load();
+      return true;
     } catch {
-      setPinError(true);
-      setPin("");
+      return false;
     }
   };
 
   const onGrant = (request: ChildTimeRequest, grant: ChildGrant) => {
-    if (request.requires_pin) {
-      setPinFor({ request, grant });
-      setPin("");
-      setPinError(false);
-    } else {
-      resolve(request, grant);
-    }
+    if (request.requires_pin) setPinFor({ request, grant });
+    else void resolve(request, grant);
   };
 
   if (requests.length === 0) return null;
@@ -85,40 +78,12 @@ export default function ChildTimeRequestBanner() {
       ))}
 
       {pinFor && (
-        <div className="profile-pin-backdrop" onClick={() => setPinFor(null)}>
-          <form
-            className="profile-pin-modal"
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (/^\d{6}$/.test(pin)) resolve(pinFor.request, pinFor.grant, pin);
-              else setPinError(true);
-            }}
-          >
-            <IconButton className="profile-pin-close" label={t("close")} onClick={() => setPinFor(null)}>
-              <X size={18} />
-            </IconButton>
-            <ProfileAvatar profile={pinFor.request} size={56} />
-            <div className="profile-pin-title">{t(GRANTS.find((g) => g.grant === pinFor.grant)!.labelKey)}</div>
-            <div className="profile-pin-hint">{t("childApprovePinHint")}</div>
-            <Input
-              className={`profile-pin-input${pinError ? " error" : ""}`}
-              type="password"
-              inputMode="numeric"
-              autoFocus
-              maxLength={6}
-              value={pin}
-              placeholder="••••••"
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 6);
-                setPin(v);
-                setPinError(false);
-                if (v.length === 6) resolve(pinFor.request, pinFor.grant, v);
-              }}
-            />
-            <Button type="submit" variant="primary" disabled={pin.length !== 6}>{t("childApprove")}</Button>
-          </form>
-        </div>
+        <ChildApprovalPin
+          profile={pinFor.request}
+          title={t(GRANTS.find((option) => option.grant === pinFor.grant)!.labelKey)}
+          onCancel={() => setPinFor(null)}
+          onConfirm={(pin) => resolve(pinFor.request, pinFor.grant, pin)}
+        />
       )}
     </>
   );

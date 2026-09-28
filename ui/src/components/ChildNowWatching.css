@@ -39,7 +39,22 @@
   background: #707079;
   box-shadow: 0 0 0 3px rgba(112,112,121,.12);
 }
-.child-watching-list { display: flex; flex-direction: column; gap: 8px; }
+/* The panel can hold pending requests, watching children and the recent
+   decisions at once, so it scrolls instead of growing past the viewport. */
+.child-watching-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(68vh, 620px);
+  overflow-y: auto;
+}
+/* Request cards adopt the floating panel's translucent surface here. */
+.child-watching-list .child-request {
+  border-color: rgba(255,255,255,.075);
+  background: rgba(27,27,30,.92);
+  box-shadow: 0 10px 32px rgba(0,0,0,.38);
+  backdrop-filter: blur(18px);
+}
 .child-watching-card {
   padding: 12px;
   overflow: hidden;

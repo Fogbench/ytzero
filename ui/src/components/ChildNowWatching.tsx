@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./ChildNowWatching.css";
 import { ChevronDown, Clock3, Play, ShieldBan } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, type ChildNowWatching as Watching, type Profile } from "../api";
 import { img } from "../img";
 import { useI18n } from "../i18n";
+import ChildDownloadRequestCard, { ChildDownloadRequestHistory } from "./ChildDownloadRequestCard";
 import { ProfileAvatar } from "./ProfileMenu";
 import { VideoThumbnail } from "./VideoThumbnail";
 import { subscribeServerEvent } from "../serverEvents";
+import { useChildDownloadRequests } from "../useChildDownloadRequests";
 
 export default function ChildNowWatching() {
   const { t } = useI18n();
@@ -15,6 +17,8 @@ export default function ChildNowWatching() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [collapsed, setCollapsed] = useState(true);
   const [stopped, setStopped] = useState<Set<number>>(new Set());
+  const { requests, history, resolve } = useChildDownloadRequests();
+  const pendingCountRef = useRef(0);
 
   const load = useCallback(() => {
     Promise.all([api.childNowWatching(), api.profiles()])
@@ -31,6 +35,13 @@ export default function ChildNowWatching() {
     load();
     return subscribeServerEvent("child-watching", load);
   }, [load]);
+
+  // A child is waiting for an answer, so a new request opens the panel on the
+  // decision instead of hiding it behind the bubble.
+  useEffect(() => {
+    if (requests.length > pendingCountRef.current) setCollapsed(false);
+    pendingCountRef.current = requests.length;
+  }, [requests.length]);
 
   const visible = watching.filter((item) => !stopped.has(item.user_id));
   const childProfiles = profiles.filter((profile) => profile.is_child);
@@ -75,17 +86,19 @@ export default function ChildNowWatching() {
             <ProfileAvatar key={"user_id" in item ? item.user_id : item.id} profile={item} size={30} />
           ))}
         </span>
-        {visible.length > 0 && (
+        {(visible.length > 0 || requests.length > 0) && (
           <span className="child-watching-collapsed-copy">
             <strong>
-              {visible.length === 1
-                ? visible[0].name
-                : t("childWatchingProfiles", { n: visible.length })}
+              {requests.length > 0
+                ? t("childDownloadRequestsWaiting", { n: requests.length })
+                : visible.length === 1
+                  ? visible[0].name
+                  : t("childWatchingProfiles", { n: visible.length })}
             </strong>
-            <small>{t("childWatchingNow")}</small>
+            <small>{requests.length > 0 ? t("childDownloadRequestsWaitingHint") : t("childWatchingNow")}</small>
           </span>
         )}
-        <span className={`child-watching-pulse${visible.length === 0 ? " idle" : ""}`} />
+        <span className={`child-watching-pulse${visible.length === 0 && requests.length === 0 ? " idle" : ""}`} />
       </button>
     );
   }
@@ -93,6 +106,9 @@ export default function ChildNowWatching() {
   return (
     <aside className="child-watching-monitor" aria-label={t("childWatchingTitle")}>
       <div className="child-watching-list">
+        {requests.map((request) => (
+          <ChildDownloadRequestCard key={request.id} request={request} resolve={resolve} />
+        ))}
         {visible.length === 0 && (
           childProfiles.filter((profile) => !profile.pin_locked).map((profile) => (
             <div className="child-watching-locked child-watching-idle-profile" key={profile.id}>
@@ -160,6 +176,7 @@ export default function ChildNowWatching() {
             <button onClick={() => unlock(profile)}>{t("childUnlockProfile")}</button>
           </div>
         ))}
+        <ChildDownloadRequestHistory history={history} />
       </div>
       <button
         className="child-watching-collapse"

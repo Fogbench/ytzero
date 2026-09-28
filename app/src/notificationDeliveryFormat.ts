@@ -103,6 +103,17 @@ export function buildDeliveryMessage(kind: string, payload: Payload, target: str
       tags: ["ytzero", "download", "error"],
     };
   }
+  if (kind === "child_request") {
+    const childName = textOf(payload, "childName");
+    return {
+      title: childName ? `${childName} asked for a download` : "A download was requested",
+      body: videoTitle
+        ? `${videoTitle}${channelTitle ? ` · ${channelTitle}` : ""}`
+        : "Open YT Zero to approve or deny the request.",
+      url,
+      tags: ["ytzero", "child", "request"],
+    };
+  }
   if (kind === "app_update") {
     const version = textOf(payload, "version");
     return {

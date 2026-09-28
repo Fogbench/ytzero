@@ -12,6 +12,7 @@ const CATEGORY_ROWS: Array<{ kind: NotificationCategory; label: I18nKey; descrip
   { kind: "playlist_video", label: "notificationPlaylistUpdates", description: "notificationPlaylistUpdatesHint" },
   { kind: "tag_rule", label: "notificationTagRules", description: "notificationTagRulesHint" },
   { kind: "download_failed", label: "notificationDownloadFailures", description: "notificationDownloadFailuresHint" },
+  { kind: "child_request", label: "notificationChildRequests", description: "notificationChildRequestsHint" },
   { kind: "social", label: "notificationSocialActivity", description: "notificationSocialActivityHint" },
   { kind: "app_update", label: "notificationAppUpdates", description: "notificationAppUpdatesHint" },
 ];

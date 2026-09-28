@@ -5,6 +5,7 @@ export const NOTIFICATION_CATEGORIES = [
   "playlist_video",
   "tag_rule",
   "download_failed",
+  "child_request",
   "social",
   "app_update",
 ] as const;
@@ -22,6 +23,9 @@ export const NOTIFICATION_CATEGORY_DEFAULTS: Record<NotificationCategory, boolea
   playlist_video: true,
   tag_rule: false,
   download_failed: true,
+  // A child waiting for an answer is time-sensitive, so this stays on unless a
+  // parent silences it.
+  child_request: true,
   social: true,
   app_update: true,
 };

@@ -25,6 +25,7 @@ import {
   removeStoredProfileAvatar,
   stageProfileAvatarBytes,
 } from "../profileAvatars";
+import { childDownloadApproval, childDownloadRequestsAllowed, isChildDownloadApproval } from "../childDownloadRequests";
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
 type ApiContext = Context<ApiEnvironment>;
@@ -126,6 +127,8 @@ async function serializeProfile(u: UserRow, activeId: number, includeOidcIdentit
       hide_shorts: getUserSetting(u.id, "child_hide_shorts") === "1",
       hide_live: getUserSetting(u.id, "child_hide_live") === "1",
       downloads_only: getUserSetting(u.id, "child_downloads_only") === "1",
+      download_requests: childDownloadRequestsAllowed(u.id),
+      auto_approve_downloads: childDownloadApproval(u.id),
     } : null,
     child_status: status ? {
       remaining_seconds: status.remaining_seconds,
@@ -271,6 +274,11 @@ api.patch("/profiles/:id", async (c) => {
     if (cc.hide_shorts !== undefined) await setUserSetting(id, "child_hide_shorts", cc.hide_shorts ? "1" : "0");
     if (cc.hide_live !== undefined) await setUserSetting(id, "child_hide_live", cc.hide_live ? "1" : "0");
     if (cc.downloads_only !== undefined) await setUserSetting(id, "child_downloads_only", cc.downloads_only ? "1" : "0");
+    if (cc.download_requests !== undefined) await setUserSetting(id, "child_download_requests", cc.download_requests ? "1" : "0");
+    if (cc.auto_approve_downloads !== undefined) {
+      if (!isChildDownloadApproval(cc.auto_approve_downloads)) return c.json({ error: "invalid auto-approval mode" }, 400);
+      await setUserSetting(id, "child_download_auto_approve", cc.auto_approve_downloads);
+    }
   }
   // pin: "" / null clears it, a 6-digit string sets it. PIN is owner-only — not
   // even the primary profile can change or remove someone else's PIN. (Child

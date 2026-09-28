@@ -339,12 +339,15 @@ export interface AppNotification {
     commentId?: string;
     commentBody?: string;
     postBody?: string;
+    requestId?: number;
+    childId?: number;
+    childName?: string;
   };
   target: string;
   read_at: string | null;
   created_at: string;
 }
-export type NotificationCategory = "channel_video" | "playlist_video" | "tag_rule" | "download_failed" | "social" | "app_update";
+export type NotificationCategory = "channel_video" | "playlist_video" | "tag_rule" | "download_failed" | "child_request" | "social" | "app_update";
 export type NotificationSourceType = "channel" | "playlist" | "tag_rule";
 export type NotificationProvider = "off" | "apprise" | "webhook" | "ntfy";
 /** Where one profile's notifications are forwarded outside YT Zero. */
@@ -795,7 +798,12 @@ export interface ChildConfig {
   hide_shorts: boolean;
   hide_live: boolean;
   downloads_only: boolean;
+  download_requests: boolean;
+  auto_approve_downloads: ChildDownloadApproval;
 }
+
+/** How a child profile's download requests are settled before a parent sees them. */
+export type ChildDownloadApproval = "off" | "subscribed" | "all";
 
 export interface ChildStatus {
   is_child: boolean;
@@ -810,7 +818,35 @@ export interface ChildStatus {
   hide_shorts: boolean;
   hide_live: boolean;
   downloads_only: boolean;
+  can_request_download: boolean;
   has_pending_request: boolean;
+}
+
+/** One child's download request, as parent profiles see it. */
+export interface ChildDownloadRequest {
+  id: number;
+  user_id: number;
+  video_id: string;
+  status: "pending" | "approved" | "denied";
+  auto: boolean;
+  created_at: string;
+  resolved_at: string | null;
+  name: string;
+  avatar: string;
+  avatar_color: string;
+  title: string;
+  thumbnail: string;
+  channel_title: string;
+  channel_thumbnail: string;
+  download_status: string | null;
+  requires_pin: boolean;
+}
+
+/** The child's own view of what happened to their request. */
+export interface ChildOwnDownloadRequest {
+  id: number;
+  status: "pending" | "approved" | "denied";
+  created_at: string;
 }
 
 export interface ChildNowWatching {

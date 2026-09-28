@@ -8,6 +8,7 @@ import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
 import { img } from "../img";
 import ChildTimeRequestBanner from "../components/ChildTimeRequestBanner";
+import ChildDownloadRequestBanner from "../components/ChildDownloadRequestBanner";
 import EmptyArt from "../components/illustrations/EmptyArt";
 import TagFilterBar from "../components/TagFilterBar";
 import VideoCard from "../components/VideoCard";
@@ -419,6 +420,7 @@ export default function FeedPage({
     return (
       <>
         <ChildTimeRequestBanner />
+        <ChildDownloadRequestBanner />
         <FeedOnboarding />
       </>
     );
@@ -427,6 +429,7 @@ export default function FeedPage({
   return (
     <>
       <ChildTimeRequestBanner />
+      <ChildDownloadRequestBanner />
       <div className="toolbar" ref={hScrollWrapRef}>
         <TagFilterBar
           tags={tags.filter((t) => !t.hidden_from_filters)}
