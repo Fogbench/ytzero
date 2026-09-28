@@ -36,6 +36,10 @@ interface SetCookieUpdate extends NetscapeCookie {
 }
 
 const recognitionByProfile = new Map<number, RecognitionEntry>();
+/** Profiles whose last explicit answer from YouTube disowned the jar. Kept apart
+ * from the health cache, which a failed probe downgrades to `unknown`: not being
+ * able to ask again is no reason to start writing to the file. */
+const disownedProfiles = new Set<number>();
 const healthInFlight = new Map<number, Promise<YouTubeCookieHealth>>();
 let temporarySequence = 0;
 
@@ -213,12 +217,18 @@ function effectiveCookieProfile(userId?: number): number | null {
   return effectiveUserId && downloadCookiesConfigured(effectiveUserId) ? effectiveUserId : null;
 }
 
-/** Persist cookie rotation before the caller consumes or rejects the response. */
-export function refreshYouTubeResponseCookies(response: Response, userId: number | undefined, requestUrl: string): number {
-  const effectiveUserId = effectiveCookieProfile(userId);
-  if (!effectiveUserId) return 0;
+/** Merge a response's cookie rotation into the profile's jar, unless YouTube has
+ * disowned it: cookies handed to an unrecognized caller are a visitor's, and
+ * writing them replaces an exported session with one that can never be signed in
+ * again. The file is the only copy, so stay off it until the profile uploads a
+ * jar again or YouTube recognizes the account once more. */
+function refreshProfileCookies(effectiveUserId: number, response: Response, requestUrl: string): number {
   const setCookies = responseSetCookies(response);
   if (setCookies.length === 0) return 0;
+  if (disownedProfiles.has(effectiveUserId)) {
+    log.info("cookies.refresh_skipped", { userId: effectiveUserId, recognition: "unrecognized" });
+    return 0;
+  }
   const destination = downloadCookiesFile(effectiveUserId);
   try {
     const updates = refreshYouTubeCookieFile(destination, setCookies, response.url || requestUrl);
@@ -231,6 +241,13 @@ export function refreshYouTubeResponseCookies(response: Response, userId: number
     });
     return 0;
   }
+}
+
+/** Persist cookie rotation from a response carrying no body of its own. What the
+ * last answer said about the jar is the only evidence available here. */
+export function refreshYouTubeResponseCookies(response: Response, userId: number | undefined, requestUrl: string): number {
+  const effectiveUserId = effectiveCookieProfile(userId);
+  return effectiveUserId ? refreshProfileCookies(effectiveUserId, response, requestUrl) : 0;
 }
 
 /** YouTube exposes login state in several response shapes. Treat only explicit
@@ -250,23 +267,34 @@ export function detectYouTubeCookieRecognition(body: string): boolean | null {
   return negative.some((marker) => marker.test(body)) ? false : null;
 }
 
-function recordRecognition(userId: number | undefined, body: string, now = Date.now()): void {
-  const effectiveUserId = effectiveCookieProfile(userId);
-  if (!effectiveUserId) return;
+function recordRecognition(effectiveUserId: number, body: string, now = Date.now()): void {
   const recognized = detectYouTubeCookieRecognition(body);
   if (recognized === null) return;
   const recognition: YouTubeCookieRecognition = recognized ? "recognized" : "unrecognized";
   const previous = recognitionByProfile.get(effectiveUserId);
   recognitionByProfile.set(effectiveUserId, { recognition, checkedAt: now });
+  // An address-wide challenge can disown a healthy jar; a later positive answer
+  // is the evidence that the account cookies are worth rotating again.
+  if (recognized) disownedProfiles.delete(effectiveUserId);
+  else disownedProfiles.add(effectiveUserId);
   if (previous?.recognition !== recognition) {
     log.info("cookies.recognition_changed", { userId: effectiveUserId, recognition });
   }
 }
 
+/** The answer about the account and the cookies arrive in the same response, so
+ * read the answer first: it decides whether these cookies may be written. A
+ * response that says nothing either way leaves the previous answer standing. */
+function applyYouTubeResponseCookies(response: Response, userId: number | undefined, requestUrl: string, body: string): number {
+  const effectiveUserId = effectiveCookieProfile(userId);
+  if (!effectiveUserId) return 0;
+  recordRecognition(effectiveUserId, body);
+  return refreshProfileCookies(effectiveUserId, response, requestUrl);
+}
+
 export async function readYouTubeBodyWithCookies(response: Response, userId: number | undefined, requestUrl: string): Promise<string> {
-  refreshYouTubeResponseCookies(response, userId, requestUrl);
   const body = await response.text();
-  recordRecognition(userId, body);
+  applyYouTubeResponseCookies(response, userId, requestUrl, body);
   return body;
 }
 
@@ -276,8 +304,7 @@ export async function readYouTubeResponseWithCookies(
   userId: number | undefined,
   requestUrl: string,
 ): Promise<string> {
-  refreshYouTubeResponseCookies(response, userId, requestUrl);
-  return readYouTubeResponse(response, failure, (body) => recordRecognition(userId, body));
+  return readYouTubeResponse(response, failure, (body) => applyYouTubeResponseCookies(response, userId, requestUrl, body));
 }
 
 function healthResult(userId: number): YouTubeCookieHealth | null {
@@ -291,6 +318,7 @@ function healthResult(userId: number): YouTubeCookieHealth | null {
 
 export function invalidateYouTubeCookieHealth(userId: number): void {
   recognitionByProfile.delete(userId);
+  disownedProfiles.delete(userId);
   healthInFlight.delete(userId);
 }
 
