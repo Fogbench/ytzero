@@ -289,6 +289,9 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   watch_show_comments: "disabled",
   // Opt-in channel Posts UI; fetched payloads are transient and never persisted.
   channel_posts_tab: "0",
+  // What opening a channel page does on its own: nothing, a quick pass over the
+  // channel's latest uploads, or the same deep history scan as the sync button.
+  channel_open_sync: "off",
   hide_members_only_from_feed: "0",
   hide_members_only_on_channel: "0",
   watched_style: "dimmed",

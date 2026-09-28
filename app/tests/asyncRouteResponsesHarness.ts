@@ -6,6 +6,7 @@ const activeChannelId = "UC_background_sync_test";
 const secondary = db.prepare("INSERT INTO users(name, avatar_color, sort_order, portable_uuid) VALUES(?, ?, ?, ?) RETURNING id")
   .get("Secondary", "#336699", 2, crypto.randomUUID()) as { id: number };
 const secondaryChannelId = "UC_secondary_sync_test";
+const freshChannelId = "UC_recently_synced_test";
 db.prepare("INSERT INTO channels(channel_id, title, url, manual_status) VALUES(?, ?, ?, 'paused')")
   .run(disabledChannelId, "Paused channel", `https://youtube.com/channel/${disabledChannelId}`);
 db.prepare("INSERT INTO user_channels(user_id, channel_id, followed) VALUES(1, ?, 1)").run(disabledChannelId);
@@ -15,6 +16,10 @@ db.prepare("INSERT INTO user_channels(user_id, channel_id, followed) VALUES(1, ?
 db.prepare("INSERT INTO channels(channel_id, title, url, manual_status) VALUES(?, ?, ?, 'active')")
   .run(secondaryChannelId, "Secondary channel", `https://youtube.com/channel/${secondaryChannelId}`);
 db.prepare("INSERT INTO user_channels(user_id, channel_id, followed) VALUES(?, ?, 1)").run(secondary.id, secondaryChannelId);
+// Already synced at both depths, so an automatic page-open sync has nothing to do.
+db.prepare("INSERT INTO channels(channel_id, title, url, manual_status, last_refreshed_at, full_sync_attempted_at) VALUES(?, ?, ?, 'active', datetime('now'), datetime('now'))")
+  .run(freshChannelId, "Recently synced channel", `https://youtube.com/channel/${freshChannelId}`);
+db.prepare("INSERT INTO user_channels(user_id, channel_id, followed) VALUES(1, ?, 1)").run(freshChannelId);
 // Exercise cross-profile job isolation with a profile that is explicitly
 // allowed to manage subscriptions. The repository default keeps that area
 // admin-only, which would otherwise reject the request before the job guard.
@@ -45,6 +50,10 @@ const channelSyncStatus = await json("/channels/sync");
 const emptyChannelSync = await postJson("/channels/sync", { channel_ids: [] });
 const unavailableChannelSync = await postJson("/channels/sync", { channel_ids: ["UC_not_followed"] });
 const disabledChannelSync = await postJson("/channels/sync", { channel_ids: [disabledChannelId] });
+const invalidSingleChannelSyncMode = await postJson(`/channels/${activeChannelId}/sync`, { mode: "shallow" });
+const automaticDisabledChannelSync = await postJson(`/channels/${disabledChannelId}/sync`, { mode: "recent", automatic: true });
+const automaticRecentOnCooldown = await postJson(`/channels/${freshChannelId}/sync`, { mode: "recent", automatic: true });
+const automaticFullOnCooldown = await postJson(`/channels/${freshChannelId}/sync`, { mode: "full", automatic: true });
 const downloads = await json("/downloads");
 const updateDownloadSettingsResponse = await api.request("http://localhost/downloads/config", {
   method: "PUT",
@@ -103,6 +112,8 @@ for (let attempt = 0; haltedChannelSync.body.job?.status === "running" && attemp
 const secondaryTerminalView = await json("/channels/sync", secondary.id);
 globalThis.fetch = (async () => new Response("limited", { status: 429 })) as unknown as typeof fetch;
 const acceptedSingleChannelSync = await postJson(`/channels/${activeChannelId}/sync`, {});
+// A viewer-pressed sync ignores the cooldown; only the requested depth differs.
+const acceptedRecentChannelSync = await postJson(`/channels/${freshChannelId}/sync`, { mode: "recent" });
 let haltedSingleChannelSync = await json("/channels/sync");
 for (let attempt = 0; haltedSingleChannelSync.body.job?.status === "running" && attempt < 100; attempt++) {
   await Bun.sleep(10);
@@ -137,7 +148,18 @@ console.log("RESULT " + JSON.stringify({
   secondaryAcceptedJobStatus: secondaryAccepted.body.job?.status,
   secondaryTerminalJob: secondaryTerminalView.body.job,
   secondaryTerminalBusy: secondaryTerminalView.body.busy,
+  invalidSingleChannelSyncModeStatus: invalidSingleChannelSyncMode.status,
+  automaticDisabledChannelSyncStatus: automaticDisabledChannelSync.status,
+  automaticDisabledChannelSyncSkipped: automaticDisabledChannelSync.body.skipped,
+  automaticDisabledChannelSyncJob: automaticDisabledChannelSync.body.job,
+  automaticRecentOnCooldownSkipped: automaticRecentOnCooldown.body.skipped,
+  automaticFullOnCooldownSkipped: automaticFullOnCooldown.body.skipped,
   acceptedSingleChannelSyncStatus: acceptedSingleChannelSync.status,
+  acceptedSingleChannelSyncMode: acceptedSingleChannelSync.body.job?.channels
+    ?.find((channel: any) => channel.channelId === activeChannelId)?.mode,
+  acceptedRecentChannelSyncStatus: acceptedRecentChannelSync.status,
+  acceptedRecentChannelSyncMode: acceptedRecentChannelSync.body.job?.channels
+    ?.find((channel: any) => channel.channelId === freshChannelId)?.mode,
   haltedSingleChannelSyncStatus: haltedSingleChannelSync.body.job?.status,
   downloadsStatus: downloads.status,
   downloadsIsArray: Array.isArray(downloads.body.downloads),

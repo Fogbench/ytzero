@@ -6,6 +6,7 @@ import { createSocialWatchPartyApi } from "./socialWatchPartyApi";
 import type { PlaylistSort, UserPlaylistSort } from "./playlistSort";
 import type { PlaybackQueueContext } from "./playbackQueue";
 import type { FeedBuilderConfig, FeedBuilderInput, FeedMediaMode, FeedRecipe, FeedRecipeSources } from "../../shared/feedBuilder";
+import type { ChannelSyncMode } from "../../shared/channelSyncModes";
 import type {
   PluginManifest,
   PluginSettingValue,
@@ -356,7 +357,13 @@ export const api = {
   channel: (id: string) => http<{ channel: Channel }>(`/channels/${id}`),
   recentChannels: () => sharedGet<{ channels: (Channel & { latest_thumbnail: string | null; latest_video_id: string | null; watched: number; watch_position: number | null; watch_duration: number | null })[] }>("channels-recent", "/channels/recent"),
   topChannels: () => sharedGet<{ channels: (Channel & { watch_count: number; is_live: number })[] }>("channels-top", "/channels/top"),
-  syncChannel: (id: string) => http<{ job: ChannelSyncJob }>(`/channels/${id}/sync`, { method: "POST" }),
+  // `automatic` marks a sync the channel page started by itself: the server may
+  // answer with a null job when the channel is disabled or still on cooldown.
+  syncChannel: (id: string, options: { mode?: ChannelSyncMode; automatic?: boolean } = {}) =>
+    http<{ job: ChannelSyncJob | null; skipped?: "disabled" | "cooldown" }>(`/channels/${id}/sync`, {
+      method: "POST",
+      body: JSON.stringify({ mode: options.mode ?? "full", automatic: options.automatic === true }),
+    }),
   channelSyncJob: () => http<{ job: ChannelSyncJob | null; busy: boolean }>("/channels/sync"),
   startChannelSync: (channelIds: string[]) => http<{ job: ChannelSyncJob }>("/channels/sync", { method: "POST", body: JSON.stringify({ channel_ids: channelIds }) }),
   addChannel: (url: string, customName?: string) =>

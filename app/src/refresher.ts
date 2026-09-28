@@ -919,6 +919,32 @@ export function syncChannel(channelId: string, userId?: number): Promise<Channel
   return task;
 }
 
+const channelRecentSyncsInFlight = new Map<string, Promise<ChannelSyncResult>>();
+
+/** Quick counterpart of {@link syncChannel}: only the ~15 uploads the RSS feed
+ * still lists, without the paginated history and playlist scans. Cheap enough
+ * to run whenever a channel page is opened. */
+export function syncChannelRecent(channelId: string, userId?: number): Promise<ChannelSyncResult> {
+  // A full scan already fetches everything a quick pass would, so join it
+  // instead of scraping the same channel twice and counting its new videos
+  // (and their notifications) from both passes.
+  const fullSync = channelSyncsInFlight.get(channelId);
+  if (fullSync) return fullSync;
+  const current = channelRecentSyncsInFlight.get(channelId);
+  if (current) return current;
+  // Register before the first await, for the same reason as the full sync.
+  const task = (async () => {
+    const status = await database.prepare("SELECT manual_status FROM channels WHERE channel_id=?").get(channelId) as { manual_status: string } | null;
+    if (status && status.manual_status !== "active") throw new Error(`channel sync disabled (${status.manual_status})`);
+    // A channel page can be opened before the channel is followed or otherwise
+    // saved locally, so the video inserts need their parent row to exist.
+    await ensureChannel.run(channelId, "", `https://www.youtube.com/channel/${channelId}`);
+    return refreshChannel(channelId, userId);
+  })().finally(() => channelRecentSyncsInFlight.delete(channelId));
+  channelRecentSyncsInFlight.set(channelId, task);
+  return task;
+}
+
 let refreshing = false;
 export const feedRefreshIsRunning = () => refreshing;
 export const channelFullSyncIsRunning = () => channelSyncsInFlight.size > 0;

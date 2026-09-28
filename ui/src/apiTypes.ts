@@ -3,6 +3,7 @@ import type { I18nKey } from "./i18n";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import type { PlaybackQueueContext } from "./playbackQueue";
 import type { WatchCommentsSetting } from "../../shared/watchComments";
+import type { ChannelOpenSyncMode } from "../../shared/channelSyncModes";
 export { DEFAULT_PLAYBACK_SPEEDS as PLAYBACK_SPEEDS } from "../../shared/playbackSpeeds";
 export interface Tag {
   id: number;
@@ -299,6 +300,7 @@ export interface AppSettings {
   watch_show_related: string;
   watch_show_comments: WatchCommentsSetting;
   channel_posts_tab: string;
+  channel_open_sync: ChannelOpenSyncMode;
   hide_members_only_from_feed: string;
   hide_members_only_on_channel: string;
   watched_style: string;

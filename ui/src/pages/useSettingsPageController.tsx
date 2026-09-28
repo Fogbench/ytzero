@@ -6,6 +6,7 @@ import { AlertTriangle, ArchiveRestore, ArrowRight, Check, CheckCircle2, Chevron
 import { api, type AppChangelog, type AppLogs, type AppLogStreamEvent, type AppVersion, type AuthMethod, type Channel, type ChannelManualStatus, type ChildLockStatus, type FilterRule, type FollowedPlaylist, type MembersOnlyVisibility, type PluginManifest, type PluginSettingsResponse, type Profile, type ProfilePermissionArea, type ProfilePermissions, type Rule, type ShortsFeedMode, type Tag, type UpdateCheck, type UserPlaylist, type UserPlaylistRule, type Video, SB_CATEGORIES } from "../api";
 import { parseCustomPlaybackSpeeds } from "../../../shared/playbackSpeeds";
 import { normalizeWatchCommentsMode, type WatchCommentsMode } from "../../../shared/watchComments";
+import { normalizeChannelOpenSyncMode, type ChannelOpenSyncMode } from "../../../shared/channelSyncModes";
 import AuthSettings from "../components/AuthSettings";
 import { NAV_ITEMS, normalizeNav, parseNavConfig, type NavConfigEntry } from "../nav";
 import { img } from "../img";
@@ -177,6 +178,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const [watchShowRelated, setWatchShowRelated] = useState(true);
   const [watchCommentsMode, setWatchCommentsMode] = useState<WatchCommentsMode>("disabled");
   const [channelPostsTab, setChannelPostsTab] = useState(false);
+  const [channelOpenSync, setChannelOpenSync] = useState<ChannelOpenSyncMode>("off");
   const [feedMaxAgeValue, setFeedMaxAgeValue] = useState("6");
   const [feedMaxAgeUnit, setFeedMaxAgeUnit] = useState<FeedMaxAgeUnit>("months");
   const [keepWatchedInFeed, setKeepWatchedInFeed] = useState(false);
@@ -452,6 +454,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       setWatchShowRelated(r.settings.watch_show_related !== "0");
       setWatchCommentsMode(normalizeWatchCommentsMode(r.settings.watch_show_comments));
       setChannelPostsTab(r.settings.channel_posts_tab === "1");
+      setChannelOpenSync(normalizeChannelOpenSyncMode(r.settings.channel_open_sync));
       setFeedMaxAgeValue(r.settings.feed_max_age_value || "6");
       setFeedMaxAgeUnit(isFeedMaxAgeUnit(r.settings.feed_max_age_unit) ? r.settings.feed_max_age_unit : "off");
       setKeepWatchedInFeed(r.settings.keep_watched_in_feed === "1");
@@ -689,6 +692,19 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   };
 
   const toggleChannelPostsTab = async () => { const next = !channelPostsTab; setChannelPostsTab(next); await api.updateSettings({ channel_posts_tab: next ? "1" : "0" }); showToast(t("displaySettingsSaved")); };
+
+  const changeChannelOpenSync = async (next: ChannelOpenSyncMode) => {
+    const previous = channelOpenSync;
+    setChannelOpenSync(next);
+    try {
+      await api.updateSettings({ channel_open_sync: next });
+      emit("feed-visibility-settings-changed");
+      showToast(t("displaySettingsSaved"));
+    } catch (error) {
+      setChannelOpenSync(previous);
+      showToast(error instanceof Error ? error.message : t("error"));
+    }
+  };
 
   const changeFeedMaxAge = async (value: string, unit: FeedMaxAgeUnit) => {
     setFeedMaxAgeValue(value);
@@ -1220,7 +1236,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     changelog,
     changelogRemoteError,
     clusterAvailable,
-    channelCustomName, channelPostsTab,
+    channelCustomName, channelPostsTab, channelOpenSync, changeChannelOpenSync,
     channelQuery,
     channelStatusLabel,
     channelStatusOptions,

@@ -1,3 +1,4 @@
+import { normalizeChannelSyncMode, type ChannelSyncMode } from "../../shared/channelSyncModes";
 import { isYouTubeRateLimitError } from "./youtubeRateLimit";
 
 export type ChannelSyncJobStatus = "running" | "completed" | "halted";
@@ -6,6 +7,7 @@ export type ChannelSyncItemStatus = "pending" | "running" | "completed" | "faile
 export interface ChannelSyncJobItem {
   channelId: string;
   title: string;
+  mode: ChannelSyncMode;
   status: ChannelSyncItemStatus;
   added: number;
   error?: string;
@@ -33,10 +35,12 @@ export interface ChannelSyncJob {
 export interface ChannelSyncJobTarget {
   channelId: string;
   title: string;
+  /** Defaults to the historical deep scan when a caller does not ask for one. */
+  mode?: ChannelSyncMode;
 }
 
 interface ChannelSyncJobDependencies {
-  syncChannel: (channelId: string) => Promise<{ added: number; rateLimited?: boolean }>;
+  syncChannel: (channelId: string, mode: ChannelSyncMode, userId: number) => Promise<{ added: number; rateLimited?: boolean }>;
   beginMutation: () => (() => void) | null;
   publish: (userId: number) => void;
   publishBusy?: () => void;
@@ -113,7 +117,7 @@ export function createChannelSyncJobManager(dependencies: ChannelSyncJobDependen
 
         let halt = false;
         try {
-          const result = await dependencies.syncChannel(item.channelId);
+          const result = await dependencies.syncChannel(item.channelId, item.mode, job.userId);
           item.added = Math.max(0, Number(result.added) || 0);
           job.added += item.added;
           if (result.rateLimited) {
@@ -162,7 +166,7 @@ export function createChannelSyncJobManager(dependencies: ChannelSyncJobDependen
       const seen = new Set<string>();
       const channels = targets
         .filter((target) => target.channelId && !seen.has(target.channelId) && seen.add(target.channelId))
-        .map((target) => ({ ...target, status: "pending" as const, added: 0 }));
+        .map((target) => ({ ...target, mode: normalizeChannelSyncMode(target.mode), status: "pending" as const, added: 0 }));
       if (channels.length === 0) throw new Error("at least one channel is required");
 
       const active = activeByUser.get(userId);
@@ -174,7 +178,11 @@ export function createChannelSyncJobManager(dependencies: ChannelSyncJobDependen
         const prioritized = channels.flatMap((channel) => {
           const existing = existingById.get(channel.channelId);
           if (!existing) return [channel];
-          return existing.status === "pending" ? [existing] : [];
+          if (existing.status !== "pending") return [];
+          // A queued quick pass is upgraded when the same channel is requested
+          // again as a deep scan, so the stronger request is never swallowed.
+          if (channel.mode === "full") existing.mode = "full";
+          return [existing];
         });
         active.channels = active.channels.filter((channel) => !(channel.status === "pending" && requestedIds.has(channel.channelId)));
         active.channels.splice(Math.min(insertAt, active.channels.length), 0, ...prioritized);

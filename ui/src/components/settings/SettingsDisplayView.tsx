@@ -50,6 +50,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     changeWatchCommentsMode,
     changeWatchedStyle,
     changeVideoCardActions, changeVideoCardActionConfig, channelPostsTab,
+    changeChannelOpenSync, channelOpenSync,
     deArrowThumbnailsEnabled,
     deArrowTitlesEnabled,
     displaySubTab,
@@ -242,6 +243,19 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
             />
           </SettingRow>
           <SettingRow label={t("channelPostsTab")} description={t("channelPostsTabHint")}><Switch checked={channelPostsTab} onCheckedChange={() => toggleChannelPostsTab()} /></SettingRow>
+
+          <SettingRow label={t("channelOpenSync")} description={t("channelOpenSyncHint")}>
+            <SelectMenu
+              label={t("channelOpenSync")}
+              value={channelOpenSync}
+              onChange={changeChannelOpenSync}
+              options={[
+                { value: "off" as const, label: t("channelOpenSyncOff") },
+                { value: "recent" as const, label: t("channelOpenSyncRecent") },
+                { value: "full" as const, label: t("channelOpenSyncFull") },
+              ]}
+            />
+          </SettingRow>
 
           <SettingRow label={t("feedMaxAge")} description={t("feedMaxAgeHint")}>
             <Inline gap={2} className="feed-max-age-control">

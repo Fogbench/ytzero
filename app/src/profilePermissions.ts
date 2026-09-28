@@ -35,7 +35,7 @@ export function isProfilePermissionArea(value: unknown): value is ProfilePermiss
 export const SETTING_PERMISSION_AREAS: Readonly<Record<string, ProfilePermissionArea>> = {
   language: "appearance", youtube_title_language: "appearance", grid_size: "appearance", watched_style: "appearance",
   show_shorts: "feed", feed_max_age_value: "feed", feed_max_age_unit: "feed", keep_watched_in_feed: "feed",
-  hide_live_from_feed: "feed", channel_posts_tab: "feed",
+  hide_live_from_feed: "feed", channel_posts_tab: "feed", channel_open_sync: "feed",
   hide_members_only_from_feed: "feed", hide_members_only_on_channel: "feed",
   feed_sort: "feed",
   shorts_tab: "navigation", show_top_channels: "navigation", sidebar_nav: "navigation",

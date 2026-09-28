@@ -24,6 +24,7 @@ const CATALOG: CatalogEntry[] = [
   { view: "display:feed", label: "feedMaxAge", description: "feedMaxAgeHint" },
   { view: "display:feed", label: "keepWatchedInFeed", description: "keepWatchedInFeedHint" },
   { view: "display:feed", label: "membersOnlyVisibility", description: "membersOnlyVisibilityHint" },
+  { view: "display:feed", label: "channelOpenSync", description: "channelOpenSyncHint" },
   { view: "display:playback", label: "watchShowRelated", description: "watchShowRelatedHint" },
   { view: "display:playback", label: "watchShowComments", description: "watchShowCommentsHint" },
   { view: "display:playback", label: "feedAutoplay", description: "feedAutoplayHint" },

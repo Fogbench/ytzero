@@ -13,6 +13,7 @@ import { removeRoleFromExternalMappings } from "../externalRoleMappings";
 import { normalizeYouTubeTitleLanguage } from "../youtubeRequestLanguage";
 import { normalizePlaybackSpeed, normalizePlaybackSpeedOptionsSetting } from "../../../shared/playbackSpeeds";
 import { isWatchCommentsSetting, normalizeWatchCommentsMode } from "../../../shared/watchComments";
+import { isChannelOpenSyncMode } from "../../../shared/channelSyncModes";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>; type ApiContext = Context<ApiEnvironment>;
@@ -254,6 +255,9 @@ api.put("/settings", async (c) => {
   }
   if ("watch_show_comments" in body && !isWatchCommentsSetting(body.watch_show_comments)) {
     return c.json({ error: "invalid watch comments mode" }, 400);
+  }
+  if ("channel_open_sync" in body && !isChannelOpenSyncMode(body.channel_open_sync)) {
+    return c.json({ error: "invalid channel open sync mode" }, 400);
   }
   for (const key of Object.keys(SETTING_DEFAULTS)) {
     if (key === "child_lock_pin_hash" || key === "child_lock_enabled") continue;

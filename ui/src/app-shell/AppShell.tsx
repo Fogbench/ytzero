@@ -20,6 +20,7 @@ import { usePluginRoutes } from "./usePluginRoutes";
 import { useProfileSession } from "./useProfileSession";
 import { useSidebarVisibility } from "./sidebarVisibility";
 import { useI18n } from "../i18n";
+import { normalizeChannelOpenSyncMode } from "../../../shared/channelSyncModes";
 import { createWatchRoutePreview } from "../pages/watchRuntime";
 import "../AppShell.css";
 
@@ -89,6 +90,7 @@ export default function AppShell({ isAdmin }: { isAdmin: boolean }) {
             <main className="main">
               <div className="content">
                 <AppRoutes appIconColor={preferences.appIconColor} childStatus={profile.childStatus}
+                  channelOpenSync={normalizeChannelOpenSyncMode(preferences.appSettings?.channel_open_sync)}
                   enabledPluginRoutes={plugins.enabledPluginRoutes}
                   feedSort={preferences.feedSort}
                   keepWatchedInFeed={preferences.appSettings?.keep_watched_in_feed === "1"}

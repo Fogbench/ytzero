@@ -29,6 +29,7 @@ import { NOTIFICATION_CATEGORIES } from "./notificationPreferences";
 import { normalizeFeedBuilderConfig } from "../../shared/feedBuilder";
 import { isDownloadQuality, type DownloadQuality } from "./downloadSettings";
 import { normalizeWatchCommentsMode } from "../../shared/watchComments";
+import { normalizeChannelOpenSyncMode } from "../../shared/channelSyncModes";
 export const BACKUP_FORMAT = "ytzero.portable-backup"; export const BACKUP_FORMAT_VERSION = 1;
 export const BACKUP_TTL_MS = 30 * 60_000;
 const SESSION_DIR = process.env.RESTORE_SESSION_DIR ?? resolve(import.meta.dir, "../../data/restore-sessions");
@@ -55,7 +56,7 @@ export const BACKUP_SECTIONS: readonly BackupSectionDefinition[] = [
   { id: "instance.channels", schemaVersion: 4, scope: "instance", sensitivity: "normal", dependencies: [], category: "organization", path: () => "instance/channels.jsonl" },
   { id: "profiles.index", schemaVersion: 1, scope: "instance", sensitivity: "normal", dependencies: [], category: "profiles", path: () => "profiles/index.json" },
   { id: "profile.avatar", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "profiles", optional: true, path: (uuid = "") => `assets/avatars/${uuid}` },
-  { id: "profile.settings", schemaVersion: 11, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("settings.json") },
+  { id: "profile.settings", schemaVersion: 12, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("settings.json") },
   { id: "profile.feed-builder", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "profile.subscriptions", "profile.followed-playlists", "profile.tags", "profile.playlists"], category: "configuration", path: profilePath("feed-builder.json") },
   { id: "profile.notification-preferences", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("notification-preferences.jsonl") },
   { id: "profile.access-control", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.access-control"], category: "configuration", path: profilePath("access-control.json") },
@@ -97,6 +98,7 @@ function portableUserSettingValue(key: string, value: unknown): string {
   if (key === "keyboard_shortcuts") return normalizeKeyboardShortcutSetting(value) ?? SETTING_DEFAULTS.keyboard_shortcuts; if (key.startsWith("video_card_")) return normalizeVideoCardSetting(key, value);
   if (key === "show_shorts") return value === "disabled" || value === "1" || value === "selected" ? value : "0";
   if (key === "watch_show_comments") return normalizeWatchCommentsMode(value);
+  if (key === "channel_open_sync") return normalizeChannelOpenSyncMode(value);
   return String(value);
 }
 export interface BackupManifestSection {
@@ -196,7 +198,8 @@ async function sectionData(id: string, profile: any | null, referenced: Set<stri
     case "profile.settings": {
       const settings: Record<string, string> = {};
       for (const row of await database.prepare("SELECT key, value FROM user_settings WHERE user_id=?").all(uid) as any[]) {
-        if (USER_SETTING_KEYS.includes(row.key)) settings[row.key] = row.key === "watch_show_comments" ? normalizeWatchCommentsMode(row.value) : row.value;
+        if (USER_SETTING_KEYS.includes(row.key)) settings[row.key] = row.key === "watch_show_comments" ? normalizeWatchCommentsMode(row.value)
+          : row.key === "channel_open_sync" ? normalizeChannelOpenSyncMode(row.value) : row.value;
       }
       const plugins: Record<string, unknown> = {};
       for (const adapter of PLUGIN_BACKUP_ADAPTERS.filter((item) => item.scope === "profile")) plugins[adapter.id] = { schemaVersion: adapter.schemaVersion, payload: await adapter.export(uid) };

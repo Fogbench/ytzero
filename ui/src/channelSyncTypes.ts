@@ -1,8 +1,11 @@
+import type { ChannelSyncMode } from "../../shared/channelSyncModes";
+
 export type ChannelSyncChannelStatus = "pending" | "running" | "completed" | "failed" | "skipped";
 
 export interface ChannelSyncJobChannel {
   channelId: string;
   title: string;
+  mode: ChannelSyncMode;
   status: ChannelSyncChannelStatus;
   added: number;
   error?: string;

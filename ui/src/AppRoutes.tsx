@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { api, type ChildStatus, type ProfilePermissions, type Video } from "./api";
 import type { ToastVariant } from "./events";
 import type { PlaybackQueueContext } from "./playbackQueue";
+import type { ChannelOpenSyncMode } from "../../shared/channelSyncModes";
 import { DelayedPageSkeleton } from "./components/LoadingState";
 const ArchivePage = lazy(() => import("./pages/ArchivePage"));
 const BookmarksPage = lazy(() => import("./pages/BookmarksPage"));
@@ -37,6 +38,7 @@ type AppRoutesProps = {
   isAdmin: boolean;
   onPlay: (video: Video, playbackQueue?: PlaybackQueueContext) => void;
   profilePermissions: ProfilePermissions;
+  channelOpenSync: ChannelOpenSyncMode;
   shortsEnabled: boolean;
   showTopChannels: boolean;
   showToast: (message: string, variant?: ToastVariant) => void;
@@ -44,6 +46,7 @@ type AppRoutesProps = {
 
 export default function AppRoutes({
   appIconColor,
+  channelOpenSync,
   childStatus,
   enabledPluginRoutes,
   feedSort,
@@ -75,7 +78,7 @@ export default function AppRoutes({
         <Route path="/live" element={<LivePage onPlay={onPlay} />} />
         <Route path="/watch/:id" element={<WatchPage />} />
         <Route path="/watch/:id/playlist/:playlistId" element={<WatchPage />} />
-        <Route path="/channel/:id" element={<ChannelPage onPlay={onPlay} shortsEnabled={shortsEnabled} />} />
+        <Route path="/channel/:id" element={<ChannelPage onPlay={onPlay} shortsEnabled={shortsEnabled} channelOpenSync={channelOpenSync} />} />
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/playlists/:id" element={<UserPlaylistPage onPlay={onPlay} />} />
         <Route path="/playlist/:id" element={<ChannelPlaylistPage />} />

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Bell, CalendarClock, Captions, ExternalLink, FileClock, Gauge, ListRestart, ListVideo, MessageSquareText, Plus, Radio, RefreshCw, Search, Star, UserMinus, UserPlus, Video as VideoIcon, X, Zap } from "lucide-react";
 import { api, type ChannelAbout, type ChannelManualStatus, type ChannelShortsFeedVisibility, type MembersOnlyVisibility, type PlaylistInfo, type Tag, type Video } from "../api";
 import { resolvePlaybackSpeeds } from "../../../shared/playbackSpeeds";
+import type { ChannelOpenSyncMode } from "../../../shared/channelSyncModes";
 import TagChip from "../components/TagChip";
 import TagCreateForm from "../components/TagCreateForm";
 import TagPickerMenu from "../components/TagPickerMenu";
@@ -31,7 +32,7 @@ type Tab = "videos" | "shorts" | "playlists" | "posts" | "processing";
 // Matches the server's default /feed page size.
 const CHANNEL_PAGE_SIZE = 40;
 
-export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Video) => void; shortsEnabled: boolean }) {
+export default function ChannelPage({ onPlay, shortsEnabled, channelOpenSync }: { onPlay: (v: Video) => void; shortsEnabled: boolean; channelOpenSync: ChannelOpenSyncMode }) {
   const { t, language, locale, timeZone } = useI18n();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,7 +60,10 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
   const [shortsFeedVisibility, setShortsFeedVisibility] = useState<ChannelShortsFeedVisibility>("default");
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const [refreshScheduleOpen, setRefreshScheduleOpen] = useState(false);
-  const [startedSyncJobId, setStartedSyncJobId] = useState<string | null>(null);
+  // The job this page is waiting on, plus whether the page started it itself.
+  // One value, so a manual click and an in-flight automatic start cannot end up
+  // reporting each other's outcome.
+  const [startedSync, setStartedSync] = useState<{ id: string; automatic: boolean } | null>(null);
   const [technicalView, setTechnicalView] = useState<"root" | "speed" | "captions" | "members" | "shorts" | "notifications">("root");
   const [notificationMode, setNotificationMode] = useState<NotificationSourceMode>("default");
   const [notificationPending, setNotificationPending] = useState(false);
@@ -87,10 +91,11 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const prevIdRef = useRef<string | undefined>(undefined);
   const completedSyncJobsRef = useRef(new Set<string>());
+  const automaticSyncChannelRef = useRef<string | null>(null);
   const { job: backgroundSyncJob } = useChannelSyncActivity();
   const backgroundChannelSyncActive = backgroundSyncJob?.status === "running"
     && backgroundSyncJob.channels.some((channel) => channel.channelId === id && (channel.status === "pending" || channel.status === "running"));
-  const startedChannelSyncActive = Boolean(startedSyncJobId && !completedSyncJobsRef.current.has(startedSyncJobId));
+  const startedChannelSyncActive = Boolean(startedSync && !completedSyncJobsRef.current.has(startedSync.id));
   const channelSyncActive = syncing || startedChannelSyncActive || backgroundChannelSyncActive;
 
   useEffect(() => {
@@ -125,7 +130,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
     setMembersOnlyVisibility("default");
     setShortsFeedVisibility("default");
     setNotificationMode("default");
-    setStartedSyncJobId(null);
+    setStartedSync(null);
     window.scrollTo(0, 0);
     api.channelAbout(id).then((about) => { setAbout(about); emit("channels-changed"); }).catch(console.error);
     api.channel(id).then((r) => {
@@ -328,19 +333,37 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
   };
 
   useEffect(() => {
-    if (!id || !backgroundSyncJob || backgroundSyncJob.id !== startedSyncJobId || backgroundSyncJob.status === "running" || completedSyncJobsRef.current.has(backgroundSyncJob.id)) return;
+    if (!id || !startedSync || !backgroundSyncJob || backgroundSyncJob.id !== startedSync.id || backgroundSyncJob.status === "running" || completedSyncJobsRef.current.has(backgroundSyncJob.id)) return;
     const item = backgroundSyncJob.channels.find((channel) => channel.channelId === id);
     if (!item) return;
     completedSyncJobsRef.current.add(backgroundSyncJob.id);
+    // A sync the page started by itself only reports what it actually found;
+    // "nothing new" and transient failures stay quiet on every visit.
     setSyncMsg(item.status === "completed"
-      ? item.added > 0 ? formatAddedVideos(item.added, language) : t("noNewVideos")
-      : isChannelSyncRateLimitMessage(item.error) ? t("channelSyncRateLimitError") : t("syncError"));
+      ? item.added > 0 ? formatAddedVideos(item.added, language) : startedSync.automatic ? null : t("noNewVideos")
+      : startedSync.automatic ? null
+        : isChannelSyncRateLimitMessage(item.error) ? t("channelSyncRateLimitError") : t("syncError"));
     loadAbout();
     api.channelLive(id).then((live) => setLiveStreams(live.videos)).catch(console.error);
     if (item.added > 0) reload();
     const timer = window.setTimeout(() => setSyncMsg(null), 6_000);
     return () => window.clearTimeout(timer);
-  }, [backgroundSyncJob?.id, backgroundSyncJob?.status, id, startedSyncJobId]);
+  }, [backgroundSyncJob?.id, backgroundSyncJob?.status, id, startedSync]);
+
+  // Opening a channel page can pull fresh uploads on its own. The server owns
+  // the per-depth cooldown, so revisiting a channel stays cheap and silent.
+  useEffect(() => {
+    if (!id || channelOpenSync === "off" || automaticSyncChannelRef.current === id) return;
+    automaticSyncChannelRef.current = id;
+    api.syncChannel(id, { mode: channelOpenSync, automatic: true })
+      .then((result) => {
+        const job = result.job;
+        // A manual sync started while this request was in flight owns the
+        // outcome message: it was the viewer who asked for it.
+        if (job) setStartedSync((current) => current ?? { id: job.id, automatic: true });
+      })
+      .catch(console.error);
+  }, [id, channelOpenSync]);
 
   const openPlaylist = (playlistId: string) => navigate(`/playlist/${playlistId}`);
 
@@ -379,7 +402,7 @@ export default function ChannelPage({ onPlay, shortsEnabled }: { onPlay: (v: Vid
     setSyncMsg(null);
     try {
       const result = await api.syncChannel(id);
-      setStartedSyncJobId(result.job.id);
+      setStartedSync(result.job ? { id: result.job.id, automatic: false } : null);
       setSyncMsg(t("channelSyncStarted"));
     } catch (error) {
       setSyncMsg(t("syncError"));

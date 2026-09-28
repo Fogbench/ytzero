@@ -302,6 +302,15 @@ archive with no such capability restores with public sharing denied.
   state stay independent. It is recorded by `profile.settings` schema v11.
   Schemas 1–10 remain readable: merge retains the target value when the key is
   absent, while replace uses the disabled application default.
+  `channel_open_sync` is portable per-profile configuration for what opening a
+  channel page does on its own: `off` (the historical passive behaviour),
+  `recent` (a quick pass over the channel's latest uploads), or `full` (the same
+  deep history scan as the manual sync button). Restore normalizes an unknown
+  value to `off`. It is recorded by `profile.settings` schema v12; schemas 1–11
+  remain readable: merge retains the target value when the key is absent, while
+  replace uses the `off` application default. The sync cooldowns that keep an
+  automatic page-open sync from repeating are runtime behaviour derived from
+  channel refresh timestamps, which are rebuildable cache and never exported.
   Feed-builder configuration is portable personal configuration in the separate versioned `profile.feed-builder` section. It references portable tag and personal-playlist UUIDs plus channel and followed-playlist IDs, so that section depends on the corresponding organization sections. Its revision is preserved for optimistic concurrency; expired composed-feed session snapshots are rebuildable cache and are never exported.
   The visibility of the child-watching shortcut is also a portable per-profile
   presentation preference. It defaults to visible; live child activity remains

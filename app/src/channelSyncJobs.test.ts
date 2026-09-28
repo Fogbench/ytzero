@@ -124,13 +124,20 @@ describe("channel sync background jobs", () => {
 
   test("runs jobs for different profiles without globally blocking them", async () => {
     const resolvers = new Map<string, (value: { added: number }) => void>();
+    const owners: string[] = [];
     const { instance, mutations } = manager({
-      syncChannel: (channelId) => new Promise((resolve) => { resolvers.set(channelId, resolve); }),
+      syncChannel: (channelId, _mode, userId) => new Promise((resolve) => {
+        owners.push(`${channelId}:${userId}`);
+        resolvers.set(channelId, resolve);
+      }),
     });
     instance.start(3, [targets[0]]);
     instance.start(4, [targets[1]]);
     await Promise.resolve();
     expect(mutations()).toBe(2);
+    // Each channel is synced on behalf of the profile that queued it, so
+    // concurrent jobs cannot borrow another profile's identity mid-batch.
+    expect(owners.sort()).toEqual(["UC_one:3", "UC_two:4"]);
     resolvers.get("UC_one")!({ added: 0 });
     resolvers.get("UC_two")!({ added: 0 });
     await instance.waitForIdle();
@@ -158,6 +165,40 @@ describe("channel sync background jobs", () => {
     releaseFirst!({ added: 0 });
     await instance.waitForIdle();
     expect(calls).toEqual(["UC_one", "UC_three", "UC_two"]);
+  });
+
+  test("runs each channel at its requested depth and defaults to a full scan", async () => {
+    const depths: string[] = [];
+    const { instance } = manager({
+      syncChannel: async (channelId, mode) => {
+        depths.push(`${channelId}:${mode}`);
+        return { added: 0 };
+      },
+    });
+    instance.start(11, [{ ...targets[0], mode: "recent" }, targets[1]]);
+    await instance.waitForIdle();
+
+    expect(depths).toEqual(["UC_one:recent", "UC_two:full"]);
+    expect(instance.current(11)!.channels.map((channel) => channel.mode)).toEqual(["recent", "full"]);
+  });
+
+  test("upgrades a queued quick pass when the same channel is requested as a full scan", async () => {
+    const depths: string[] = [];
+    let releaseFirst: ((value: { added: number }) => void) | null = null;
+    const { instance } = manager({
+      syncChannel: (channelId, mode) => {
+        depths.push(`${channelId}:${mode}`);
+        if (channelId === "UC_one") return new Promise((resolve) => { releaseFirst = resolve; });
+        return Promise.resolve({ added: 0 });
+      },
+    });
+    instance.start(12, [targets[0], { ...targets[1], mode: "recent" }]);
+    await Promise.resolve();
+    instance.start(12, [targets[1]]);
+    releaseFirst!({ added: 0 });
+    await instance.waitForIdle();
+
+    expect(depths).toEqual(["UC_one:full", "UC_two:full"]);
   });
 
   test("halts cleanly when maintenance owns the write lease", async () => {
