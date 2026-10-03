@@ -2,6 +2,7 @@
 export interface DirectQuality {
   /** Sent back as `?q=`, for example `1440-av01`. */
   id: string;
+  width: number;
   height: number;
   fps: number;
   codec: "avc1" | "av01";
@@ -26,8 +27,10 @@ export function codecName(codec: QualityCodec): string {
 
 /** `2160p60 4K`, `1080p60`, `720p`. */
 export function heightLabel(quality: DirectQuality): string {
-  const parts = [`${quality.height}p${quality.fps > 30 ? Math.round(quality.fps) : ""}`];
-  if (quality.height >= 2160) parts.push("4K");
+  // Like YouTube, name a portrait video (1080x1920) by its short side: 1080p.
+  const side = Math.min(quality.width, quality.height);
+  const parts = [`${side}p${quality.fps > 30 ? Math.round(quality.fps) : ""}`];
+  if (side >= 2160) parts.push("4K");
   if (quality.hdr) parts.push("HDR");
   return parts.join(" ");
 }

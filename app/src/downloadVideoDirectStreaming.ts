@@ -86,6 +86,7 @@ interface DirectVideoSources {
 export interface DirectVideoQuality {
   /** The `q` value that asks for this entry, like `1440-av01`. */
   id: string;
+  width: number;
   height: number;
   fps: number;
   codec: "avc1" | "av01";
@@ -269,7 +270,7 @@ export function directVideoQualities(sources: DirectVideoSources): DirectVideoQu
     if (seen.has(id)) continue;
     seen.add(id);
     result.push({
-      id, height: source.height!, fps: source.fps!, hdr: source.hdr,
+      id, width: source.width!, height: source.height!, fps: source.fps!, hdr: source.hdr,
       codec: source.codec.startsWith("av01") ? "av01" : "avc1",
     });
   }

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { heightLabel, qualityRows, readQualityChoice, resolveQuality, type DirectQuality } from "./playerQuality";
 
 const q = (height: number, codec: "avc1" | "av01", fps = 30, hdr = false): DirectQuality => (
-  { id: `${height}-${codec}`, height, fps, codec, hdr }
+  { id: `${height}-${codec}`, width: Math.round(height * 16 / 9), height, fps, codec, hdr }
 );
 const list = [q(2160, "av01", 60), q(1440, "av01"), q(1080, "avc1", 60), q(1080, "av01"), q(720, "avc1"), q(720, "av01")];
 
@@ -11,6 +11,7 @@ describe("player quality menu", () => {
     expect(heightLabel(q(2160, "av01", 60))).toBe("2160p60 4K");
     expect(heightLabel(q(1080, "avc1", 60))).toBe("1080p60");
     expect(heightLabel(q(2160, "av01", 30, true))).toBe("2160p 4K HDR");
+    expect(heightLabel({ ...q(1920, "avc1"), width: 1080 })).toBe("1080p");
   });
 
   test("auto takes the tallest entry of the preferred codec, else the other codec", () => {
