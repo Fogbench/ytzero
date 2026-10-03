@@ -430,12 +430,26 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   }, [directQualities, videoId]);
 
   const activeQuality = useMemo(() => resolveQuality(qualityChoice, playable ?? []), [qualityChoice, playable]);
-  const hlsSrc = activeQuality ? `${src}?q=${activeQuality.id}` : src;
+  // When the chosen quality fails for good, retry once on the server's default
+  // stream before the page gives up on the direct player altogether.
+  const [qualityFailed, setQualityFailed] = useState(false);
+  const hlsSrc = activeQuality && !qualityFailed ? `${src}?q=${activeQuality.id}` : src;
+  const onStreamFatal = useCallback(() => {
+    const video = videoRef.current;
+    if (activeQuality && !qualityFailed && video) {
+      switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
+      setSwitchStart(video.currentTime);
+      setQualityFailed(true);
+      return;
+    }
+    onError?.();
+  }, [activeQuality, qualityFailed, onError]);
   const changeQualityChoice = (choice: QualityChoice) => {
     try {
       localStorage.setItem(QUALITY_HEIGHT_KEY, String(choice.height));
       localStorage.setItem(QUALITY_CODEC_KEY, choice.codec);
     } catch {}
+    setQualityFailed(false);
     const next = resolveQuality(choice, playable ?? []);
     const video = videoRef.current;
     if (next && next.id !== activeQuality?.id && video) {
@@ -457,7 +471,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     durationSeconds,
     hold: directQualities && playable === null,
     mediaRef: videoRef,
-    onFatalError: onError,
+    onFatalError: onStreamFatal,
     onReady: onStreamReady,
     src: hlsSrc,
     startSeconds: switchStart ?? startSeconds,
