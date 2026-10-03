@@ -6,6 +6,8 @@ import { api, SB_CATEGORIES } from "../api";
 import { subtitleLanguageLabel } from "../subtitleLanguages";
 import { useI18n } from "../i18n";
 import SubtitlePicker from "./SubtitlePicker";
+import PlayerSettingsMenu from "./PlayerSettingsMenu";
+import { qualityContentType, resolveQuality, QUALITY_MODE_KEY, type DirectQuality, type QualityMode } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
 import { stepPlaybackRate } from "../playbackSpeedStep";
@@ -60,6 +62,29 @@ function fmtTime(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
+/** Can this browser decode the quality's codec, smoothly where it can tell? */
+async function canDecodeQuality(quality: DirectQuality): Promise<boolean> {
+  const contentType = qualityContentType(quality);
+  if (typeof MediaSource !== "undefined" && !MediaSource.isTypeSupported(contentType)) return false;
+  const capabilities = navigator.mediaCapabilities;
+  if (!capabilities?.decodingInfo) return true;
+  try {
+    const info = await capabilities.decodingInfo({
+      type: "media-source",
+      video: {
+        contentType: contentType.replace(/,mp4a[^"]*/, ""),
+        width: Math.round(quality.height * 16 / 9),
+        height: quality.height,
+        bitrate: 10_000_000,
+        framerate: quality.fps,
+      },
+    });
+    return info.supported;
+  } catch {
+    return true;
+  }
+}
+
 const LocalPlayer = forwardRef<LocalPlayerHandle, {
   src: string;
   poster?: string;
@@ -112,6 +137,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   /** Optional control-bar buttons; all shown unless a profile hides them. */
   showScreenshotButton?: boolean;
   showPipButton?: boolean;
+  /** The source is the direct HLS stream: offer the gear menu with its quality list. */
+  directQualities?: boolean;
 }>(function LocalPlayer({
   src,
   poster,
@@ -152,6 +179,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   downloadLabel,
   showScreenshotButton = true,
   showPipButton = true,
+  directQualities = false,
 }, ref) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -360,14 +388,58 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     });
   }, [autoplay]);
 
+  // ---------- quality (direct HLS only) ----------
+  const [qualityMode, setQualityMode] = useState<QualityMode>(() => {
+    try { return localStorage.getItem(QUALITY_MODE_KEY) || "auto"; } catch { return "auto"; }
+  });
+  // null while the list is loading; [] when it failed, which plays the server default.
+  const [playable, setPlayable] = useState<DirectQuality[] | null>(directQualities ? null : []);
+  const switchRef = useRef<{ position: number; playing: boolean } | null>(null);
+  const [switchStart, setSwitchStart] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!directQualities || !videoId) { setPlayable([]); return; }
+    let cancelled = false;
+    setPlayable(null);
+    void api.directQualities(videoId)
+      .then(async ({ qualities }) => {
+        const checks = await Promise.all(qualities.map((quality) => canDecodeQuality(quality)));
+        return qualities.filter((_, index) => checks[index]);
+      })
+      .catch(() => [] as DirectQuality[])
+      .then((list) => { if (!cancelled) setPlayable(list); });
+    return () => { cancelled = true; };
+  }, [directQualities, videoId]);
+
+  const activeQuality = useMemo(() => resolveQuality(qualityMode, playable ?? []), [qualityMode, playable]);
+  const hlsSrc = activeQuality ? `${src}?q=${activeQuality.id}` : src;
+  const changeQualityMode = (mode: QualityMode) => {
+    try { localStorage.setItem(QUALITY_MODE_KEY, mode); } catch {}
+    const next = resolveQuality(mode, playable ?? []);
+    const video = videoRef.current;
+    if (next && next.id !== activeQuality?.id && video) {
+      // Remember where we were; the new stream starts there, playing only if we were.
+      switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
+      setSwitchStart(video.currentTime);
+    }
+    setQualityMode(mode);
+  };
+  const onStreamReady = useCallback(() => {
+    const resume = switchRef.current;
+    switchRef.current = null;
+    if (!resume) { tryStreamAutoplay(); return; }
+    if (resume.playing) void videoRef.current?.play().catch(() => {});
+  }, [tryStreamAutoplay]);
+
   useVideoHlsSource({
     active: hls,
     durationSeconds,
+    hold: directQualities && playable === null,
     mediaRef: videoRef,
     onFatalError: onError,
-    onReady: tryStreamAutoplay,
-    src,
-    startSeconds,
+    onReady: onStreamReady,
+    src: hlsSrc,
+    startSeconds: switchStart ?? startSeconds,
   });
 
   useEffect(() => {
@@ -881,6 +953,15 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
             onSelect={pickSubLang}
             onToggle={toggleSubtitles}
           />
+          {directQualities && (
+            <PlayerSettingsMenu
+              qualities={playable ?? []}
+              loading={playable === null}
+              mode={qualityMode}
+              active={activeQuality}
+              onModeChange={changeQualityMode}
+            />
+          )}
           {showScreenshotButton && (
             <button className="lp-btn" onClick={() => void takeScreenshot()} aria-label={`${t("playerScreenshot")} (S)`} disabled={buffering}>
               <Camera size={19} />

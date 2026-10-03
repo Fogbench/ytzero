@@ -339,6 +339,7 @@ export default function WatchPage() {
                   key={`${video.video_id}-native-${sharedStartSeconds}`}
                   ref={playerRef}
                   hls={playerKind === "direct" && !directProgressive}
+                  directQualities={playerKind === "direct" && !directProgressive}
                   durationSeconds={parseVideoDurationSeconds(video.duration) ?? undefined}
                   src={playerKind === "direct" ? (directProgressive ? api.directStreamUrl(video.video_id) : api.directHlsUrl(video.video_id)) : api.streamUrl(video.video_id)}
                   poster={videoThumbnail(video.thumbnail)}

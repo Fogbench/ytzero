@@ -2,6 +2,7 @@ import { apiFetch } from "./apiTransport";
 import { http, sharedGet } from "./apiHttp";
 import { devicePairingApi } from "./devicePairingApi";
 import type { EmojiSkinTone } from "./emojiSkinTone";
+import type { DirectQuality } from "./playerQuality";
 import { createSocialWatchPartyApi } from "./socialWatchPartyApi";
 import type { PlaylistSort, UserPlaylistSort } from "./playlistSort";
 import type { PlaybackQueueContext } from "./playbackQueue";
@@ -260,6 +261,7 @@ export const api = {
   streamUrl: (id: string) => `/api/videos/${id}/stream`,
   directStreamUrl: (id: string) => `/api/videos/${id}/direct-stream`,
   directHlsUrl: (id: string) => `/api/videos/${id}/direct-hls/index.m3u8`,
+  directQualities: (id: string) => http<{ qualities: DirectQuality[] }>(`/videos/${id}/direct-hls/qualities.json`),
   hlsUrl: (id: string) => `/api/videos/${id}/hls/index.m3u8`,
   audioUrl: (id: string) => `/api/videos/${id}/audio`,
   audioHlsUrl: (id: string) => `/api/videos/${id}/audio/index.m3u8`,

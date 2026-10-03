@@ -14,6 +14,7 @@ interface RecoverySnapshot {
 export function useVideoHlsSource({
   active,
   durationSeconds,
+  hold = false,
   mediaRef,
   onFatalError,
   onReady,
@@ -22,6 +23,8 @@ export function useVideoHlsSource({
 }: {
   active: boolean;
   durationSeconds?: number;
+  /** Wait before touching the element, for example until the quality is known. */
+  hold?: boolean;
   mediaRef: RefObject<HTMLVideoElement | null>;
   onFatalError?: () => void;
   onReady: () => void;
@@ -33,7 +36,7 @@ export function useVideoHlsSource({
 
   useEffect(() => {
     const media = mediaRef.current;
-    if (!media) return;
+    if (!media || hold) return;
     if (!active) {
       // React commits the new progressive src before the previous HLS effect
       // cleans up. Restore it after that cleanup on a same-element handoff.
@@ -241,5 +244,5 @@ export function useVideoHlsSource({
       removeTransportListeners();
       cleanMediaSource();
     };
-  }, [active, durationSeconds, mediaRef, src, startSeconds]);
+  }, [active, durationSeconds, hold, mediaRef, src, startSeconds]);
 }
