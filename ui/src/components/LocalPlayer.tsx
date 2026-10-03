@@ -191,6 +191,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const lastVideoPointerTypeRef = useRef("");
   const suppressTouchClickRef = useRef(false);
   const endedRef = useRef(false);
+  const autoMutedRef = useRef(false);
   const spaceHoldTimerRef = useRef<number | null>(null);
   const spaceHoldActiveRef = useRef(false);
 
@@ -383,6 +384,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     if (!v) return;
     v.play().catch(() => {
       v.muted = true;
+      autoMutedRef.current = true;
       setMuted(true);
       v.play().catch(() => {});
     });
@@ -451,7 +453,10 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     const v = videoRef.current;
     if (v) { enforceLocalPlayerVolume(v, volume); v.muted = muted; }
     localStorage.setItem(VOLUME_KEY, String(volume));
-    localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
+    // A mute forced by the browser's autoplay rules is not the viewer's choice;
+    // remembering it made every later video start muted.
+    if (!muted) autoMutedRef.current = false;
+    if (!autoMutedRef.current) localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
   }, [volume, muted]);
 
   const togglePlay = useCallback(() => {
