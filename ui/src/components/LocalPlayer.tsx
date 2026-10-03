@@ -389,6 +389,19 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       v.muted = true;
       autoMutedRef.current = true;
       setMuted(true);
+      // The browser only allows sound after the viewer interacts with the page,
+      // so give the sound back on their first click or key press.
+      const restoreSound = () => {
+        window.removeEventListener("click", restoreSound);
+        window.removeEventListener("keydown", restoreSound);
+        if (!autoMutedRef.current) return;
+        autoMutedRef.current = false;
+        const video = videoRef.current;
+        if (video) video.muted = false;
+        setMuted(false);
+      };
+      window.addEventListener("click", restoreSound);
+      window.addEventListener("keydown", restoreSound);
       v.play().catch(() => {});
     });
   }, [autoplay]);

@@ -87,7 +87,7 @@ export default function PlayerSettingsMenu({ qualities, loading, choice, active,
                 {rows.map((quality) => (
                   <MenuItem
                     key={quality.height}
-                    selected={choice.height === quality.height}
+                    selected={active?.height === quality.height}
                     onClick={() => onChoiceChange({ height: quality.height, codec: quality.codec })}
                     suffix={quality.codec !== choice.codec ? <span className="lp-settings-value">{t("playerQualityUses", { codec: codecName(quality.codec) })}</span> : undefined}
                   >
