@@ -13,6 +13,7 @@ import {
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
+import { DEFAULT_PLAYBACK_SPEEDS } from "../../../shared/playbackSpeeds";
 import { stepPlaybackRate } from "../playbackSpeedStep";
 import { resolveShortcutBindings, shortcutActionMatches } from "../keyboardShortcuts";
 import {
@@ -93,6 +94,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   poster?: string;
   startSeconds?: number;
   playbackRate?: number;
+  /** Speeds listed in the gear menu, and what to call when the viewer picks one. */
+  speedOptions?: string[];
+  onSpeedChange?: (speed: number) => void;
   autoplay?: boolean;
   /** Locks viewer-initiated play, pause, seek, and speed changes while still
    * allowing imperative room-sync commands through `LocalPlayerHandle`. */
@@ -147,6 +151,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   poster,
   startSeconds = 0,
   playbackRate = 1,
+  speedOptions = DEFAULT_PLAYBACK_SPEEDS as readonly string[] as string[],
+  onSpeedChange,
   autoplay = true,
   transportLocked = false,
   title,
@@ -991,13 +997,18 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
             onSelect={pickSubLang}
             onToggle={toggleSubtitles}
           />
-          {directQualities && (
+          {(directQualities || onSpeedChange) && (
             <PlayerSettingsMenu
-              qualities={playable ?? []}
-              loading={playable === null}
-              choice={qualityChoice}
-              active={activeQuality}
-              onChoiceChange={changeQualityChoice}
+              quality={directQualities ? {
+                qualities: playable ?? [],
+                loading: playable === null,
+                choice: qualityChoice,
+                active: activeQuality,
+                onChoiceChange: changeQualityChoice,
+              } : undefined}
+              speed={playbackRate}
+              speedOptions={speedOptions}
+              onSpeedChange={transportLocked ? undefined : onSpeedChange}
             />
           )}
           {showScreenshotButton && (

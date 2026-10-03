@@ -337,6 +337,7 @@ export const hu: Locale = {
     playerQualityUseMp4: "Use MP4",
     playerQualityUses: "({codec} használatával)",
     playerQualityNone: "Nincs elérhető minőség",
+    playerSpeed: "Lejátszási sebesség",
     playerAudioMode: "Csak hang",
     playerAudioModeExit: "Videó",
     playerAudioModeError: "A hang nem elérhető a videónál.",

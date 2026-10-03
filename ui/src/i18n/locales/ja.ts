@@ -430,6 +430,7 @@ export const ja: Locale = {
     "playerQualityUseMp4": "Use MP4",
     "playerQualityUses": "({codec}を使用)",
     "playerQualityNone": "利用できる画質がありません",
+    "playerSpeed": "再生速度",
     "playerAudioMode": "音声のみ",
     "playerAudioModeExit": "ビデオ",
     "playerAudioModeError": "この動画では視聴できません。",

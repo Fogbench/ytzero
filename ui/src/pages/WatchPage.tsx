@@ -364,6 +364,8 @@ export default function WatchPage() {
                   transportLocked={watchTogetherTransportLocked}
                   startSeconds={playbackStartSeconds}
                   playbackRate={Number(speed)}
+                  speedOptions={playbackSpeeds}
+                  onSpeedChange={(rate) => changeSpeed(String(rate))}
                   title={video.title}
                   channelTitle={video.channel_title}
                   artworkUrl={videoThumbnail(video.thumbnail)}

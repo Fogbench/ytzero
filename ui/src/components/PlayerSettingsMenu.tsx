@@ -8,20 +8,29 @@ import {
 import { FloatingPopover, Menu, MenuHeader, MenuItem, ScrollArea, Switch } from "./ui";
 
 interface PlayerSettingsMenuProps {
-  /** Qualities this browser can play, best first. */
-  qualities: DirectQuality[];
-  loading: boolean;
-  choice: QualityChoice;
-  /** What is actually playing, shown next to "Quality". */
-  active: DirectQuality | null;
-  onChoiceChange: (choice: QualityChoice) => void;
+  /** Quality is only offered for the direct HLS player; leave out for others. */
+  quality?: {
+    /** Qualities this browser can play, best first. */
+    qualities: DirectQuality[];
+    loading: boolean;
+    choice: QualityChoice;
+    /** What is actually playing, shown next to "Quality". */
+    active: DirectQuality | null;
+    onChoiceChange: (choice: QualityChoice) => void;
+  };
+  /** Current playback speed, e.g. 1.5. */
+  speed: number;
+  /** Speeds to offer, as the strings the page uses ("0.5", "1", "1.25"). */
+  speedOptions: string[];
+  onSpeedChange?: (speed: number) => void;
 }
 
-/** The gear next to CC. Today it holds Quality; speed and others can become more rows. */
-export default function PlayerSettingsMenu({ qualities, loading, choice, active, onChoiceChange }: PlayerSettingsMenuProps) {
+/** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
+export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpeedChange }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [panel, setPanel] = useState<"main" | "quality">("main");
+  const [panel, setPanel] = useState<"main" | "quality" | "speed">("main");
+  const { qualities = [], loading = false, choice = { height: "auto", codec: "av01" } as QualityChoice, active = null, onChoiceChange = () => {} } = quality ?? {};
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
@@ -57,14 +66,39 @@ export default function PlayerSettingsMenu({ qualities, loading, choice, active,
       >
         {panel === "main" ? (
           <Menu>
-            <MenuItem
+            {onSpeedChange && (
+              <MenuItem
+                onClick={() => setPanel("speed")}
+                suffix={<span className="lp-settings-value">{speed}×<ChevronRight size={15} /></span>}
+              >
+                {t("playerSpeed")}
+              </MenuItem>
+            )}
+            {quality && <MenuItem
               disabled={qualities.length === 0}
               onClick={() => setPanel("quality")}
               suffix={<span className="lp-settings-value">{summary}<ChevronRight size={15} /></span>}
             >
               {t("playerQuality")}
-            </MenuItem>
+            </MenuItem>}
           </Menu>
+        ) : panel === "speed" ? (
+          <>
+            <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerSpeed")}</MenuHeader>
+            <ScrollArea className="lp-sub-menu-list-wrap" viewportClassName="lp-sub-menu-list">
+              <Menu>
+                {speedOptions.map((option) => (
+                  <MenuItem
+                    key={option}
+                    selected={Number(option) === speed}
+                    onClick={() => { onSpeedChange?.(Number(option)); changeOpen(false); }}
+                  >
+                    {option}×
+                  </MenuItem>
+                ))}
+              </Menu>
+            </ScrollArea>
+          </>
         ) : (
           <>
             <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerQuality")}</MenuHeader>

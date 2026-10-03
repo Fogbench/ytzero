@@ -430,6 +430,7 @@ export const fr: Locale = {
     "playerQualityUseMp4": "Use MP4",
     "playerQualityUses": "(utilise {codec})",
     "playerQualityNone": "Aucune qualité disponible",
+    "playerSpeed": "Vitesse de lecture",
     "playerAudioMode": "Audio seulement",
     "playerAudioModeExit": "Vidéo",
     "playerAudioModeError": "L'audio n'est pas disponible pour cette vidéo.",

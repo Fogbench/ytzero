@@ -430,6 +430,7 @@ export const ru: Locale = {
     "playerQualityUseMp4": "Use MP4",
     "playerQualityUses": "(использует {codec})",
     "playerQualityNone": "Нет доступных качеств",
+    "playerSpeed": "Скорость воспроизведения",
     "playerAudioMode": "Только аудио",
     "playerAudioModeExit": "Видео",
     "playerAudioModeError": "Для этого видео нет аудиодорожки.",

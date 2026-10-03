@@ -339,6 +339,7 @@ export const en = {
     playerQualityUseMp4: "Use MP4",
     playerQualityUses: "(Uses {codec})",
     playerQualityNone: "No qualities available",
+    playerSpeed: "Playback speed",
     playerAudioMode: "Audio only",
     playerAudioModeExit: "Video",
     playerAudioModeError: "Audio isn't available for this video.",

@@ -430,6 +430,7 @@ export const ptBR: Locale = {
     "playerQualityUseMp4": "Use MP4",
     "playerQualityUses": "(usa {codec})",
     "playerQualityNone": "Nenhuma qualidade disponível",
+    "playerSpeed": "Velocidade de reprodução",
     "playerAudioMode": "Somente áudio",
     "playerAudioModeExit": "Vídeo",
     "playerAudioModeError": "O áudio não está disponível para este vídeo.",
