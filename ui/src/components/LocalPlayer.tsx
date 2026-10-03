@@ -981,7 +981,11 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
           {onToggleCinema && (
             <button
               className={`lp-btn${cinemaMode ? " active" : ""}`}
-              onClick={onToggleCinema}
+              onClick={() => {
+                // Theater mode lives on the page, so leave fullscreen first.
+                if (document.fullscreenElement) void document.exitFullscreen?.();
+                onToggleCinema();
+              }}
               aria-label={t("cinemaMode")}
               aria-pressed={cinemaMode}
             >
