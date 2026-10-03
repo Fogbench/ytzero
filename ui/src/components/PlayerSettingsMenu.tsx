@@ -30,7 +30,11 @@ export default function PlayerSettingsMenu({ qualities, loading, choice, active,
   const otherCodec = (codec: QualityCodec): QualityCodec => (codec === "av01" ? "avc1" : "av01");
   // The two codec switches behave like a pair: one is always on.
   const useCodec = (codec: QualityCodec) => (on: boolean) => {
-    onChoiceChange({ ...choice, codec: on ? codec : otherCodec(codec) });
+    const next = on ? codec : otherCodec(codec);
+    // Keep a pinned height only if the new codec has it; otherwise go back to Auto.
+    const keeps = choice.height !== "auto"
+      && qualities.some((quality) => quality.codec === next && quality.height === choice.height);
+    onChoiceChange({ height: keeps ? choice.height : "auto", codec: next });
   };
   const rows = qualityRows(choice.codec, qualities);
   const summary = active
