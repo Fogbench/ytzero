@@ -142,6 +142,8 @@ export default function WatchPage() {
     exitStreaming,
     exitDirectStream,
     directProgressive,
+    directFailed,
+    switchToYoutubeEmbed,
     goToUpNextVideo,
     handleEnded,
     id,
@@ -334,6 +336,21 @@ export default function WatchPage() {
                   showScreenshotButton={settings?.player_show_screenshot !== "0"}
                   showPipButton={settings?.player_show_pip !== "0"}
                 />
+              ) : playerKind === "direct" && directFailed && video ? (
+                <div className="wp-panel" style={{ backgroundImage: `url(${videoThumbnail(video.thumbnail)})` }}>
+                  <div className="wp-panel-scrim" />
+                  <div className="wp-panel-content">
+                    <h3>{t("directPlaybackFailed")}</h3>
+                    <p className="wp-panel-sub">
+                      <a href={markYouTubeUrl(`https://www.youtube.com/watch?v=${video.video_id}`)} target="_blank" rel="noreferrer">
+                        {t("directPlaybackFailedOpen")}
+                      </a>
+                    </p>
+                    <Button variant="primary" onClick={switchToYoutubeEmbed}>
+                      <MonitorPlay size={15} /> {t("directPlaybackFailedEmbed")}
+                    </Button>
+                  </div>
+                </div>
               ) : (playerKind === "local" || playerKind === "direct") && video ? (
                 <LocalPlayer
                   key={`${video.video_id}-native-${sharedStartSeconds}`}

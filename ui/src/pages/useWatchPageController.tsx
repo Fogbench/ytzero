@@ -196,6 +196,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const [youtubeError, setYoutubeError] = useState<number | null>(null);
   const [directFallback, setDirectFallback] = useState(false);
   const [directProgressive, setDirectProgressive] = useState(false);
+  const [directFailed, setDirectFailed] = useState(false);
   const downloadPollGenerationRef = useRef(0);
   // Path to the next playlist video, read by the player's onStateChange when a
   // video ends. A ref keeps the player effect free of playlist dependencies.
@@ -515,16 +516,22 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
       setDirectProgressive(true);
       return;
     }
+    // Never swap players on our own: show the error and let the viewer choose.
+    setDirectFailed(true);
+  }, [capturePlaybackPosition, directProgressive]);
+
+  const switchToYoutubeEmbed = useCallback(() => {
+    setDirectFailed(false);
     setDirectFallback(false);
     setPlayerSource("youtube");
-  }, [capturePlaybackPosition, directProgressive]);
+  }, []);
 
   useEffect(() => {
     setYoutubeError(null);
   }, [id, playerKind]);
 
   useEffect(() => { setDirectFallback(false); }, [id]);
-  useEffect(() => { setDirectProgressive(false); }, [id]);
+  useEffect(() => { setDirectProgressive(false); setDirectFailed(false); }, [id]);
 
   // Effective playback rate: per-channel override, else the global default.
   // Kept in a ref so the player effect can read it without re-creating the player.
@@ -1514,6 +1521,8 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     dismissUpNextVideo,
     exitDirectStream,
     directProgressive,
+    directFailed,
+    switchToYoutubeEmbed,
     exitStreaming,
     goToUpNextVideo,
     handleEnded,
