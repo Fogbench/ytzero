@@ -258,6 +258,43 @@ describe("direct no-transcode video HLS", () => {
     streaming.resetDirectHlsSessions();
   });
 
+  test("offers AV1 and H.264 heights, and a chosen quality gets its own codec in the manifest", async () => {
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    const metadata = JSON.parse(selection(1));
+    const expires = 9_999_999_999;
+    const format = (id: string, vcodec: string, height: number, ext = "mp4") => ({
+      format_id: id, url: `https://r1.googlevideo.com/video-${id}?expire=${expires}`, ext, protocol: "https",
+      vcodec, acodec: "none", width: height * 16 / 9, height, fps: 30, vbr: 4_000,
+    });
+    metadata.formats = [
+      metadata.requested_formats[0],
+      format("401", "av01.0.12M.08", 2160),
+      format("400", "av01.0.12M.08", 1440),
+      format("313", "vp09.00.50.08", 2160, "webm"),
+      format("136", "avc1.4d401f", 720),
+    ];
+    const spawn = (() => fakeProcess(JSON.stringify(metadata))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const isVideo = String(input).includes("/video-");
+      return rangedResponse(isVideo ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({ ...directDependencies(spawn, fetchImpl), resourcePath: "direct-hls" });
+    const qualities = await streaming.getDirectQualities(1, "quality");
+    if (qualities.kind !== "qualities") throw new Error("missing qualities");
+    expect(qualities.qualities.map((entry) => entry.id)).toEqual(["2160-av01", "1440-av01", "1080-avc1", "720-avc1"]);
+    const av1 = await streaming.getDirectHlsPlaylist(1, "quality", "index.m3u8", undefined, null, "1440-av01");
+    if (av1.kind !== "playlist") throw new Error("missing playlist");
+    expect(av1.playlist).toContain('CODECS="av01.0.12M.08,mp4a.40.2"');
+    expect(av1.playlist).toContain("RESOLUTION=2560x1440");
+    const def = await streaming.getDirectHlsPlaylist(1, "quality", "index.m3u8");
+    if (def.kind !== "playlist") throw new Error("missing playlist");
+    expect(def.playlist).toContain('CODECS="avc1.640028,mp4a.40.2"');
+    expect((await streaming.getDirectHlsPlaylist(1, "quality", "index.m3u8", undefined, null, "999-av01")).kind).toBe("unsupported");
+    expect((await streaming.getDirectHlsPlaylist(1, "quality", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+  });
+
   test("rejects missing or malformed yt-dlp headers before fetching media", async () => {
     for (const headers of [undefined, {}, { "User-Agent": 123 }, { "User-Agent": "bad\r\nheader" }]) {
       const metadata = JSON.parse(selection(1));

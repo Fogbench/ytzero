@@ -47,11 +47,13 @@ interface YtdlpFormat {
   filesize?: unknown;
   filesize_approx?: unknown;
   audio_channels?: unknown;
+  dynamic_range?: unknown;
   http_headers?: unknown;
 }
 
 interface YtdlpSelection {
   duration?: unknown;
+  formats?: unknown;
   requested_formats?: unknown;
   requested_downloads?: unknown;
   http_headers?: unknown;
@@ -67,6 +69,7 @@ export interface DirectVideoMediaSource {
   fps: number | null;
   bitrate: number | null;
   channels: number | null;
+  hdr: boolean;
   httpHeaders: YtdlpHttpHeaders;
 }
 
@@ -75,7 +78,21 @@ interface DirectVideoSources {
   audio: DirectVideoMediaSource;
   durationSeconds: number;
   expiresAt: number;
+  /** Every video format the player could be offered, best first. */
+  alternatives: DirectVideoMediaSource[];
 }
+
+/** One entry of the player's quality menu. */
+export interface DirectVideoQuality {
+  /** The `q` value that asks for this entry, like `1440-av01`. */
+  id: string;
+  height: number;
+  fps: number;
+  codec: "avc1" | "av01";
+  hdr: boolean;
+}
+
+export const DIRECT_QUALITY_PATTERN = /^(\d{3,4})-(avc1|av01)$/;
 
 type SourceResolutionResult =
   | { kind: "sources"; sources: DirectVideoSources }
@@ -91,6 +108,8 @@ interface IndexedSource {
 interface DirectVideoSession {
   userId: number;
   videoId: string;
+  /** The quality the player asked for; null means the settings default. */
+  choice: string | null;
   sources: DirectVideoSources;
   video: IndexedSource;
   audio: IndexedSource;
@@ -166,7 +185,8 @@ function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: numbe
   const httpHeaders = parseYtdlpHttpHeaders(JSON.stringify(format.http_headers ?? fallbackHeaders ?? null));
   if (!formatId || !url || !httpHeaders || !/^https?$/.test(protocol)) return null;
   if (kind === "video") {
-    if (extension !== "mp4" || !videoCodec.startsWith("avc1") || (audioCodec && audioCodec !== "none")) return null;
+    if (extension !== "mp4" || !(videoCodec.startsWith("avc1") || videoCodec.startsWith("av01"))
+      || (audioCodec && audioCodec !== "none")) return null;
   } else if ((extension !== "m4a" && extension !== "mp4")
     || !audioCodec.startsWith("mp4a") || (videoCodec && videoCodec !== "none")) return null;
   const bitrate = numberOrNull(kind === "video" ? (format.vbr ?? format.tbr) : (format.abr ?? format.tbr));
@@ -180,6 +200,7 @@ function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: numbe
     fps: numberOrNull(format.fps),
     bitrate: bitrate == null ? null : bitrate * 1000,
     channels: numberOrNull(format.audio_channels),
+    hdr: typeof format.dynamic_range === "string" && format.dynamic_range !== "SDR",
     httpHeaders,
   };
   if (kind === "video" && (result.width == null || result.width <= 0 || result.height == null || result.height <= 0
@@ -215,7 +236,52 @@ function parseSelection(stdout: string, now: number): DirectVideoSources | null 
   const audio = selectedSource(audioFormat, "audio", now, selection.http_headers);
   const durationSeconds = numberOrNull(selection.duration);
   if (!video || !audio || durationSeconds == null || durationSeconds <= 0) return null;
-  return { video, audio, durationSeconds, expiresAt: Math.min(video.expiresAt, audio.expiresAt) };
+  return {
+    video, audio, durationSeconds,
+    expiresAt: Math.min(video.expiresAt, audio.expiresAt),
+    alternatives: alternativeVideos(selection, now),
+  };
+}
+
+/** Every H.264 or AV1 MP4 video format yt-dlp listed, best first. */
+function alternativeVideos(selection: YtdlpSelection, now: number): DirectVideoMediaSource[] {
+  const formats = Array.isArray(selection.formats) ? selection.formats as YtdlpFormat[] : [];
+  return formats
+    .flatMap((format) => {
+      if (typeof format.vcodec !== "string" || format.vcodec === "none") return [];
+      const source = selectedSource(format, "video", now, selection.http_headers);
+      return source ? [source] : [];
+    })
+    .sort((left, right) => (right.height! - left.height!) || (right.fps! - left.fps!)
+      || (right.bitrate! - left.bitrate!));
+}
+
+function qualityId(source: DirectVideoMediaSource): string {
+  return `${source.height}-${source.codec.slice(0, 4)}`;
+}
+
+/** The menu entries: the best format for each height and codec. */
+export function directVideoQualities(sources: DirectVideoSources): DirectVideoQuality[] {
+  const seen = new Set<string>();
+  const result: DirectVideoQuality[] = [];
+  for (const source of sources.alternatives) {
+    const id = qualityId(source);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push({
+      id, height: source.height!, fps: source.fps!, hdr: source.hdr,
+      codec: source.codec.startsWith("av01") ? "av01" : "avc1",
+    });
+  }
+  return result;
+}
+
+/** The sources for what the player asked for, or null when that format is gone. */
+function sourcesForChoice(sources: DirectVideoSources, choice: string | null): DirectVideoSources | null {
+  if (!choice) return sources;
+  const video = sources.alternatives.find((source) => qualityId(source) === choice);
+  if (!video) return null;
+  return { ...sources, video, expiresAt: Math.min(video.expiresAt, sources.audio.expiresAt) };
 }
 
 function redactDiagnostic(value: string): string {
@@ -279,6 +345,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   const sourceResolutions = new Map<string, SharedOperation<SourceResolutionResult>>();
   const sessions = new Map<string, DirectVideoSession>();
   const sessionBuilds = new Map<string, SharedOperation<SessionBuildResult>>();
+  const buildChoices = new Map<string, string | null>();
   const unsupported = new Map<string, number>();
   const rangeRequests = new MediaRequestQueue(MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE, 32);
 
@@ -542,7 +609,12 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     });
   }
 
-  async function buildSession(userId: number, videoId: string, signal: AbortSignal): Promise<SessionBuildResult> {
+  async function buildSession(
+    userId: number,
+    videoId: string,
+    choice: string | null,
+    signal: AbortSignal,
+  ): Promise<SessionBuildResult> {
     if (!await videoAvailable(videoId) || signal.aborted) return { kind: "failed" };
     const resolution = await resolveSources(userId, videoId, signal);
     if (resolution.kind === "unsupported") return {
@@ -550,7 +622,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       expiresAt: now() + (resolution.cacheable === false ? 0 : TRANSIENT_UNSUPPORTED_CACHE_MS),
     };
     if (resolution.kind === "failed" || signal.aborted) return { kind: "failed" };
-    const sources = resolution.sources;
+    const sources = sourcesForChoice(resolution.sources, choice);
+    if (!sources) return { kind: "unsupported", expiresAt: 0 };
     const [video, audio] = await Promise.all([
       readIndex(sources.video, signal),
       readIndex(sources.audio, signal),
@@ -584,7 +657,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
     if (signal.aborted) return { kind: "failed" };
     const session: DirectVideoSession = {
-      userId, videoId, sources,
+      userId, videoId, choice, sources,
       video: video.indexed,
       audio: audio.indexed,
       presentation,
@@ -614,32 +687,55 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
   }
 
-  async function getSession(userId: number, videoId: string, signal?: AbortSignal): Promise<SessionBuildResult> {
+  /**
+   * `choice` is the quality the player asked for. Only the master playlist
+   * names one (null = settings default); child requests pass undefined and
+   * join whatever session is current. A new choice replaces the old session.
+   */
+  async function getSession(
+    userId: number,
+    videoId: string,
+    signal?: AbortSignal,
+    choice?: string | null,
+  ): Promise<SessionBuildResult> {
     if (signal?.aborted) return { kind: "failed" };
     sweep();
     const key = keyFor(userId, videoId);
     const existing = sessions.get(key);
-    if (existing) {
+    if (existing && (choice === undefined || choice === existing.choice)) {
       existing.lastAccess = now();
       return { kind: "ready", session: existing };
     }
-    const unsupportedUntil = unsupported.get(key);
+    const wanted = choice ?? null;
+    // A failed AV1 attempt must not hide the default stream for ten minutes.
+    const unsupportedUntil = wanted === null ? unsupported.get(key) : undefined;
     if (unsupportedUntil && unsupportedUntil > now()) return { kind: "unsupported", expiresAt: unsupportedUntil };
     let operation = sessionBuilds.get(key);
+    if (operation && buildChoices.get(key) !== wanted) {
+      sessionBuilds.delete(key);
+      operation.controller.abort();
+      operation = undefined;
+    }
     if (!operation) {
+      buildChoices.set(key, wanted);
       const controller = new AbortController();
       operation = { controller, promise: Promise.resolve({ kind: "failed" }), settled: false, waiters: 0 };
       const current = operation;
-      current.promise = buildSession(userId, videoId, controller.signal)
+      current.promise = buildSession(userId, videoId, wanted, controller.signal)
         .then((result) => {
           if (result.kind === "ready" && !controller.signal.aborted) sessions.set(key, result.session);
-          if (result.kind === "unsupported" && !controller.signal.aborted) unsupported.set(key, result.expiresAt);
+          if (result.kind === "unsupported" && wanted === null && !controller.signal.aborted) {
+            unsupported.set(key, result.expiresAt);
+          }
           return controller.signal.aborted ? { kind: "failed" as const } : result;
         })
         .catch(() => ({ kind: "failed" as const }))
         .finally(() => {
           current.settled = true;
-          if (sessionBuilds.get(key) === current) sessionBuilds.delete(key);
+          if (sessionBuilds.get(key) === current) {
+            sessionBuilds.delete(key);
+            buildChoices.delete(key);
+          }
         });
       sessionBuilds.set(key, current);
     }
@@ -663,7 +759,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         for (let attempt = 1; attempt <= 2; attempt += 1) {
           const resolution = await resolveSources(session.userId, session.videoId, controller.signal, true);
           if (resolution.kind !== "sources" || controller.signal.aborted) return null;
-          const sources = resolution.sources;
+          const sources = sourcesForChoice(resolution.sources, session.choice);
+          if (!sources) return null;
           if (sources.video.formatId !== session.sources.video.formatId
             || sources.audio.formatId !== session.sources.audio.formatId) return null;
           // YouTube can hand back the same expired bearer URL briefly. Do not
@@ -717,14 +814,27 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     file: "index.m3u8" | "video.m3u8" | "audio.m3u8",
     signal?: AbortSignal,
     generation?: string | null,
+    choice?: string | null,
   ): Promise<DirectVideoPlaylistResult> {
-    const result = await getSession(userId, videoId, signal);
+    const result = await getSession(userId, videoId, signal, file === "index.m3u8" ? (choice ?? null) : undefined);
     if (result.kind !== "ready") return { kind: result.kind };
     result.session.lastAccess = now();
     if (file === "index.m3u8") return { kind: "playlist", playlist: result.session.presentation.masterPlaylist };
     if (!generation || generation !== result.session.generation) return { kind: "stale" };
     if (file === "video.m3u8") return { kind: "playlist", playlist: result.session.presentation.videoPlaylist };
     return { kind: "playlist", playlist: result.session.presentation.audioPlaylist };
+  }
+
+  /** The quality menu for a video, from the same cached lookup playback uses. */
+  async function getDirectQualities(
+    userId: number,
+    videoId: string,
+    signal?: AbortSignal,
+  ): Promise<{ kind: "qualities"; qualities: DirectVideoQuality[] } | { kind: "failed" }> {
+    if (!await videoAvailable(videoId)) return { kind: "failed" };
+    const resolution = await resolveSources(userId, videoId, signal);
+    if (resolution.kind !== "sources") return { kind: "failed" };
+    return { kind: "qualities", qualities: directVideoQualities(resolution.sources) };
   }
 
   function requestedRange(value: string | null): { start: number; end: number } | null {
@@ -897,6 +1007,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
 
   return {
     getDirectHlsPlaylist,
+    getDirectQualities,
     getDirectHlsResource,
     hasDirectHlsSession,
     invalidateDirectHlsSession,

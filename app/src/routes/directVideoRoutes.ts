@@ -3,6 +3,7 @@ import { database } from "../database";
 import { isChildUser } from "../childTime";
 import { ytdlpStatus } from "../downloadConfig";
 import { directVideoStreaming } from "../directVideoStreaming";
+import { DIRECT_QUALITY_PATTERN } from "../downloadVideoDirectStreaming";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type VideoState = { live_status: string; members_only: number; is_private: number; is_unavailable: number };
@@ -16,7 +17,7 @@ export function registerDirectVideoRoutes(
     if (await isChildUser(userId)) return context.json({ error: "not allowed" }, 403);
     const videoId = context.req.param("id");
     const file = context.req.param("file");
-    if (!["index.m3u8", "video.m3u8", "audio.m3u8", "video.mp4", "audio.mp4"].includes(file)) {
+    if (!["index.m3u8", "video.m3u8", "audio.m3u8", "video.mp4", "audio.mp4", "qualities.json"].includes(file)) {
       return context.json({ error: "not found" }, 404);
     }
     const video = await database.prepare(
@@ -31,6 +32,13 @@ export function registerDirectVideoRoutes(
     if (!await ytdlpStatus()) return context.json({ error: "yt-dlp unavailable" }, 503);
     const signal = context.req.raw.signal;
     const generation = context.req.query("v") ?? null;
+    if (file === "qualities.json") {
+      const result = await directVideoStreaming.getDirectQualities(userId, videoId, signal);
+      if (result.kind === "qualities") return context.json({ qualities: result.qualities });
+      return context.json({ error: "direct stream unavailable" }, 502);
+    }
+    const choice = context.req.query("q") ?? null;
+    if (choice !== null && !DIRECT_QUALITY_PATTERN.test(choice)) return context.json({ error: "bad quality" }, 400);
     if (file === "video.mp4" || file === "audio.mp4") {
       const result = await directVideoStreaming.getDirectHlsResource(
         userId, videoId, file, context.req.header("range") ?? null, signal, generation,
@@ -40,7 +48,7 @@ export function registerDirectVideoRoutes(
       return context.json({ error: "direct stream unavailable" }, result.kind === "not_found" ? 404 : 502);
     }
     const result = await directVideoStreaming.getDirectHlsPlaylist(
-      userId, videoId, file as "index.m3u8" | "video.m3u8" | "audio.m3u8", signal, generation,
+      userId, videoId, file as "index.m3u8" | "video.m3u8" | "audio.m3u8", signal, generation, choice,
     );
     if (result.kind === "playlist") return new Response(result.playlist, {
       headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store" },
