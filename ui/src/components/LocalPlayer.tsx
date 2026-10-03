@@ -7,7 +7,10 @@ import { subtitleLanguageLabel } from "../subtitleLanguages";
 import { useI18n } from "../i18n";
 import SubtitlePicker from "./SubtitlePicker";
 import PlayerSettingsMenu from "./PlayerSettingsMenu";
-import { qualityContentType, resolveQuality, QUALITY_MODE_KEY, type DirectQuality, type QualityMode } from "../playerQuality";
+import {
+  qualityContentType, readQualityChoice, resolveQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
+  type DirectQuality, type QualityChoice,
+} from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
 import { stepPlaybackRate } from "../playbackSpeedStep";
@@ -391,8 +394,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   }, [autoplay]);
 
   // ---------- quality (direct HLS only) ----------
-  const [qualityMode, setQualityMode] = useState<QualityMode>(() => {
-    try { return localStorage.getItem(QUALITY_MODE_KEY) || "auto"; } catch { return "auto"; }
+  const [qualityChoice, setQualityChoice] = useState<QualityChoice>(() => {
+    try { return readQualityChoice(localStorage); } catch { return readQualityChoice({ getItem: () => null }); }
   });
   // null while the list is loading; [] when it failed, which plays the server default.
   const [playable, setPlayable] = useState<DirectQuality[] | null>(directQualities ? null : []);
@@ -413,18 +416,21 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     return () => { cancelled = true; };
   }, [directQualities, videoId]);
 
-  const activeQuality = useMemo(() => resolveQuality(qualityMode, playable ?? []), [qualityMode, playable]);
+  const activeQuality = useMemo(() => resolveQuality(qualityChoice, playable ?? []), [qualityChoice, playable]);
   const hlsSrc = activeQuality ? `${src}?q=${activeQuality.id}` : src;
-  const changeQualityMode = (mode: QualityMode) => {
-    try { localStorage.setItem(QUALITY_MODE_KEY, mode); } catch {}
-    const next = resolveQuality(mode, playable ?? []);
+  const changeQualityChoice = (choice: QualityChoice) => {
+    try {
+      localStorage.setItem(QUALITY_HEIGHT_KEY, String(choice.height));
+      localStorage.setItem(QUALITY_CODEC_KEY, choice.codec);
+    } catch {}
+    const next = resolveQuality(choice, playable ?? []);
     const video = videoRef.current;
     if (next && next.id !== activeQuality?.id && video) {
       // Remember where we were; the new stream starts there, playing only if we were.
       switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
       setSwitchStart(video.currentTime);
     }
-    setQualityMode(mode);
+    setQualityChoice(choice);
   };
   const onStreamReady = useCallback(() => {
     const resume = switchRef.current;
@@ -962,9 +968,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
             <PlayerSettingsMenu
               qualities={playable ?? []}
               loading={playable === null}
-              mode={qualityMode}
+              choice={qualityChoice}
               active={activeQuality}
-              onModeChange={changeQualityMode}
+              onChoiceChange={changeQualityChoice}
             />
           )}
           {showScreenshotButton && (

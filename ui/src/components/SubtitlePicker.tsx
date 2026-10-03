@@ -59,6 +59,7 @@ export default function SubtitlePicker({
         open={open}
         onOpenChange={setOpen}
         align="end"
+        preferTop
         className="lp-sub-menu"
         trigger={
           <button

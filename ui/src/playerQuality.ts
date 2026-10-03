@@ -8,18 +8,27 @@ export interface DirectQuality {
   hdr: boolean;
 }
 
-/** `auto` = best the browser plays, `auto-mp4` = best H.264 up to 1080p, otherwise a quality id. */
-export type QualityMode = "auto" | "auto-mp4" | string;
+export type QualityCodec = DirectQuality["codec"];
 
-export const QUALITY_MODE_KEY = "ytzero.player.quality";
-export const AUTO_MP4_MAX_HEIGHT = 1080;
+/** What the viewer picked: a height (or "auto" = tallest) and the codec to use where there is a choice. */
+export interface QualityChoice {
+  height: number | "auto";
+  codec: QualityCodec;
+}
 
-/** `2160p60 4K HDR AV1`, `1080p60 mp4`, `720p mp4`. */
-export function qualityLabel(quality: DirectQuality): string {
+export const QUALITY_HEIGHT_KEY = "ytzero.player.qualityHeight";
+export const QUALITY_CODEC_KEY = "ytzero.player.qualityCodec";
+export const DEFAULT_QUALITY_CHOICE: QualityChoice = { height: "auto", codec: "av01" };
+
+export function codecName(codec: QualityCodec): string {
+  return codec === "av01" ? "AV1" : "MP4";
+}
+
+/** `2160p60 4K`, `1080p60`, `720p`. */
+export function heightLabel(quality: DirectQuality): string {
   const parts = [`${quality.height}p${quality.fps > 30 ? Math.round(quality.fps) : ""}`];
   if (quality.height >= 2160) parts.push("4K");
   if (quality.hdr) parts.push("HDR");
-  parts.push(quality.codec === "av01" ? "AV1" : "mp4");
   return parts.join(" ");
 }
 
@@ -31,20 +40,40 @@ export function qualityContentType(quality: DirectQuality): string {
   return `video/mp4; codecs="${video},mp4a.40.2"`;
 }
 
-/**
- * Which entry plays for the chosen mode. `list` is best first and already
- * limited to what the browser can play. A saved specific choice that this
- * video lacks falls back to the tallest entry not above that height.
- */
-export function resolveQuality(mode: QualityMode, list: DirectQuality[]): DirectQuality | null {
+/** Tallest first within a codec; used so the same rule picks entries everywhere. */
+function ofCodec(list: DirectQuality[], codec: QualityCodec): DirectQuality[] {
+  return list.filter((entry) => entry.codec === codec);
+}
+
+/** The entry that plays for a choice. `list` is best first and limited to what the browser can play. */
+export function resolveQuality(choice: QualityChoice, list: DirectQuality[]): DirectQuality | null {
   if (list.length === 0) return null;
-  if (mode === "auto") return list[0];
-  if (mode === "auto-mp4") {
-    return list.find((entry) => entry.codec === "avc1" && entry.height <= AUTO_MP4_MAX_HEIGHT) ?? list[list.length - 1];
-  }
-  const exact = list.find((entry) => entry.id === mode);
-  if (exact) return exact;
-  const wanted = Number.parseInt(mode, 10);
-  if (!Number.isFinite(wanted)) return list[0];
-  return list.find((entry) => entry.height <= wanted) ?? list[list.length - 1];
+  const preferred = ofCodec(list, choice.codec);
+  const other = list.filter((entry) => entry.codec !== choice.codec);
+  if (choice.height === "auto") return preferred[0] ?? other[0];
+  const wanted = choice.height;
+  return preferred.find((entry) => entry.height === wanted)
+    ?? other.find((entry) => entry.height === wanted)
+    ?? preferred.find((entry) => entry.height < wanted)
+    ?? other.find((entry) => entry.height < wanted)
+    ?? resolveQuality({ height: Math.min(...list.map((entry) => entry.height)), codec: choice.codec }, list);
+}
+
+/** One menu row per height, using the preferred codec where it has that height. */
+export function qualityRows(codec: QualityCodec, list: DirectQuality[]): DirectQuality[] {
+  const heights = [...new Set(list.map((entry) => entry.height))].sort((a, b) => b - a);
+  return heights.flatMap((height) => {
+    const entry = resolveQuality({ height, codec }, list);
+    return entry ? [entry] : [];
+  });
+}
+
+export function readQualityChoice(storage: Pick<Storage, "getItem">): QualityChoice {
+  const rawHeight = storage.getItem(QUALITY_HEIGHT_KEY);
+  const height = Number(rawHeight);
+  const codec = storage.getItem(QUALITY_CODEC_KEY);
+  return {
+    height: rawHeight && Number.isInteger(height) && height > 0 ? height : "auto",
+    codec: codec === "avc1" || codec === "av01" ? codec : DEFAULT_QUALITY_CHOICE.codec,
+  };
 }

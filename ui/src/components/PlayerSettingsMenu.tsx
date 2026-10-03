@@ -1,21 +1,24 @@
 import { ChevronRight, LoaderCircle, Settings } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "../i18n";
-import { qualityLabel, type DirectQuality, type QualityMode } from "../playerQuality";
-import { FloatingPopover, Menu, MenuHeader, MenuItem, MenuSeparator, ScrollArea, Switch } from "./ui";
+import {
+  codecName, heightLabel, qualityRows,
+  type DirectQuality, type QualityChoice, type QualityCodec,
+} from "../playerQuality";
+import { FloatingPopover, Menu, MenuHeader, MenuItem, ScrollArea, Switch } from "./ui";
 
 interface PlayerSettingsMenuProps {
   /** Qualities this browser can play, best first. */
   qualities: DirectQuality[];
   loading: boolean;
-  mode: QualityMode;
+  choice: QualityChoice;
   /** What is actually playing, shown next to "Quality". */
   active: DirectQuality | null;
-  onModeChange: (mode: QualityMode) => void;
+  onChoiceChange: (choice: QualityChoice) => void;
 }
 
 /** The gear next to CC. Today it holds Quality; speed and others can become more rows. */
-export default function PlayerSettingsMenu({ qualities, loading, mode, active, onModeChange }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ qualities, loading, choice, active, onChoiceChange }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"main" | "quality">("main");
@@ -24,18 +27,15 @@ export default function PlayerSettingsMenu({ qualities, loading, mode, active, o
     setOpen(next);
     if (!next) setPanel("main");
   };
-  const choose = (next: QualityMode) => {
-    onModeChange(next);
-    changeOpen(false);
+  const otherCodec = (codec: QualityCodec): QualityCodec => (codec === "av01" ? "avc1" : "av01");
+  // The two codec switches behave like a pair: one is always on.
+  const useCodec = (codec: QualityCodec) => (on: boolean) => {
+    onChoiceChange({ ...choice, codec: on ? codec : otherCodec(codec) });
   };
-  // Turning the active auto switch off pins what is playing right now.
-  const toggleAuto = (target: "auto" | "auto-mp4") => (on: boolean) => {
-    if (on) onModeChange(target);
-    else if (active) onModeChange(active.id);
-  };
-  const summary = mode === "auto" ? `${t("playerQualityAuto")}${active ? ` (${qualityLabel(active)})` : ""}`
-    : mode === "auto-mp4" ? `${t("playerQualityAutoMp4")}${active ? ` (${qualityLabel(active)})` : ""}`
-    : active ? qualityLabel(active) : "";
+  const rows = qualityRows(choice.codec, qualities);
+  const summary = active
+    ? `${choice.height === "auto" ? `${t("playerQualityAuto")} ` : ""}${heightLabel(active)}`
+    : "";
 
   return (
     <div className="lp-sub-menu-wrap">
@@ -43,6 +43,7 @@ export default function PlayerSettingsMenu({ qualities, loading, mode, active, o
         open={open}
         onOpenChange={changeOpen}
         align="end"
+        preferTop
         className="lp-sub-menu lp-settings-menu"
         trigger={
           <button className="lp-btn" aria-label={t("playerSettings")}>
@@ -63,26 +64,33 @@ export default function PlayerSettingsMenu({ qualities, loading, mode, active, o
         ) : (
           <>
             <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerQuality")}</MenuHeader>
-            <div className="lp-sub-toggle">
-              <span>{t("playerQualityAuto")}</span>
-              <Switch checked={mode === "auto"} onCheckedChange={toggleAuto("auto")} ariaLabel={t("playerQualityAuto")} />
-            </div>
-            <div className="lp-sub-toggle">
-              <span>{t("playerQualityAutoMp4")}</span>
-              <Switch checked={mode === "auto-mp4"} onCheckedChange={toggleAuto("auto-mp4")} ariaLabel={t("playerQualityAutoMp4")} />
-            </div>
+            {(["av01", "avc1"] as const).map((codec) => (
+              <div className="lp-sub-toggle" key={codec}>
+                <span>{t(codec === "av01" ? "playerQualityUseAv1" : "playerQualityUseMp4")}</span>
+                <Switch checked={choice.codec === codec} onCheckedChange={useCodec(codec)} ariaLabel={codecName(codec)} />
+              </div>
+            ))}
             <ScrollArea className="lp-sub-menu-list-wrap" viewportClassName="lp-sub-menu-list">
               <Menu>
-                {qualities.map((quality) => (
+                {active && (
                   <MenuItem
-                    key={quality.id}
-                    selected={active?.id === quality.id}
-                    onClick={() => choose(quality.id)}
+                    selected={choice.height === "auto"}
+                    onClick={() => onChoiceChange({ ...choice, height: "auto" })}
                   >
-                    {qualityLabel(quality)}
+                    {t("playerQualityAuto")}
+                  </MenuItem>
+                )}
+                {rows.map((quality) => (
+                  <MenuItem
+                    key={quality.height}
+                    selected={choice.height === quality.height}
+                    onClick={() => onChoiceChange({ ...choice, height: quality.height })}
+                    suffix={quality.codec !== choice.codec ? <span className="lp-settings-value">{codecName(quality.codec)}</span> : undefined}
+                  >
+                    {heightLabel(quality)}
                   </MenuItem>
                 ))}
-                {qualities.length === 0 && <MenuItem disabled>{t("playerQualityNone")}</MenuItem>}
+                {rows.length === 0 && <MenuItem disabled>{t("playerQualityNone")}</MenuItem>}
               </Menu>
             </ScrollArea>
           </>
