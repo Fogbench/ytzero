@@ -132,18 +132,23 @@ export default function FeedPage({
   feedSort,
   keepWatchedInFeed,
   showTopChannels,
+  showContinueWatching,
 }: {
   onPlay: PlayVideo;
   showToast: (m: string) => void;
   feedSort: FeedSort;
   keepWatchedInFeed: boolean;
   showTopChannels: boolean;
+  showContinueWatching: boolean;
 }) {
   const { t } = useI18n();
   useDocumentTitle();
   const [videos, setVideos] = useState<Video[]>([]);
   const [queued, setQueued] = useState<Video[]>([]);
-  const [inProgress, setInProgress] = useState<Video[]>([]);
+  const [inProgressLoaded, setInProgress] = useState<Video[]>([]);
+  // When the row is switched off, treat the list as empty so those videos
+  // stay in the normal feed instead of vanishing from both places.
+  const inProgress = showContinueWatching ? inProgressLoaded : [];
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<number[]>(() => {
     try { return JSON.parse(sessionStorage.getItem("feedTags") ?? "[]"); } catch { return []; }
@@ -238,8 +243,10 @@ export default function FeedPage({
   const loadQueued = useCallback(() =>
     api.watchlist().then((r) => setQueued(r.videos)).catch(console.error), []);
 
-  const loadInProgress = useCallback(() =>
-    api.inProgress().then((r) => setInProgress(r.videos.filter((video) => video.is_short === 0))).catch(console.error), []);
+  const loadInProgress = useCallback(() => {
+    if (!showContinueWatching) return;
+    api.inProgress().then((r) => setInProgress(r.videos.filter((video) => video.is_short === 0))).catch(console.error);
+  }, [showContinueWatching]);
 
   useEffect(() => {
     loadTags();
@@ -386,6 +393,16 @@ export default function FeedPage({
     if (!returningFeedback) {
       setVideos((current) => current.filter((video) => video.video_id !== videoId));
       loadInProgress();
+      return;
+    }
+
+    if (!showContinueWatching) {
+      setVideos((current) => current.map((video) => video.video_id === videoId
+        ? videoAfterFeedback(video, returningFeedback)
+        : video));
+      setEnteringFeedVideoId(videoId);
+      if (enteringFeedTimerRef.current !== null) window.clearTimeout(enteringFeedTimerRef.current);
+      enteringFeedTimerRef.current = window.setTimeout(() => setEnteringFeedVideoId(null), 800);
       return;
     }
 

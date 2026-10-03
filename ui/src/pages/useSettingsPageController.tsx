@@ -174,6 +174,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const [isChildProfile, setIsChildProfile] = useState<boolean | null>(null);
   const [shortsFeedMode, setShortsFeedMode] = useState<ShortsFeedMode>("0");
   const [showTopChannels, setShowTopChannels] = useState(true);
+  const [showContinueWatching, setShowContinueWatching] = useState(true);
   const [hideLiveFromFeed, setHideLiveFromFeed] = useState(false);
   const [watchShowRelated, setWatchShowRelated] = useState(true);
   const [watchCommentsMode, setWatchCommentsMode] = useState<WatchCommentsMode>("disabled");
@@ -450,6 +451,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       setUpdateCheckInterval(r.settings.update_check_interval || "off");
       setShortsFeedMode(r.settings.show_shorts === "disabled" || r.settings.show_shorts === "1" || r.settings.show_shorts === "selected" ? r.settings.show_shorts : "0");
       setShowTopChannels(r.settings.show_top_channels !== "0");
+      setShowContinueWatching(r.settings.show_continue_watching !== "0");
       setHideLiveFromFeed(r.settings.hide_live_from_feed === "1");
       setWatchShowRelated(r.settings.watch_show_related !== "0");
       setWatchCommentsMode(normalizeWatchCommentsMode(r.settings.watch_show_comments));
@@ -661,6 +663,14 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     const next = !showTopChannels;
     setShowTopChannels(next);
     await api.updateSettings({ show_top_channels: next ? "1" : "0" });
+    emit("top-channels-changed");
+    showToast(t("displaySettingsSaved"));
+  };
+
+  const toggleContinueWatching = async () => {
+    const next = !showContinueWatching;
+    setShowContinueWatching(next);
+    await api.updateSettings({ show_continue_watching: next ? "1" : "0" });
     emit("top-channels-changed");
     showToast(t("displaySettingsSaved"));
   };
@@ -1388,6 +1398,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     settingsReady,
     shortsFeedMode,
     showTopChannels,
+    showContinueWatching,
     startRenameChannel,
     subBg,
     subColor,
@@ -1411,6 +1422,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     toggleSbCategory,
     changeShortsFeedMode,
     toggleTopChannels,
+    toggleContinueWatching,
     changeWatchCommentsMode,
     toggleWatchRelated,
     unlockPin,

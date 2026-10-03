@@ -682,6 +682,8 @@ export const ptBR: Locale = {
     "showShortsTab": "Página de shorts",
     "showShortsTabHint": "Adiciona uma guia de Shorts dedicada na barra lateral. Shorts ficar fora do feed principal e outras vistas.",
     "showTopChannels": "Canais superiores na alimentação",
+    "showContinueWatching": "Linha «Continuar assistindo»",
+    "showContinueWatchingHint": "Mostra a linha «Continuar assistindo» no topo do feed. Desativada, os vídeos que você começou ficam no feed normal.",
     "showTopChannelsHint": "Mostra uma linha dos seus avatares de canal mais vigiados no topo do feed.",
     "channelPostsTab": "Página de mensagens nas páginas do canal",
     "channelPostsTabHint": "Permite- lhe navegar pelas publicações comunitárias nas páginas do canal.",

@@ -682,6 +682,8 @@ export const ja: Locale = {
     "showShortsTab": "ショートタブ",
     "showShortsTabHint": "サイドバーに専用のショートカットタブを追加します。 ショートパンツはメインフィードや他のビューから離れます。",
     "showTopChannels": "フィードのトップチャンネル",
+    "showContinueWatching": "「続きを見る」の行",
+    "showContinueWatchingHint": "フィードの上部に「続きを見る」の行を表示します。オフにすると、再生を始めた動画は通常のフィードに残ります。",
     "showTopChannelsHint": "フィードの上部にある最も見栄えのチャンネルアバターの列を表示します。",
     "channelPostsTab": "チャンネルページ上の投稿タブ",
     "channelPostsTabHint": "チャンネルページでコミュニティ投稿を閲覧できます。",

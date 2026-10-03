@@ -588,6 +588,8 @@ export const hu: Locale = {
     showShortsTab: "Shorts fül",
     showShortsTabHint: "Külön Shorts fület ad az oldalsávhoz. A Shorts videók nem jelennek meg a fő hírfolyamban és a többi nézetben.",
     showTopChannels: "Top csatornák a hírfolyamon",
+    showContinueWatching: "Folytatás sor",
+    showContinueWatchingHint: "Megjeleníti a Folytatás sort a hírfolyam tetején. Kikapcsolva a megkezdett videók a megszokott hírfolyamban maradnak.",
     showTopChannelsHint: "A hírfolyam tetején megjeleníti a legtöbbet nézett csatornáid avatarjait egy sorban.",
     channelPostsTab: "Bejegyzések fül a csatornaoldalakon",
     channelPostsTabHint: "Lehetővé teszi a közösségi bejegyzések böngészését a csatornaoldalakon.",

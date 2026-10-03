@@ -292,6 +292,7 @@ export interface AppSettings {
   app_icon_color: string;
   shorts_tab: string;
   show_top_channels: string;
+  show_continue_watching: string;
   feed_max_age_value: string;
   /** days | weeks | months | years, or "off" to show videos of any age. */
   feed_max_age_unit: string;

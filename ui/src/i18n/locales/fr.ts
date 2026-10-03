@@ -682,6 +682,8 @@ export const fr: Locale = {
     "showShortsTab": "Onglet Shorts",
     "showShortsTabHint": "Ajoute un onglet Shorts dédié dans la barre latérale. Les Shorts restent hors du flux principal et des autres vues.",
     "showTopChannels": "Chaînes principales dans le flux",
+    "showContinueWatching": "Rangée « Continuer à regarder »",
+    "showContinueWatchingHint": "Affiche la rangée « Continuer à regarder » en haut du flux. Désactivée, les vidéos commencées restent dans le flux normal.",
     "showTopChannelsHint": "Affiche une rangée des avatars des chaînes que vous regardez le plus, en haut du flux.",
     "channelPostsTab": "Onglet Publications sur les pages de chaîne",
     "channelPostsTabHint": "Permet de parcourir les publications communautaires sur les pages de chaîne.",

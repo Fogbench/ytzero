@@ -38,7 +38,7 @@ export const SETTING_PERMISSION_AREAS: Readonly<Record<string, ProfilePermission
   hide_live_from_feed: "feed", channel_posts_tab: "feed", channel_open_sync: "feed",
   hide_members_only_from_feed: "feed", hide_members_only_on_channel: "feed",
   feed_sort: "feed",
-  shorts_tab: "navigation", show_top_channels: "navigation", sidebar_nav: "navigation",
+  shorts_tab: "navigation", show_top_channels: "navigation", show_continue_watching: "navigation", sidebar_nav: "navigation",
   // This only controls visibility of the profile's own monitoring shortcut.
   child_watching_monitor_enabled: "navigation",
   player_hl: "playback", player_cc: "playback", player_cc_lang: "playback",

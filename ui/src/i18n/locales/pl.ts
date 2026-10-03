@@ -590,6 +590,8 @@ export const pl: Locale = {
     showShortsTab: "Zakładka Shorts",
     showShortsTabHint: "Dodaje dedykowaną zakładkę Shorts w pasku bocznym. Shorts nie pojawiają się w głównym feedzie ani innych widokach.",
     showTopChannels: "Najczęściej oglądane kanały na feedzie",
+    showContinueWatching: "Wiersz „Kontynuuj oglądanie”",
+    showContinueWatchingHint: "Pokazuje wiersz „Kontynuuj oglądanie” u góry feedu. Po wyłączeniu rozpoczęte filmy zostają w zwykłym feedzie.",
     showTopChannelsHint: "Pokazuje najczęściej oglądane kanały u góry głównego feedu.",
     channelPostsTab: "Zakładka Posty na stronach kanałów",
     channelPostsTabHint: "Pozwala przeglądać posty społeczności na stronach kanałów.",

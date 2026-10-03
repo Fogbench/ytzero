@@ -302,6 +302,11 @@ archive with no such capability restores with public sharing denied.
   state stay independent. It is recorded by `profile.settings` schema v11.
   Schemas 1–10 remain readable: merge retains the target value when the key is
   absent, while replace uses the disabled application default.
+  `show_continue_watching` is portable per-profile navigation configuration
+  (default enabled). It only hides the Continue watching row on the feed; watch
+  progress itself is unaffected. It travels in `profile.settings` with the other
+  per-profile keys; older archives without it keep the target value on merge and
+  use the enabled default on replace.
   `channel_open_sync` is portable per-profile configuration for what opening a
   channel page does on its own: `off` (the historical passive behaviour),
   `recent` (a quick pass over the channel's latest uploads), or `full` (the same

@@ -271,6 +271,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   timezone: "UTC",
   shorts_tab: "1",
   show_top_channels: "1",
+  show_continue_watching: "1",
   // How far back the main feed reaches. Videos older than this stay in the
   // library (and on channel pages) but never surface in the feed, so a fresh
   // import of a large back catalogue doesn't bury today's uploads.

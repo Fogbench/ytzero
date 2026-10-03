@@ -102,6 +102,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     setSubSize,
     shortsFeedMode,
     showTopChannels,
+    showContinueWatching,
     subBg,
     subColor,
     subSize,
@@ -113,7 +114,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     toggleKeepWatchedInFeed,
     toggleSb,
     toggleSbCategory,
-    toggleTopChannels, toggleChannelPostsTab,
+    toggleTopChannels, toggleContinueWatching, toggleChannelPostsTab,
     toggleWatchRelated,
     watchCommentsMode,
     watchShowRelated,
@@ -612,6 +613,9 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
           }
 
           {displaySubTab === "navigation" && canManageArea("navigation") && <SettingsSection title={t("displayNavigation")} className="settings-display-group">
+          <SettingRow label={t("showContinueWatching")} description={t("showContinueWatchingHint")}>
+            <Switch checked={showContinueWatching} onCheckedChange={() => toggleContinueWatching()} />
+          </SettingRow>
           <SettingRow label={t("showTopChannels")} description={t("showTopChannelsHint")}>
             <Switch checked={showTopChannels} onCheckedChange={() => toggleTopChannels()} />
           </SettingRow>

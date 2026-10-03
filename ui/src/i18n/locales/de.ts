@@ -590,6 +590,8 @@ export const de: Locale = {
     showShortsTab: "Shorts-Tab",
     showShortsTabHint: "Fügt einen eigenen Shorts-Tab in der Seitenleiste hinzu. Shorts bleiben aus dem Hauptfeed und anderen Ansichten heraus.",
     showTopChannels: "Top-Kanäle im Feed",
+    showContinueWatching: "Weiterschauen-Reihe",
+    showContinueWatchingHint: "Zeigt oben im Feed die Reihe „Weiterschauen“. Wenn deaktiviert, bleiben angefangene Videos im normalen Feed.",
     showTopChannelsHint: "Zeigt oben im Feed eine Reihe der Avatare deiner meistgesehenen Kanäle.",
     channelPostsTab: "Posts-Tab auf Kanalseiten",
     channelPostsTabHint: "Zeigt Community-Posts auf Kanalseiten an.",

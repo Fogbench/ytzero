@@ -41,6 +41,7 @@ type AppRoutesProps = {
   channelOpenSync: ChannelOpenSyncMode;
   shortsEnabled: boolean;
   showTopChannels: boolean;
+  showContinueWatching: boolean;
   showToast: (message: string, variant?: ToastVariant) => void;
 };
 
@@ -56,12 +57,13 @@ export default function AppRoutes({
   profilePermissions,
   shortsEnabled,
   showTopChannels,
+  showContinueWatching,
   showToast,
 }: AppRoutesProps) {
   return (
     <Suspense fallback={<DelayedPageSkeleton delay={200} />}>
       <Routes>
-        <Route path="/" element={<FeedPage onPlay={onPlay} showToast={showToast} feedSort={feedSort} keepWatchedInFeed={keepWatchedInFeed} showTopChannels={showTopChannels} />} />
+        <Route path="/" element={<FeedPage onPlay={onPlay} showToast={showToast} feedSort={feedSort} keepWatchedInFeed={keepWatchedInFeed} showTopChannels={showTopChannels} showContinueWatching={showContinueWatching} />} />
         <Route path="/search" element={<SearchPage onPlay={onPlay} hideExternalSearch={childStatus?.local_only ?? false} />} />
         <Route path="/recommendations" element={enabledPluginRoutes?.has("/recommendations")
           ? <RecommendationsPage onPlay={onPlay} loadRecommendations={api.recommendations} />

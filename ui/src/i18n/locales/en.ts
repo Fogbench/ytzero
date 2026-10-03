@@ -590,6 +590,8 @@ export const en = {
     showShortsTab: "Shorts tab",
     showShortsTabHint: "Adds a dedicated Shorts tab in the sidebar. Shorts stay out of the main feed and other views.",
     showTopChannels: "Top channels on the feed",
+    showContinueWatching: "Continue watching row",
+    showContinueWatchingHint: "Shows the Continue watching row at the top of the feed. When off, videos you've started stay in the regular feed.",
     showTopChannelsHint: "Shows a row of your most-watched channel avatars at the top of the feed.",
     channelPostsTab: "Posts tab on channel pages",
     channelPostsTabHint: "Lets you browse Community Posts on channel pages.",

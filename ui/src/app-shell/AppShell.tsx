@@ -99,6 +99,7 @@ export default function AppShell({ isAdmin }: { isAdmin: boolean }) {
                   profilePermissions={preferences.profilePermissions}
                   shortsEnabled={shortsEnabled}
                   showTopChannels={preferences.appSettings?.show_top_channels !== "0"}
+                  showContinueWatching={preferences.appSettings?.show_continue_watching !== "0"}
                   showToast={showToast}
                 />
               </div>

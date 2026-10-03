@@ -686,6 +686,8 @@ export const es: Locale = {
     showShortsTab: "Pestaña Shorts",
     showShortsTabHint: "Añade una pestaña específica para Shorts en la barra lateral. Los Shorts no aparecerán en el feed principal ni en otras vistas.",
     showTopChannels: "Canales destacados en el feed",
+    showContinueWatching: "Fila «Seguir viendo»",
+    showContinueWatchingHint: "Muestra la fila «Seguir viendo» en la parte superior del feed. Si se desactiva, los vídeos que has empezado permanecen en el feed normal.",
     showTopChannelsHint: "Muestra una fila con los avatares de tus canales más vistos en la parte superior del feed.",
     channelPostsTab: "Pestaña Publicaciones en las páginas de canales",
     channelPostsTabHint: "Permite consultar las publicaciones de la comunidad en las páginas de los canales.",
