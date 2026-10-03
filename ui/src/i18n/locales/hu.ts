@@ -332,6 +332,7 @@ export const hu: Locale = {
     playerQualityAuto: "Automatikus",
     playerQualityUseAv1: "Use AV1",
     playerQualityUseMp4: "Use MP4",
+    playerQualityUses: "({codec} használatával)",
     playerQualityNone: "Nincs elérhető minőség",
     playerAudioMode: "Csak hang",
     playerAudioModeExit: "Videó",

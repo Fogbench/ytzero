@@ -425,6 +425,7 @@ export const ru: Locale = {
     "playerQualityAuto": "Авто",
     "playerQualityUseAv1": "Use AV1",
     "playerQualityUseMp4": "Use MP4",
+    "playerQualityUses": "(использует {codec})",
     "playerQualityNone": "Нет доступных качеств",
     "playerAudioMode": "Только аудио",
     "playerAudioModeExit": "Видео",

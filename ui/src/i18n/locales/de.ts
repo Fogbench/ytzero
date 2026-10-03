@@ -334,6 +334,7 @@ export const de: Locale = {
     playerQualityAuto: "Automatisch",
     playerQualityUseAv1: "Use AV1",
     playerQualityUseMp4: "Use MP4",
+    playerQualityUses: "(nutzt {codec})",
     playerQualityNone: "Keine Qualitäten verfügbar",
     playerAudioMode: "Nur Audio",
     playerAudioModeExit: "Video",

@@ -425,6 +425,7 @@ export const ja: Locale = {
     "playerQualityAuto": "自動",
     "playerQualityUseAv1": "Use AV1",
     "playerQualityUseMp4": "Use MP4",
+    "playerQualityUses": "({codec}を使用)",
     "playerQualityNone": "利用できる画質がありません",
     "playerAudioMode": "音声のみ",
     "playerAudioModeExit": "ビデオ",

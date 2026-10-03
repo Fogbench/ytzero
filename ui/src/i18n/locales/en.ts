@@ -334,6 +334,7 @@ export const en = {
     playerQualityAuto: "Auto",
     playerQualityUseAv1: "Use AV1",
     playerQualityUseMp4: "Use MP4",
+    playerQualityUses: "(Uses {codec})",
     playerQualityNone: "No qualities available",
     playerAudioMode: "Audio only",
     playerAudioModeExit: "Video",

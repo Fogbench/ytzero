@@ -425,6 +425,7 @@ export const ptBR: Locale = {
     "playerQualityAuto": "Automática",
     "playerQualityUseAv1": "Use AV1",
     "playerQualityUseMp4": "Use MP4",
+    "playerQualityUses": "(usa {codec})",
     "playerQualityNone": "Nenhuma qualidade disponível",
     "playerAudioMode": "Somente áudio",
     "playerAudioModeExit": "Vídeo",

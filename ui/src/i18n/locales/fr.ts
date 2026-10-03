@@ -425,6 +425,7 @@ export const fr: Locale = {
     "playerQualityAuto": "Auto",
     "playerQualityUseAv1": "Use AV1",
     "playerQualityUseMp4": "Use MP4",
+    "playerQualityUses": "(utilise {codec})",
     "playerQualityNone": "Aucune qualité disponible",
     "playerAudioMode": "Audio seulement",
     "playerAudioModeExit": "Vidéo",
