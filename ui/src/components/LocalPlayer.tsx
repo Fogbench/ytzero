@@ -109,6 +109,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   exitStreamingLabel?: string;
   onDownload?: () => void;
   downloadLabel?: string;
+  /** Optional control-bar buttons; all shown unless a profile hides them. */
+  showScreenshotButton?: boolean;
+  showPipButton?: boolean;
 }>(function LocalPlayer({
   src,
   poster,
@@ -147,6 +150,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   exitStreamingLabel,
   onDownload,
   downloadLabel,
+  showScreenshotButton = true,
+  showPipButton = true,
 }, ref) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -876,9 +881,11 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
             onSelect={pickSubLang}
             onToggle={toggleSubtitles}
           />
-          <button className="lp-btn" onClick={() => void takeScreenshot()} aria-label={`${t("playerScreenshot")} (S)`} disabled={buffering}>
-            <Camera size={19} />
-          </button>
+          {showScreenshotButton && (
+            <button className="lp-btn" onClick={() => void takeScreenshot()} aria-label={`${t("playerScreenshot")} (S)`} disabled={buffering}>
+              <Camera size={19} />
+            </button>
+          )}
           {onToggleCinema && (
             <button
               className={`lp-btn${cinemaMode ? " active" : ""}`}
@@ -889,9 +896,11 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
               <Clapperboard size={19} />
             </button>
           )}
-          <button className="lp-btn" onClick={togglePip} aria-label={t("playerPip")}>
-            <PictureInPicture2 size={19} />
-          </button>
+          {showPipButton && (
+            <button className="lp-btn" onClick={togglePip} aria-label={t("playerPip")}>
+              <PictureInPicture2 size={19} />
+            </button>
+          )}
           <button className="lp-btn" onClick={toggleFullscreen} aria-label={t("playerFullscreen")}>
             {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
           </button>

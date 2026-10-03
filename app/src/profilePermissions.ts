@@ -48,6 +48,7 @@ export const SETTING_PERMISSION_AREAS: Readonly<Record<string, ProfilePermission
   enhance_replace_controls: "playback", enhance_frame_fps: "playback",
   player_screenshot_format: "playback", player_screenshot_quality: "playback",
   player_screenshot_filename: "playback", auto_fullscreen_landscape: "playback",
+  player_show_download: "playback", player_show_screenshot: "playback", player_show_pip: "playback",
   video_card_actions: "playback", video_card_preview: "playback",
   video_card_action_buttons: "playback", video_card_swipe_devices: "playback",
   watch_show_related: "playback", watch_show_comments: "playback",

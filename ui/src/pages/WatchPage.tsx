@@ -331,6 +331,8 @@ export default function WatchPage() {
                     bg: Number(settings?.player_sub_bg ?? 75),
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
+                  showScreenshotButton={settings?.player_show_screenshot !== "0"}
+                  showPipButton={settings?.player_show_pip !== "0"}
                 />
               ) : (playerKind === "local" || playerKind === "direct") && video ? (
                 <LocalPlayer
@@ -369,7 +371,9 @@ export default function WatchPage() {
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
                   onError={playerKind === "direct" ? exitDirectStream : undefined}
-                  onDownload={playerKind === "direct" && downloadsEnabled && downloadStatus !== "queued" && downloadStatus !== "downloading" ? requestDownload : undefined}
+                  showScreenshotButton={settings?.player_show_screenshot !== "0"}
+                  showPipButton={settings?.player_show_pip !== "0"}
+                  onDownload={playerKind === "direct" && settings?.player_show_download !== "0" && downloadsEnabled && downloadStatus !== "queued" && downloadStatus !== "downloading" ? requestDownload : undefined}
                   downloadLabel={t("downloadLocally")}
                 />
               ) : playerKind === "youtube" ? (

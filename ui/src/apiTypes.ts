@@ -282,6 +282,9 @@ export interface AppSettings {
   player_screenshot_quality: string;
   player_screenshot_filename: string;
   auto_fullscreen_landscape?: string;
+  player_show_download?: string;
+  player_show_screenshot?: string;
+  player_show_pip?: string;
   grid_size: string;
   video_card_actions: string; video_card_action_buttons: string; video_card_swipe_devices: string; video_card_preview: string;
   child_watching_monitor_enabled: string;

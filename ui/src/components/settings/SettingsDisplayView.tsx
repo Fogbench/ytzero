@@ -38,6 +38,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     appName,
     appNameInput,
     autoFullscreen,
+    playerButtons,
     canManageArea,
     changeDeArrowThumbnails,
     changeDeArrowTitles,
@@ -87,6 +88,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     screenshotQuality,
     setAppNameInput,
     setAutoFullscreen,
+    setPlayerButtons,
     setKeyboardSeekSeconds,
     setLanguage,
     setPlayerCc,
@@ -437,6 +439,33 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
               onCheckedChange={(next) => {
                 setAutoFullscreen(next);
                 savePlayer({ auto_fullscreen_landscape: next ? "1" : "0" });
+              }}
+            />
+          </SettingRow>
+          <SettingRow label={t("playerShowDownload")} description={t("playerShowDownloadHint")}>
+            <Switch
+              checked={playerButtons.download}
+              onCheckedChange={(next) => {
+                setPlayerButtons((current) => ({ ...current, download: next }));
+                savePlayer({ player_show_download: next ? "1" : "0" });
+              }}
+            />
+          </SettingRow>
+          <SettingRow label={t("playerShowScreenshot")} description={t("playerShowScreenshotHint")}>
+            <Switch
+              checked={playerButtons.screenshot}
+              onCheckedChange={(next) => {
+                setPlayerButtons((current) => ({ ...current, screenshot: next }));
+                savePlayer({ player_show_screenshot: next ? "1" : "0" });
+              }}
+            />
+          </SettingRow>
+          <SettingRow label={t("playerShowPip")} description={t("playerShowPipHint")}>
+            <Switch
+              checked={playerButtons.pip}
+              onCheckedChange={(next) => {
+                setPlayerButtons((current) => ({ ...current, pip: next }));
+                savePlayer({ player_show_pip: next ? "1" : "0" });
               }}
             />
           </SettingRow>

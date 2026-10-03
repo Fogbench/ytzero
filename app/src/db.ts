@@ -254,6 +254,8 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   player_screenshot_filename: "{channel}_{title}_{timestamp_ms}",
   // Mobile: rotating to landscape on the watch page enters fullscreen.
   auto_fullscreen_landscape: "0",
+  // Optional player control-bar buttons; shown by default.
+  player_show_download: "1", player_show_screenshot: "1", player_show_pip: "1",
   grid_size: "sm",
   // Portable per-profile UI preference; hover preserves the historical behaviour.
   video_card_actions: "hover", video_card_preview: "all", // Portable card hover controls and preview source policy.

@@ -307,6 +307,11 @@ archive with no such capability restores with public sharing denied.
   progress itself is unaffected. It travels in `profile.settings` with the other
   per-profile keys; older archives without it keep the target value on merge and
   use the enabled default on replace.
+  `player_show_download`, `player_show_screenshot` and `player_show_pip` are
+  portable per-profile playback configuration (default `1`, shown). They only
+  hide optional buttons on the built-in player; the actions and shortcuts stay.
+  They travel in `profile.settings`; older archives without them keep the
+  target value on merge and use the shown default on replace.
   `channel_open_sync` is portable per-profile configuration for what opening a
   channel page does on its own: `off` (the historical passive behaviour),
   `recent` (a quick pass over the channel's latest uploads), or `full` (the same
