@@ -15,6 +15,8 @@
 #      the result.
 # Every check prints PASS: or FAIL:. The last line is "== N passed, M failed in Ns"; the exit code is
 # non-zero when anything failed.
+# Programs it needs: bash, git, curl, tar, xz, python3, sha256sum and the usual coreutils. It does NOT
+# need ss/lsof: servers it starts are stopped by the pid it remembered, and ports are looked up in /proc.
 # Env: KEEP_TMP=1 keeps the temp dir; TEST_TMPDIR=<dir> is the parent for it (default $TMPDIR or /tmp).
 # Option: --scripts-ref <git ref>  takes scripts/release/* and scripts/package-release.sh from that commit
 #   instead of the working tree. This is how to check that a test really catches a bug: run the
@@ -320,6 +322,7 @@ bk="$(ls -d "$INST"/backups/pre-update-v2.0.0-* 2>/dev/null | head -n 1)"
 checkx "3 database backup in ./backups" '[ -n "$bk" ] && [ -f "$bk/db/ytzero.sqlite" ]'
 check "3 backup db readable (100 rows)" [ "$(python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from t").fetchone()[0])' "${bk:-/nonexistent}/db/ytzero.sqlite" 2>/dev/null)" = 100 ]
 checkx "D5 backup includes data/database-state.json" '[ -n "$bk" ] && [ "$(cat "$bk/database-state.json" 2>/dev/null)" = "{\"state\":\"kept\"}" ]'
+check "R2-5 the backup message names both things it copied (data/db and data/database-state.json)" grep -qE "^==> copied data/db and data/database-state.json to backups/pre-update-v2.0.0-[0-9]{8}-[0-9]{6}$" <<<"$out"
 checkx "D5 only the newest 5 pre-update backups stay (the new one + the 4 newest old ones)" \
   '[ "$(ls -d "$INST"/backups/pre-update-* | wc -l)" = 5 ] && [ -d "$INST/backups/pre-update-v1.0.0-20250107-000000" ] && [ -d "$INST/backups/pre-update-v1.0.0-20250104-000000" ] && [ ! -e "$INST/backups/pre-update-v1.0.0-20250103-000000" ] && [ ! -e "$INST/backups/pre-update-v1.0.0-20250101-000000" ]'
 check "D5 a folder in backups/ that is not an update backup is kept" [ -d "$INST/backups/my-own-backup" ]
@@ -546,11 +549,81 @@ checkx "L4 installer finished (exit 0, a short log, no endless prompts)" '[ $rc 
 check "L4 installer says ./port is not a port number" grep -q "does not hold a port number" "$T/l4.log"
 check "L4 installer fell back to 3001 and saved it" [ "$(cat "$INST/port")" = 3001 ]
 
+# dead_pid: prints a process number that is not in use (a short job that has already ended)
+dead_pid() { local p; ( : ) & p=$!; wait "$p" 2>/dev/null; echo "$p"; }
+
+echo "== case R2-1: update.sh on macOS (a stand-in uname says Darwin/arm64): program files update, tools stay"
+restore; set_latest v2.0.1   # v2.0.1 pins a NEW yt-dlp: on Linux it would be downloaded from the fake GitHub (/art/yt-dlp)
+mkdir -p "$T/darwin"
+cat > "$T/darwin/uname" <<'EOF'
+#!/bin/sh
+# Stands in for macOS: "uname -s" says Darwin, "uname -m" says arm64. Any other use is the real uname.
+case "${1:-}" in -s) echo Darwin ;; -m) echo arm64 ;; *) exec /usr/bin/uname "$@" ;; esac
+EOF
+chmod 755 "$T/darwin/uname"
+binsum="$(tree_sum "$INST/bin")"; art_before="$(grep -c 'GET /art/' "$T/server.log")"
+out="$(EXTRA_PATH="$T/darwin" run_in update.sh --yes 2>"$T/errr21")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -5
+check "R2-1 exit 0" [ $rc -eq 0 ]
+checkx "R2-1 VERSION moved to v2.0.1 and the new program files are in" '[ "$(ver)" = v2.0.1 ] && [ -f "$INST/app/src/UPDATE-MARKER.txt" ]'
+check "R2-1 says the tools are not touched on Darwin" grep -q "tools: not touched on Darwin" <<<"$out"
+check "R2-1 ./bin is exactly as before (no tool replaced, no .installed change)" [ "$(tree_sum "$INST/bin")" = "$binsum" ]
+check "R2-1 nothing was downloaded from the tool server (/art/ in the fake GitHub's log)" [ "$(grep -c 'GET /art/' "$T/server.log")" = "$art_before" ]
+check "R2-1 stderr has no shell errors" clean_of_noise "$T/errr21"
+
+echo "== case R2-lock: a live .update.lock stops update.sh"
+restore; set_latest v2.0.2
+mkdir "$INST/.update.lock"; echo "$$" > "$INST/.update.lock/pid"   # this test's own pid: certainly alive
+before="$(tree_sum "$INST")"
+out="$(run_in update.sh --yes 2>&1)"; rc=$?
+checkx "LOCK live pid: exit non-zero, says another update.sh is running, nothing changed" '[ $rc -ne 0 ] && grep -q "another update.sh is already running (pid $$)" <<<"$out" && [ "$(tree_sum "$INST")" = "$before" ]'
+
+echo "== case R2-2/R2-3: update after a killed run (dead-pid lock, stale ./.tmp folder, backups dated in the future)"
+restore; set_latest v2.0.2
+# five backups named with dates far in the FUTURE (a clock that was wrong): by name they sort newer than the new backup
+for i in 1 2 3 4 5; do mkdir -p "$INST/backups/pre-update-v9.0.0-2099010$i-000000/db"; done
+# what a run killed with kill -9 leaves behind: its lock (pid no longer alive) and its download folder
+mkdir "$INST/.update.lock"; echo "$(dead_pid)" > "$INST/.update.lock/pid"
+mkdir -p "$INST/.tmp/update.AbCdEf" "$INST/.tmp/update.abc" "$INST/.tmp/my-stuff"; echo junk > "$INST/.tmp/update.AbCdEf/old-download.tar.gz"
+out="$(run_in update.sh --yes 2>"$T/errr2")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -4
+checkx "LOCK dead pid: the lock is taken over, the update finishes (exit 0, v2.0.2, lock gone)" '[ $rc -eq 0 ] && [ "$(ver)" = v2.0.2 ] && [ ! -e "$INST/.update.lock" ]'
+bk="$(ls -d "$INST"/backups/pre-update-v2.0.0-* 2>/dev/null | head -n 1)"
+checkx "R2-2 the new backup survives although future-dated backups sort above it" '[ -n "$bk" ] && [ "$(cat "$bk/database-state.json" 2>/dev/null)" = "{\"state\":\"kept\"}" ]'
+checkx "R2-2 exactly 5 pre-update backups remain: the new one and the 4 newest of the future-dated" \
+  '[ "$(ls -d "$INST"/backups/pre-update-* | wc -l)" = 5 ] && [ -d "$INST/backups/pre-update-v9.0.0-20990105-000000" ] && [ -d "$INST/backups/pre-update-v9.0.0-20990102-000000" ] && [ ! -e "$INST/backups/pre-update-v9.0.0-20990101-000000" ]'
+check "R2-2 a folder in backups/ that is not an update backup is kept" [ -d "$INST/backups/my-own-backup" ]
+check "R2-3 the stale ./.tmp/update.AbCdEf of the killed run is removed" [ ! -e "$INST/.tmp/update.AbCdEf" ]
+checkx "R2-3 other folders in ./.tmp stay (one that is not update.*, one with a wrong-length name)" '[ -d "$INST/.tmp/my-stuff" ] && [ -d "$INST/.tmp/update.abc" ] && [ "$(ls -A "$INST/.tmp" | wc -l)" = 2 ]'
+check "R2-2/R2-3 stderr has no shell errors" clean_of_noise "$T/errr2"
+
+echo "== case R2-5: the backup message names what was copied (only data/database-state.json exists)"
+restore; set_latest v2.0.2
+rm -rf "$INST/data/db"
+out="$(run_in update.sh --yes 2>&1)"; rc=$?
+bk="$(ls -d "$INST"/backups/pre-update-v2.0.0-* 2>/dev/null | head -n 1)"
+check "R2-5 exit 0" [ $rc -eq 0 ]
+check "R2-5 message says: copied data/database-state.json to backups/pre-update-v2.0.0-..." grep -qE "^==> copied data/database-state.json to backups/pre-update-v2.0.0-[0-9]{8}-[0-9]{6}$" <<<"$out"
+check "R2-5 message does not claim a database (data/db) was copied" bash -c '! grep -q "data/db" <<<"$1"' _ "$out"
+checkx "R2-5 the backup holds database-state.json and no db folder" '[ -n "$bk" ] && [ -f "$bk/database-state.json" ] && [ ! -e "$bk/db" ]'
+
+echo "== case R2-12: a release that ships port, ytzero.env and .tmp must not overwrite the user's files"
+restore; set_latest v2.0.6
+echo 4242 > "$INST/port"; echo "FOO=mine" > "$INST/ytzero.env"
+out="$(run_in update.sh --yes 2>"$T/errr12")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -4
+checkx "R2-12 update finishes (exit 0, VERSION v2.0.6)" '[ $rc -eq 0 ] && [ "$(ver)" = v2.0.6 ]'
+check "R2-12 the user's ./port is still 4242 (the release's 7777 is ignored)" [ "$(cat "$INST/port")" = 4242 ]
+check "R2-12 the user's ytzero.env is unchanged (the release's SHIPPED=1 is ignored)" [ "$(cat "$INST/ytzero.env")" = "FOO=mine" ]
+check "R2-12 the release's .tmp content was not copied in" [ ! -e "$INST/.tmp/shipped.txt" ]
+check "R2-12 stderr has no shell errors" clean_of_noise "$T/errr12"
+
 echo "== start.sh with a stand-in bun (what port, what environment the server would get)"
 STUB="$T/stub"; mkdir -p "$STUB/bin" "$STUB/app"; cp "$INST/start.sh" "$STUB/start.sh"; echo v9.9.9 > "$STUB/VERSION"
 cat > "$STUB/bin/bun" <<'EOF'
 #!/bin/sh
 echo "STUB PORT=$PORT TMPDIR=$TMPDIR HOME=$HOME VAR=${YTZERO_TEST_VAR-unset}"
+echo "STUB2 XDG=${XDG_CACHE_HOME-unset} DENO=${DENO_DIR-unset} BUNCACHE=${BUN_INSTALL_CACHE_DIR-unset}"
 EOF
 chmod 755 "$STUB/bin/bun"
 # stub_run: run start.sh in the stub folder; STUB_PORT gets the port the "server" would see
@@ -587,6 +660,17 @@ check "M2 without ytzero.env the setting is not there" grep -q "VAR=unset" "$T/s
 checkx "PORTABLE start.sh points TMPDIR into the folder (and makes it), leaves HOME alone" \
   'grep -q "TMPDIR=$STUB/.cache/tmp " "$T/stub.out" && [ -d "$STUB/.cache/tmp" ] && grep -q "HOME=$HOME_FAKE " "$T/stub.out"'
 check "stderr start.sh prints no shell errors" clean_of_noise "$T/stub.err"
+# R2-9: ytzero.env edge cases
+printf 'PORT=6161\r\nYTZERO_TEST_VAR=crlf-value\r\n' > "$STUB/ytzero.env"; stub_run   # a file saved on Windows: every line ends in CR LF
+checkx "R2-9 ytzero.env with CRLF line endings: the server gets PORT 6161 and a value without a stray CR" \
+  '[ $STUB_RC -eq 0 ] && [ "$STUB_PORT" = 6161 ] && grep -qx "STUB PORT=6161 .* VAR=crlf-value" "$T/stub.out"'
+printf 'A=$UNSET\nPORT=6262\n' > "$STUB/ytzero.env"; stub_run   # A=$UNSET reads a variable that does not exist
+checkx "R2-9 a line A=\$UNSET does not stop start.sh (empty value), the next line still works" '[ $STUB_RC -eq 0 ] && [ "$STUB_PORT" = 6262 ]'
+check "R2-9 A=\$UNSET prints no shell error ('unbound variable')" clean_of_noise "$T/stub.err"
+printf 'TMPDIR=/ytz-bogus/tmp\nXDG_CACHE_HOME=/ytz-bogus/xdg\nDENO_DIR=/ytz-bogus/deno\nBUN_INSTALL_CACHE_DIR=/ytz-bogus/bun\n' > "$STUB/ytzero.env"; stub_run
+checkx "R2-9 TMPDIR, XDG_CACHE_HOME, DENO_DIR and BUN_INSTALL_CACHE_DIR set in ytzero.env stay overridden by start.sh" \
+  '[ $STUB_RC -eq 0 ] && grep -q "TMPDIR=$STUB/.cache/tmp " "$T/stub.out" && grep -qx "STUB2 XDG=$STUB/.cache DENO=$STUB/.cache/deno BUNCACHE=$STUB/.bun-cache" "$T/stub.out"'
+rm -f "$STUB/ytzero.env"
 
 echo "== case S: start.sh boots the real server (started through a symlink, PORT in the environment), GET /api/health"
 restore; rm -rf "$INST/data"
@@ -651,6 +735,19 @@ check "U prints the rm -rf line for the folder" grep -q "rm -rf " <<<"$out"
 check "PORTABLE uninstall.sh left the fake HOME empty" home_empty
 out="$(run_in uninstall.sh --remove-data --yes 2>&1)"; rc=$?
 checkx "U --remove-data --yes deletes ./data" '[ $rc -eq 0 ] && [ ! -e "$INST/data" ]'
+
+echo "== case R2-11: uninstall.sh and a running update.sh (the .update.lock folder)"
+restore; mkdir "$INST/.update.lock"; echo "$$" > "$INST/.update.lock/pid"   # this test's own pid: certainly alive
+before="$(tree_sum "$INST")"
+out="$(run_in uninstall.sh --yes 2>&1)"; rc=$?
+checkx "R2-11 uninstall.sh --yes refuses while the lock holds a live pid (nothing removed)" '[ $rc -ne 0 ] && grep -q "update.sh is running in this folder (pid $$)" <<<"$out" && [ "$(tree_sum "$INST")" = "$before" ]'
+out="$(run_in uninstall.sh --dry-run 2>&1)"; rc=$?
+checkx "R2-11 uninstall.sh --dry-run refuses too" '[ $rc -ne 0 ] && grep -q "update.sh is running in this folder" <<<"$out"'
+echo "$(dead_pid)" > "$INST/.update.lock/pid"   # a leftover of a killed update.sh
+out="$(run_in uninstall.sh --dry-run 2>&1)"; rc=$?
+checkx "R2-11 a lock with a dead pid does not block (--dry-run lists the files, exit 0)" '[ $rc -eq 0 ] && grep -q "dry run" <<<"$out" && ! grep -q "update.sh is running" <<<"$out"'
+out="$(run_in uninstall.sh --yes 2>&1)"; rc=$?
+checkx "R2-11 a lock with a dead pid does not block a real uninstall either" '[ $rc -eq 0 ] && [ ! -e "$INST/app/node_modules" ]'
 
 echo "== end: nothing leaked outside the test folders"
 check "PORTABLE no script put anything in TMPDIR" bash -c '[ -z "$(ls -A "$1")" ]' _ "$HOSTTMP"
