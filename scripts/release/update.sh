@@ -287,8 +287,8 @@ main() {
   fi
 
   # Mirror the release: every top-level entry of the tarball replaces the one here,
-  # except the folders that hold your data, tools and caches, and VERSION (written
-  # last, see below). Folders are swapped whole (so app/node_modules goes too and is
+  # except the folders that hold your data, tools and caches, your files port and
+  # ytzero.env, and VERSION (written last, see below). Folders are swapped whole (so app/node_modules goes too and is
   # rebuilt below). A top-level entry that the OLD release shipped and the new one no
   # longer does is removed too (see "gone" below), so the result matches a fresh download.
   # Two passes, so that a failure (full disk, Ctrl+C) cannot leave half an update:
@@ -301,7 +301,8 @@ main() {
   rm_path "$STAGE"; mkdir -p "$STAGE/new" "$STAGE/newbin"
   while IFS= read -r -d '' entry; do
     n="$(basename "$entry")"
-    case "$n" in data|backups|bin|.cache|.bun-cache|VERSION|.update-stage|.update.lock) continue ;; esac
+    # same user-owned and script-owned names as in the "never removed" list below, so a release can neither overwrite nor delete them
+    case "$n" in data|backups|bin|.cache|.bun-cache|.tmp|port|ytzero.env|VERSION|VERSION.new|.update-stage|.update.lock) continue ;; esac
     cp -r "$entry" "$STAGE/new/$n" || die "could not copy the new files (is the disk full?), nothing was changed."
   done < <(find "$new" -mindepth 1 -maxdepth 1 -print0)
   if [ "${#changed[@]}" -gt 0 ]; then mkdir -p "$ROOT_DIR/bin"; fi
