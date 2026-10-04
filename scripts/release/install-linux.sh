@@ -110,7 +110,7 @@ if [ "${#NEED[@]}" -gt 0 ]; then
   trap 'rm -rf "$tmp"; rmdir "$ROOT_DIR/.tmp" 2>/dev/null || true' EXIT
   export TMPDIR="$tmp"
   for tool in "${NEED[@]}"; do
-    tl_fetch "$LOCK" "$tool" "$(tl_arch "$tool")" "$tmp" || die "could not install $tool."
+    tl_fetch "$LOCK" "$tool" "$(tl_arch "$tool")" "$tmp" || die "could not install $tool. The lines above name every address that was tried and why it failed. Check your internet connection (and that no firewall blocks those hosts), then run bash install-linux.sh again: tools that are already installed are kept, so it continues with $tool. The server's libraries were not installed yet."
     for f in $(tl_files "$tool"); do mv -f "$tmp/$f" "$BIN_DIR/$f"; done
     tl_record "$tool" "$(tl_version "$LOCK" "$tool" "$(tl_arch "$tool")")"
     msg "$tool: installed to $BIN_DIR"
