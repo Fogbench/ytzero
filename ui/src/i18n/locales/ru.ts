@@ -431,6 +431,8 @@ export const ru: Locale = {
     "playerQualityUses": "(использует {codec})",
     "playerQualityNone": "Нет доступных качеств",
     "playerSpeed": "Скорость воспроизведения",
+    "playerSleepTimer": "Таймер сна",
+    "playerSleepMinutes": "{count} мин",
     "playerAudioMode": "Только аудио",
     "playerAudioModeExit": "Видео",
     "playerAudioModeError": "Для этого видео нет аудиодорожки.",

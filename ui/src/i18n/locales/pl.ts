@@ -340,6 +340,8 @@ export const pl: Locale = {
     playerQualityUses: "(używa {codec})",
     playerQualityNone: "Brak dostępnych jakości",
     playerSpeed: "Szybkość odtwarzania",
+    playerSleepTimer: "Wyłącznik czasowy",
+    playerSleepMinutes: "{count} min",
     playerAudioMode: "Tylko dźwięk",
     playerAudioModeExit: "Wideo",
     playerAudioModeError: "Dźwięk niedostępny dla tego filmu.",

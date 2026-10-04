@@ -1,5 +1,6 @@
 import { ChevronRight, LoaderCircle, Settings } from "lucide-react";
 import { useState } from "react";
+import { SLEEP_TIMER_MINUTES } from "../playerSleepTimer";
 import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
 import {
@@ -28,6 +29,12 @@ interface PlayerSettingsMenuProps {
   onSpeedPreview?: (speed: number) => void;
   /** Called when the viewer lets go of the slider: apply and save the speed. */
   onSpeedChange?: (speed: number) => void;
+  /** Autoplay switch (go on to the next video); leave out when there is no next video. */
+  autoplay?: { enabled: boolean; onToggle: (enabled: boolean) => void };
+  /** SponsorBlock switch; leave out when the video has no segments. */
+  sponsorBlock?: { active: boolean; onToggle: (active: boolean) => void };
+  /** Sleep timer: minutes left (null = off) and how to set it. */
+  sleep: { minutesLeft: number | null; onSet: (minutes: number | null) => void };
   /** Subtitles row; same data the CC button uses. Leave out when there is no video id. */
   subtitles?: {
     available: AvailableSubtitle[];
@@ -47,10 +54,10 @@ interface PlayerSettingsMenuProps {
 const SUBTITLE_COLORS = ["#ffffff", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000", "#000000"] as const;
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
-export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, sleep }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle">("main");
+  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle" | "sleep">("main");
   // While the slider is being dragged we show its own value; null means "use the saved speed".
   const [speedDraft, setSpeedDraft] = useState<number | null>(null);
   const commitSpeed = () => {
@@ -94,6 +101,24 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
       >
         {panel === "main" ? (
           <Menu>
+            {autoplay && (
+              <div className="lp-sub-toggle">
+                <span>{t("autoplay")}</span>
+                <Switch checked={autoplay.enabled} onCheckedChange={autoplay.onToggle} ariaLabel={t("autoplay")} />
+              </div>
+            )}
+            {sponsorBlock && (
+              <div className="lp-sub-toggle">
+                <span>{t("sponsorblockEnabled")}</span>
+                <Switch checked={sponsorBlock.active} onCheckedChange={sponsorBlock.onToggle} ariaLabel={t("sponsorblockEnabled")} />
+              </div>
+            )}
+            <MenuItem
+              onClick={() => setPanel("sleep")}
+              suffix={<span className="lp-settings-value">{sleep.minutesLeft === null ? t("subtitlesOff") : t("playerSleepMinutes", { count: sleep.minutesLeft })}<ChevronRight size={15} /></span>}
+            >
+              {t("playerSleepTimer")}
+            </MenuItem>
             {onSpeedChange && (
               <MenuItem
                 onClick={() => setPanel("speed")}
@@ -118,6 +143,18 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
               {t("playerQuality")}
             </MenuItem>}
           </Menu>
+        ) : panel === "sleep" ? (
+          <>
+            <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerSleepTimer")}</MenuHeader>
+            <Menu>
+              <MenuItem selected={sleep.minutesLeft === null} onClick={() => { sleep.onSet(null); changeOpen(false); }}>{t("subtitlesOff")}</MenuItem>
+              {SLEEP_TIMER_MINUTES.map((minutes) => (
+                <MenuItem key={minutes} onClick={() => { sleep.onSet(minutes); changeOpen(false); }}>
+                  {t("playerSleepMinutes", { count: minutes })}
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
         ) : panel === "subtitleStyle" && subtitles?.onStyleChange ? (
           <>
             <MenuHeader onBack={() => setPanel("subtitles")} backLabel={t("subtitles")}>{t("subtitleStyleTitle")}</MenuHeader>

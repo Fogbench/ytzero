@@ -431,6 +431,8 @@ export const ja: Locale = {
     "playerQualityUses": "({codec}を使用)",
     "playerQualityNone": "利用できる画質がありません",
     "playerSpeed": "再生速度",
+    "playerSleepTimer": "スリープタイマー",
+    "playerSleepMinutes": "{count}分",
     "playerAudioMode": "音声のみ",
     "playerAudioModeExit": "ビデオ",
     "playerAudioModeError": "この動画では視聴できません。",

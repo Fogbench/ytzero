@@ -1506,6 +1506,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     changeSpeed,
     changeSubtitleSize,
     changeSubtitleStyle,
+    hasNextQueueVideo,
     chapters,
     childCanRequestDownload,
     childDownloadRequest,

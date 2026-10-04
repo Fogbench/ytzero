@@ -431,6 +431,8 @@ export const ptBR: Locale = {
     "playerQualityUses": "(usa {codec})",
     "playerQualityNone": "Nenhuma qualidade disponível",
     "playerSpeed": "Velocidade de reprodução",
+    "playerSleepTimer": "Timer de sono",
+    "playerSleepMinutes": "{count} min",
     "playerAudioMode": "Somente áudio",
     "playerAudioModeExit": "Vídeo",
     "playerAudioModeError": "O áudio não está disponível para este vídeo.",

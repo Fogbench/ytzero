@@ -338,6 +338,8 @@ export const hu: Locale = {
     playerQualityUses: "({codec} használatával)",
     playerQualityNone: "Nincs elérhető minőség",
     playerSpeed: "Lejátszási sebesség",
+    playerSleepTimer: "Elalvásidőzítő",
+    playerSleepMinutes: "{count} perc",
     playerAudioMode: "Csak hang",
     playerAudioModeExit: "Videó",
     playerAudioModeError: "A hang nem elérhető a videónál.",

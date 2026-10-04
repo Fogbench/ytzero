@@ -340,6 +340,8 @@ export const en = {
     playerQualityUses: "(Uses {codec})",
     playerQualityNone: "No qualities available",
     playerSpeed: "Playback speed",
+    playerSleepTimer: "Sleep timer",
+    playerSleepMinutes: "{count} min",
     playerAudioMode: "Audio only",
     playerAudioModeExit: "Video",
     playerAudioModeError: "Audio isn't available for this video.",

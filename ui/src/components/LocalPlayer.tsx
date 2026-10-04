@@ -13,6 +13,7 @@ import {
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
+import { useSleepTimer } from "../playerSleepTimer";
 import { stepPlaybackRate } from "../playbackSpeedStep";
 import { resolveShortcutBindings, shortcutActionMatches } from "../keyboardShortcuts";
 import {
@@ -125,6 +126,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   preferredSubtitleLanguages?: string[];
   subtitleStyle?: SubtitleStyle;
   onSubtitleSizeChange?: (size: number) => void;
+  /** Gear menu switches; left out when they don't apply to this video. */
+  autoplaySwitch?: { enabled: boolean; onToggle: (enabled: boolean) => void };
+  sponsorBlock?: { active: boolean; onToggle: (active: boolean) => void };
   /** Gear menu: change size, color or background opacity of the subtitles. */
   onSubtitleStyleChange?: (style: Partial<SubtitleStyle>) => void;
   // Experimental play-while-downloading source. The known total length keeps
@@ -177,6 +181,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   subtitleStyle,
   onSubtitleSizeChange,
   onSubtitleStyleChange,
+  autoplaySwitch,
+  sponsorBlock,
   live = false,
   hls = live,
   liveLabel,
@@ -509,6 +515,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     if (!muted) autoMutedRef.current = false;
     if (!autoMutedRef.current) localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
   }, [volume, muted]);
+
+  // Pauses the video when the sleep timer runs out.
+  const sleepTimer = useSleepTimer(() => { videoRef.current?.pause(); });
 
   const togglePlay = useCallback(() => {
     if (transportLocked) {
@@ -1020,6 +1029,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
               } : undefined}
               speed={playbackRate}
               onSpeedPreview={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; }}
+              autoplay={autoplaySwitch}
+              sponsorBlock={sponsorBlock}
+              sleep={{ minutesLeft: sleepTimer.minutesLeft, onSet: sleepTimer.set }}
               onSpeedChange={transportLocked ? undefined : onSpeedChange}
               subtitles={videoId ? {
                 available: availableSubs,

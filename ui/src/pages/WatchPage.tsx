@@ -117,6 +117,7 @@ export default function WatchPage() {
     changeSpeed,
     changeSubtitleSize,
     changeSubtitleStyle,
+    hasNextQueueVideo,
     chapters,
     childCanRequestDownload,
     childDownloadRequest,
@@ -392,6 +393,8 @@ export default function WatchPage() {
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
                   onSubtitleStyleChange={changeSubtitleStyle}
+                  autoplaySwitch={hasNextQueueVideo ? { enabled: settings?.feed_autoplay_behavior !== "prompt", onToggle: toggleFeedAutoplay } : undefined}
+                  sponsorBlock={sbSegments.length > 0 ? { active: !sbPaused, onToggle: (active) => setSbPaused(!active) } : undefined}
                   onError={playerKind === "direct" ? exitDirectStream : undefined}
                   showScreenshotButton={settings?.player_show_screenshot !== "0"}
                   showPipButton={settings?.player_show_pip !== "0"}
