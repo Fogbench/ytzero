@@ -57,7 +57,7 @@ app.route("/api", api);
 // match the in-app logo. Served before serveStatic so it wins over the static
 // files in ./public. Note: an already-installed PWA caches its icon at install
 // time, so a color change only shows on (re)install or an OS icon refresh.
-const iconColor = () => getSetting("app_icon_color") || "#0a5fff";
+const iconColor = () => getSetting("app_icon_color") || "#207f00";
 const svgHeaders = { "Content-Type": "image/svg+xml", "Cache-Control": "no-cache" };
 const pngHeaders = { "Content-Type": "image/png", "Cache-Control": "no-cache, no-store, must-revalidate" };
 const manifestHeaders = {

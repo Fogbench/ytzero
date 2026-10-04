@@ -269,7 +269,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   child_lock_enabled: "0",
   child_lock_pin_hash: "",
   app_name: "YT Zero",
-  app_icon_color: "#0a5fff",
+  app_icon_color: "#207f00",
   // One instance-wide IANA timezone drives logs, daily rotation, child limits,
   // and Insights/Pulse independently of the container or browser timezone.
   timezone: "UTC",

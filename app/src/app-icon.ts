@@ -1,7 +1,7 @@
 import { Resvg } from "@resvg/resvg-js";
 
 function normalizeColor(color: string): string {
-  return /^#[\da-f]{6}$/i.test(color) ? color : "#0a5fff";
+  return /^#[\da-f]{6}$/i.test(color) ? color : "#207f00";
 }
 
 export function createAppIconSvg(color: string, installIcon = false): string {

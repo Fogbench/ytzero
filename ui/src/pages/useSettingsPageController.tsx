@@ -162,7 +162,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const [playlistIcon, setPlaylistIcon] = useState("ListMusic");
   const [appName, setAppName] = useState("YT Zero");
   const [appNameInput, setAppNameInput] = useState("YT Zero");
-  const [appIconColor, setAppIconColor] = useState("#0a5fff");
+  const [appIconColor, setAppIconColor] = useState("#207f00");
   const [youtubeTitleLanguage, setYoutubeTitleLanguage] = useState<"profile" | Language>("profile");
   const [timeZoneLocked, setTimeZoneLocked] = useState(false);
   // App-wide settings (app name, icon color, timezone, child lock) are owned by the
@@ -447,7 +447,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       const name = r.settings.app_name || "YT Zero";
       setAppName(name);
       setAppNameInput(name);
-      setAppIconColor(r.settings.app_icon_color || "#0a5fff");
+      setAppIconColor(r.settings.app_icon_color || "#207f00");
       setYoutubeTitleLanguage(r.settings.youtube_title_language === "profile" || LANGUAGES.includes(r.settings.youtube_title_language) ? r.settings.youtube_title_language : "profile");
       setTimeZoneLocked(Boolean(r.settings_meta?.timezone_locked));
       setUpdateCheckInterval(r.settings.update_check_interval || "off");

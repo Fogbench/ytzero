@@ -115,8 +115,8 @@ function publicCreatorDto(token: string, videoId: string, creator: Awaited<Retur
 }
 
 function publicBrandColor(): string {
-  const color = getSetting("app_icon_color") || "#0a5fff";
-  return /^#[\da-f]{6}$/i.test(color) ? color : "#0a5fff";
+  const color = getSetting("app_icon_color") || "#207f00";
+  return /^#[\da-f]{6}$/i.test(color) ? color : "#207f00";
 }
 
 async function authorizedVideo(token: string, videoId: string) {

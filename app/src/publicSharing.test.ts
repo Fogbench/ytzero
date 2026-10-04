@@ -129,7 +129,7 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       expect(response.headers.get("x-robots-tag")).toContain("noindex");
       expect(response.headers.get("content-security-policy")).toContain("default-src 'self'");
       const body = await response.json() as Record<string, unknown>;
-      expect(body.brand).toEqual({ name: "YT Zero", icon: "/favicon.svg", color: "#0a5fff" });
+      expect(body.brand).toEqual({ name: "YT Zero", icon: "/favicon.svg", color: "#207f00" });
       expect(JSON.stringify(body)).not.toContain("owner_user_id");
       expect(JSON.stringify(body)).not.toContain("Publisher");
       expect((body.creators as Array<{ avatar: string }>)[0]?.avatar).toBe(`/share/${share.token}/avatar/public001/UCshare`);

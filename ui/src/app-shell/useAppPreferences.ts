@@ -17,7 +17,7 @@ export function useAppPreferences() {
   const location = useLocation();
   const navigate = useNavigate();
   const [appName, setAppName] = useState("YT Zero");
-  const [appIconColor, setAppIconColor] = useState("#0a5fff");
+  const [appIconColor, setAppIconColor] = useState("#207f00");
   const [appSettings, setAppSettings] = useState<AppSettings | null>(null);
   const [navConfig, setNavConfig] = useState<NavConfigEntry[]>(() => parseNavConfig(null));
   const [profilePermissions, setProfilePermissions] = useState<ProfilePermissions>(DEFAULT_PROFILE_PERMISSIONS);
@@ -30,7 +30,7 @@ export function useAppPreferences() {
       const settings = result.settings;
       setAppSettings(settings);
       setAppName(settings.app_name || "YT Zero");
-      setAppIconColor(settings.app_icon_color || "#0a5fff");
+      setAppIconColor(settings.app_icon_color || "#207f00");
       applyVideoCardSize(settings.grid_size);
       emit("video-card-size-applied");
       applyWatchedStyle(parseWatchedStyle(settings.watched_style));
