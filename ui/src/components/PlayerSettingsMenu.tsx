@@ -99,9 +99,11 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
     onChoiceChange({ height: keeps ? choice.height : "auto", codec: next });
   };
   const rows = qualityRows(choice.codec, qualities);
+  // Auto with nothing smooth has no active entry (the server's default plays, height unknown): show just "Auto".
+  const autoWithoutEntry = !active && !loading && qualities.length > 0 && choice.height === "auto";
   const summary = active
     ? `${choice.height === "auto" ? `${t("playerQualityAuto")} ` : ""}${heightLabel(active)}`
-    : "";
+    : autoWithoutEntry ? t("playerQualityAuto") : "";
 
   return (
     <div className="lp-sub-menu-wrap">
@@ -275,7 +277,7 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
             ))}
             <ScrollArea className="lp-sub-menu-list-wrap" viewportClassName="lp-sub-menu-list">
               <Menu>
-                {active && (
+                {qualities.length > 0 && (
                   <MenuItem
                     selected={choice.height === "auto"}
                     onClick={() => onChoiceChange({ ...choice, height: "auto" })}
