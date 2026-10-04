@@ -15,6 +15,19 @@ repository above (every release also has a source archive).
 
 This archive is a ready-built copy. Nothing needs compiling.
 
+PORTABLE: install-linux.sh, start.sh, update.sh and uninstall.sh make no
+changes to your PC outside this folder. Nothing is written to your home
+directory (no ~/.bashrc edit, no ~/.cache, no ~/.bun), to /usr, /etc or /opt,
+and no system service or scheduled job is created. Bun, yt-dlp, Deno, ffmpeg
+and every cache live inside the folder, so you can move or delete the folder.
+Checked on Linux (2026-10-04) by comparing the home directory and system
+folders before and after install, running the server with real video
+playback, updating and uninstalling. Only short-lived temporary files in /tmp
+while a script runs are outside the folder; they are removed afterwards.
+This holds when you start the server with start.sh. If you start it some
+other way, Bun, yt-dlp and Deno will use their normal cache folders under
+your home directory. macOS (manual steps) is not covered by this check.
+
 
 WHAT YOU NEED
 -------------
@@ -159,7 +172,7 @@ uninstall.sh  (undo install-linux.sh)
 
   Removes what install-linux.sh added, inside this folder only:
 
-  - app/node_modules and .bun-cache
+  - app/node_modules, .bun-cache and .cache
   - Bun and the tools in ./bin that the installer downloaded
     (bun, yt-dlp, deno, ffmpeg, ffprobe)
 
@@ -191,4 +204,5 @@ WHAT IS IN THE FOLDER
   update.sh             Updates to the latest release
   uninstall.sh          Removes what the installer added
   .bun-cache/           Bun's download cache, created by the installer
+  .cache/               yt-dlp, Deno and Bun caches, created by start.sh
   backups/              Database copies made by update.sh
