@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Updates this folder to the latest GitHub release of YT Zero.
+# Updates this folder to the latest GitHub release of YT Zero: the program, its
+# libraries and the tools in ./bin (Bun, yt-dlp, Deno, ffmpeg).
 # Your ./data is never touched; a copy of the database is saved first.
 #
 # Usage: bash update.sh [--check] [--yes]
@@ -90,9 +91,23 @@ main() {
     cp "$new/$f" "$ROOT_DIR/$f.new" && mv "$ROOT_DIR/$f.new" "$ROOT_DIR/$f"
   done
 
-  [ -d "$ROOT_DIR/.bun-cache" ] && export BUN_INSTALL_CACHE_DIR="$ROOT_DIR/.bun-cache"
-  echo "==> updating the server's libraries"
-  (cd "$ROOT_DIR/app" && bun install --production --frozen-lockfile)
+  # Refresh the tools the installer put in ./bin (Bun, yt-dlp, Deno, ffmpeg) and the
+  # server's libraries by running the new install-linux.sh. Tools found elsewhere
+  # on your system are left alone. The old ones are kept until the new run works.
+  local old="$ROOT_DIR/bin/.previous" tool
+  rm -rf "$old"; mkdir -p "$old"
+  for tool in bun yt-dlp deno ffmpeg ffprobe; do
+    [ -e "$ROOT_DIR/bin/$tool" ] && mv "$ROOT_DIR/bin/$tool" "$old/$tool"
+  done
+  echo "==> updating Bun, yt-dlp, Deno, ffmpeg and the server's libraries"
+  if ! bash "$ROOT_DIR/install-linux.sh" --yes; then
+    for tool in bun yt-dlp deno ffmpeg ffprobe; do
+      [ -e "$old/$tool" ] && { rm -f "$ROOT_DIR/bin/$tool"; mv "$old/$tool" "$ROOT_DIR/bin/$tool"; }
+    done
+    rmdir "$old" 2>/dev/null || true
+    die "the program files were updated but refreshing the tools failed; the old tools were put back. Run: bash install-linux.sh"
+  fi
+  rm -rf "$old"
 
   echo "Updated from ${current#v} to ${latest#v}. Start it with: bash start.sh"
 }

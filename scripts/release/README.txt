@@ -15,7 +15,7 @@ repository above (every release also has a source archive).
 
 This archive is a ready-built copy. Nothing needs compiling.
 
-PORTABLE: install-linux.sh, start.sh, update.sh and uninstall.sh make no
+PORTABLE: install-linux.sh, start.sh, update.sh and uninstall.sh makes no
 changes to your PC outside this folder. Nothing is written to your home
 directory (no ~/.bashrc edit, no ~/.cache, no ~/.bun), to /usr, /etc or /opt,
 and no system service or scheduled job is created. Bun, yt-dlp, Deno, ffmpeg
@@ -153,15 +153,18 @@ update.sh  (update to the latest release)
     refuses to go on if the checksum file is missing or does not match, and
     copies your database (data/db) to
     ./backups/pre-update-<old version>-<time>/ before changing anything.
-  - It replaces only the program files (app/src, ui/dist, shared, scripts,
-    the four scripts, README.txt, LICENSE, VERSION) and then updates the
-    libraries with Bun. ./data, ./bin and ./backups are never overwritten.
+  - It updates the whole application: the program files (app/src, ui/dist,
+    shared, scripts, the four scripts, README.txt, LICENSE, VERSION), the
+    server's libraries, and the tools in ./bin that the installer downloaded
+    (Bun, yt-dlp, Deno, ffmpeg, ffprobe), by running the new install-linux.sh.
+    The old tools are kept until the new ones work, and put back if the
+    refresh fails. A Bun, yt-dlp, Deno or ffmpeg already on your system is
+    left alone. ./data and ./backups are never overwritten.
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
-  - It needs internet access and a published (not draft) release. It does
-    not update yt-dlp, Deno or ffmpeg. The app keeps yt-dlp current by
-    itself (it updates the copy in ./bin on a schedule). To refresh Deno or
-    ffmpeg, delete them from ./bin and run bash install-linux.sh again.
+  - It needs internet access and a published (not draft) release.
+  - Between updates the app also keeps yt-dlp current by itself (it updates
+    the copy in ./bin on a schedule).
 
 
 uninstall.sh  (undo install-linux.sh)
