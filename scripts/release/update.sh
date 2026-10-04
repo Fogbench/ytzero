@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Updates this folder to the latest GitHub release of YT Zero: the program, its
-# libraries and the tools in ./bin (Bun, yt-dlp, Deno, ffmpeg).
+# Updates this folder to the latest GitHub release of YT Zero, so that it ends up
+# identical to a fresh install of that release: the program files, the libraries
+# and the tools in ./bin (Bun, yt-dlp, Deno, ffmpeg), the tools at exactly the
+# versions pinned in the release's tools.lock (never "latest"), checksum-verified.
+# Only tools whose pinned version changed are replaced.
 # Your ./data is never touched; a copy of the database is saved first.
 #
 # Usage: bash update.sh [--check] [--yes]
@@ -70,8 +73,33 @@ main() {
 
   tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
   local new="$tmp/$name" required
-  for required in app/src app/package.json app/bun.lock ui/dist shared scripts VERSION LICENSE README.txt install-linux.sh start.sh uninstall.sh update.sh; do
+  for required in app/src app/package.json app/bun.lock ui/dist shared scripts/tools-lib.sh tools.lock VERSION LICENSE README.txt install-linux.sh start.sh uninstall.sh update.sh; do
     [ -e "$new/$required" ] || die "the release is incomplete (missing $required), nothing was changed."
+  done
+
+  # Tools: the new release's tools.lock decides. A tool is replaced only when its
+  # pinned version differs from the one recorded in ./bin/.installed (what the
+  # last install or update pinned, NOT what the binary reports, so a yt-dlp the
+  # app updated by itself is not downgraded). A tool found elsewhere on your PATH
+  # is left alone. New downloads are verified and test-run BEFORE anything changes.
+  # shellcheck source=/dev/null
+  . "$new/scripts/tools-lib.sh"
+  tl_machine >/dev/null || die "unsupported CPU $(uname -m), nothing was changed."
+  local tool arch pinned recorded files changed=() stage="$tmp/newbin"
+  mkdir -p "$stage"
+  for tool in $TL_TOOLS; do
+    arch="$(tl_arch "$tool")"
+    pinned="$(tl_version "$new/tools.lock" "$tool" "$arch")" || die "the release's tools.lock has no $tool for this CPU, nothing was changed."
+    recorded="$(tl_installed_version "$tool")"
+    if [ -z "$recorded" ] && [ ! -e "$ROOT_DIR/bin/$tool" ] && [ -n "$(tl_system_path "$tool")" ]; then
+      echo "==> $tool: found on your system ($(tl_system_path "$tool")), left alone"
+    elif [ "$recorded" = "$pinned" ] && [ -e "$ROOT_DIR/bin/$tool" ]; then
+      echo "==> $tool: already at the pinned version $pinned"
+    else
+      echo "==> $tool: ${recorded:-unknown version} -> $pinned"
+      tl_fetch "$new/tools.lock" "$tool" "$arch" "$stage" || die "could not get $tool $pinned, nothing was changed."
+      changed+=("$tool")
+    fi
   done
 
   if [ -d "$ROOT_DIR/data/db" ]; then
@@ -81,31 +109,50 @@ main() {
     echo "==> database copied to ${backup#"$ROOT_DIR/"}"
   fi
 
-  local d f
-  for d in app/src ui/dist shared scripts; do
-    rm -rf "$ROOT_DIR/$d"; mkdir -p "$(dirname "$ROOT_DIR/$d")"; cp -r "$new/$d" "$ROOT_DIR/$d"
-  done
-  # Single files are copied next to the target and renamed into place, so this
-  # running script can be replaced safely (update.sh goes last).
-  for f in app/package.json app/bun.lock VERSION LICENSE README.txt install-linux.sh start.sh uninstall.sh update.sh; do
-    cp "$new/$f" "$ROOT_DIR/$f.new" && mv "$ROOT_DIR/$f.new" "$ROOT_DIR/$f"
+  # Mirror the release: every top-level entry of the tarball replaces the one here,
+  # except the folders that hold your data, tools and caches. Folders are swapped
+  # whole (so app/node_modules goes too and is rebuilt below); files are copied
+  # next to the target and renamed into place, so this running script can be
+  # replaced safely.
+  local entry n
+  while IFS= read -r -d '' entry; do
+    n="$(basename "$entry")"
+    case "$n" in data|backups|bin|.cache|.bun-cache) continue ;; esac
+    if [ -d "$entry" ]; then
+      rm -rf "$ROOT_DIR/$n.new" "$ROOT_DIR/$n.old"
+      cp -r "$entry" "$ROOT_DIR/$n.new"
+      [ -e "$ROOT_DIR/$n" ] && mv "$ROOT_DIR/$n" "$ROOT_DIR/$n.old"
+      mv "$ROOT_DIR/$n.new" "$ROOT_DIR/$n"
+      rm -rf "$ROOT_DIR/$n.old"
+    else
+      cp "$entry" "$ROOT_DIR/$n.new" && mv "$ROOT_DIR/$n.new" "$ROOT_DIR/$n"
+    fi
+  done < <(find "$new" -mindepth 1 -maxdepth 1 -print0)
+
+  # Swap in the new tools; the old ones are kept until the libraries install works.
+  local old="$ROOT_DIR/bin/.previous" f
+  rm -rf "$old"; mkdir -p "$old" "$ROOT_DIR/bin"
+  [ -f "$TL_INSTALLED" ] && cp "$TL_INSTALLED" "$old/.installed"
+  for tool in ${changed[@]+"${changed[@]}"}; do
+    for f in $(tl_files "$tool"); do
+      [ -e "$ROOT_DIR/bin/$f" ] && mv "$ROOT_DIR/bin/$f" "$old/$f"
+      mv "$stage/$f" "$ROOT_DIR/bin/$f"
+    done
+    tl_record "$tool" "$(tl_version "$ROOT_DIR/tools.lock" "$tool" "$(tl_arch "$tool")")"
   done
 
-  # Refresh the tools the installer put in ./bin (Bun, yt-dlp, Deno, ffmpeg) and the
-  # server's libraries by running the new install-linux.sh. Tools found elsewhere
-  # on your system are left alone. The old ones are kept until the new run works.
-  local old="$ROOT_DIR/bin/.previous" tool
-  rm -rf "$old"; mkdir -p "$old"
-  for tool in bun yt-dlp deno ffmpeg ffprobe; do
-    [ -e "$ROOT_DIR/bin/$tool" ] && mv "$ROOT_DIR/bin/$tool" "$old/$tool"
-  done
-  echo "==> updating Bun, yt-dlp, Deno, ffmpeg and the server's libraries"
-  if ! bash "$ROOT_DIR/install-linux.sh" --yes; then
-    for tool in bun yt-dlp deno ffmpeg ffprobe; do
-      [ -e "$old/$tool" ] && { rm -f "$ROOT_DIR/bin/$tool"; mv "$old/$tool" "$ROOT_DIR/bin/$tool"; }
+  echo "==> reinstalling the server's libraries"
+  export BUN_INSTALL_CACHE_DIR="$ROOT_DIR/.bun-cache"
+  rm -rf "$ROOT_DIR/app/node_modules"
+  if ! (cd "$ROOT_DIR/app" && bun install --production --frozen-lockfile); then
+    for tool in ${changed[@]+"${changed[@]}"}; do
+      for f in $(tl_files "$tool"); do
+        rm -f "$ROOT_DIR/bin/$f"; [ -e "$old/$f" ] && mv "$old/$f" "$ROOT_DIR/bin/$f"
+      done
     done
-    rmdir "$old" 2>/dev/null || true
-    die "the program files were updated but refreshing the tools failed; the old tools were put back. Run: bash install-linux.sh"
+    if [ -f "$old/.installed" ]; then mv "$old/.installed" "$TL_INSTALLED"; else rm -f "$TL_INSTALLED"; fi
+    rm -rf "$old"
+    die "the program files were updated but installing the libraries failed; the old tools were put back. Run: bash install-linux.sh"
   fi
   rm -rf "$old"
 
