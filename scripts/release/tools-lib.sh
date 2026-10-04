@@ -46,15 +46,6 @@ tl_sha256() {
   if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
-# A copy of this tool on the system PATH that is NOT the one in ./bin (empty output if none).
-# Nothing in a release uses system copies any more (the tools always come from tools.lock
-# into ./bin). Only update.sh still calls this; delete it once update.sh stops.
-tl_system_path() {
-  local p="" d IFS=:
-  for d in $PATH; do [ "$d" = "$TL_BIN" ] || p="${p:+$p:}$d"; done
-  PATH="$p" command -v "$1" 2>/dev/null || true
-}
-
 # The recorded version of a tool. No file, or no line for the tool, means "no record":
 # empty output and success (a missing file must not stop a script that uses set -e).
 tl_installed_version() {

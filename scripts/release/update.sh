@@ -217,9 +217,11 @@ main() {
   # Tools: the new release's tools.lock decides. A tool is replaced only when its
   # pinned version differs from the one recorded in ./bin/.installed (what the
   # last install or update pinned, NOT what the binary reports, so a yt-dlp the
-  # app updated by itself is not downgraded). A tool found elsewhere on your PATH
-  # is left alone. New downloads are verified and test-run BEFORE anything changes.
-  # A missing ./bin/.installed simply means "nothing recorded".
+  # app updated by itself is not downgraded). No record, a different record or a
+  # missing file in ./bin all mean "install the pinned version". Copies of the
+  # tools elsewhere on your PATH are ignored, as in install-linux.sh. New downloads
+  # are verified and test-run BEFORE anything changes. A missing ./bin/.installed
+  # simply means "nothing recorded".
   # shellcheck source=/dev/null
   . "$new/scripts/tools-lib.sh"
   tl_machine >/dev/null || die "unsupported CPU $(uname -m), nothing was changed."
@@ -229,9 +231,7 @@ main() {
     arch="$(tl_arch "$tool")"
     pinned="$(tl_version "$new/tools.lock" "$tool" "$arch")" || die "the release's tools.lock has no $tool for this CPU, nothing was changed."
     recorded="$(tl_installed_version "$tool")"
-    if [ -z "$recorded" ] && [ ! -e "$ROOT_DIR/bin/$tool" ] && [ -n "$(tl_system_path "$tool")" ]; then
-      echo "==> $tool: found on your system ($(tl_system_path "$tool")), left alone"
-    elif [ "$recorded" = "$pinned" ] && [ -e "$ROOT_DIR/bin/$tool" ]; then
+    if tl_in_bin "$tool" "$pinned"; then
       echo "==> $tool: already at the pinned version $pinned"
     else
       echo "==> $tool: ${recorded:-unknown version} -> $pinned"
