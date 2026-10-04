@@ -5,9 +5,12 @@
 # server imports ../../shared. Dependencies are NOT inside it: the user runs
 # `bash install-linux.sh`, which installs them for their own CPU, together
 # with the tools pinned in tools.lock.
+# The tarball is made from `git archive HEAD` (committed files only), built in a
+# temp dir, so uncommitted, untracked and gitignored files never reach it and the
+# working tree is never touched. The same commit gives the same tarball bytes.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$ROOT_DIR"
 export PATH="$HOME/.bun/bin:$PATH" NODE_ENV=production
 
@@ -16,23 +19,51 @@ VERSION="${1:-$(git describe --tags --always)}"
 NAME="ytzero-$VERSION"
 OUT="$ROOT_DIR/release"
 
-(cd ui && bun install --frozen-lockfile >/dev/null && bun run build)
-git checkout -- ui/public/changelog.json 2>/dev/null || true
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+SRC="$TMP/src"      # the committed sources; the ui build runs here
+STAGE="$TMP/stage"  # the tarball content, laid out as $NAME/
+mkdir -p "$SRC" "$STAGE/$NAME/app" "$STAGE/$NAME/ui" "$STAGE/$NAME/scripts"
 
-rm -rf "$OUT/$NAME" "$OUT/$NAME.tar.gz" "$OUT/$NAME.tar.gz.sha256"
-mkdir -p "$OUT/$NAME/app" "$OUT/$NAME/ui" "$OUT/$NAME/scripts"
-cp -r app/src "$OUT/$NAME/app/src"
-cp app/package.json app/bun.lock "$OUT/$NAME/app/"
-cp -r ui/dist "$OUT/$NAME/ui/dist"
-cp -r shared "$OUT/$NAME/shared"
-cp scripts/release/tools-lib.sh "$OUT/$NAME/scripts/"
-cp scripts/release/tools.lock "$OUT/$NAME/"
-cp scripts/release/install-linux.sh scripts/release/start.sh scripts/release/uninstall.sh scripts/release/update.sh "$OUT/$NAME/"
-cp LICENSE "$OUT/$NAME/"; cp scripts/release/README.txt "$OUT/$NAME/README.txt"
-echo "$VERSION" > "$OUT/$NAME/VERSION"
+if [[ "$(git rev-parse --show-toplevel 2>/dev/null)" == "$ROOT_DIR" ]]; then
+  COMMIT="$(git rev-parse HEAD)"
+  EPOCH="$(git log -1 --format=%ct HEAD)"
+  git archive HEAD | tar -x -C "$SRC"
+else
+  # Not a git checkout: this folder is already an export of the sources
+  # (scripts/release/test-update.sh packages a `git archive` copy). Copy it as
+  # it is; there is no commit to stamp.
+  COMMIT=""
+  EPOCH="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+  tar -c --exclude=./release --exclude=./node_modules --exclude=./ui/node_modules \
+    --exclude=./app/node_modules . | tar -x -C "$SRC"
+fi
 
-tar -C "$OUT" -czf "$OUT/$NAME.tar.gz" "$NAME"
+# The ui build rewrites ui/public/changelog.json; that happens in the temp copy
+# only. The temp copy has no .git, so the release label is passed as
+# YTZERO_VERSION (the changelog script ignores it unless it is a release version).
+(cd "$SRC/ui" && bun install --frozen-lockfile >/dev/null && YTZERO_VERSION="$VERSION" bun run build)
+
+cp -r "$SRC/app/src" "$STAGE/$NAME/app/src"
+cp "$SRC/app/package.json" "$SRC/app/bun.lock" "$STAGE/$NAME/app/"
+cp -r "$SRC/ui/dist" "$STAGE/$NAME/ui/dist"
+cp -r "$SRC/shared" "$STAGE/$NAME/shared"
+cp "$SRC/scripts/release/tools-lib.sh" "$STAGE/$NAME/scripts/"
+cp "$SRC/scripts/release/tools.lock" "$STAGE/$NAME/"
+(cd "$SRC/scripts/release" && cp install-linux.sh start.sh uninstall.sh update.sh "$STAGE/$NAME/")
+cp "$SRC/LICENSE" "$STAGE/$NAME/"; cp "$SRC/scripts/release/README.txt" "$STAGE/$NAME/README.txt"
+echo "$VERSION" > "$STAGE/$NAME/VERSION"
+# app/src/version.ts reads this file, so /api/health shows the commit.
+[[ -z "$COMMIT" ]] || echo "$COMMIT" > "$STAGE/$NAME/app/src/build-commit.txt"
+# Unit tests are not used at runtime (nothing in app/src or shared imports them).
+find "$STAGE/$NAME/app/src" "$STAGE/$NAME/shared" -name '*.test.ts' -delete
+
+# Same input, same bytes: fixed order, time, owner and permission bits, and no
+# name or time inside the gzip header (gzip -n).
+mkdir -p "$OUT"
+rm -f "$OUT/$NAME.tar.gz" "$OUT/$NAME.tar.gz.sha256"
+tar -C "$STAGE" --format=gnu --sort=name --mtime="@$EPOCH" --owner=0 --group=0 --numeric-owner \
+  --mode='u+rwX,go+rX,go-w' -cf - "$NAME" | gzip -n > "$OUT/$NAME.tar.gz"
 (cd "$OUT" && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
-rm -rf "$OUT/$NAME"
 echo "built $OUT/$NAME.tar.gz"
 cat "$OUT/$NAME.tar.gz.sha256"
