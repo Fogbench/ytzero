@@ -68,6 +68,26 @@ General documentation is in the [upstream wiki](https://github.com/Pelski/ytzero
 
 In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research](docs/direct-streaming-research.md), [Public sharing](docs/public-sharing.md), [Backup and restore architecture](docs/backup-restore-architecture.md) and [Localization](docs/localization.md).
 
+## Security
+
+2026-10-04: ran `bun audit` in `app/` and `ui/` (the root has no lockfile). It reported 42 advisories (app 12, ui 30).
+
+Patched:
+
+- app: hono 4.12.25 to 4.13.12 (CORS ReDoS, hono/jsx and memo() issues, parseBody memory exhaustion; this app only uses parseBody). fast-xml-parser 5.9.3 to 5.11.2 (XML DOCTYPE entity-limit DoS, high).
+- ui: a lockfile refresh within the existing ranges cleared 28. These are build tooling (brace-expansion, browserslist, fast-uri, nanoid, postcss) and react-router / react-router-dom 6.30.4 to 6.30.6 (open redirect leading to XSS).
+
+Remaining: 2 moderate advisories in ui on react-router 6.30.6. They are fixed only in 7.18.0 and later, which is a major upgrade that has not been done.
+
+- Open redirect via backslash in `Link` / `useNavigate`. The app never passes user-controlled values to router navigation: all targets are fixed paths, or a fixed prefix plus an id from the server, and there is no `?next=` style parameter.
+- Constructor injection in `deserializeErrors()` during server-side rendering hydration. Not applicable: the app has no server-side rendering and no data router.
+
+Whether to upgrade to 7.x is still open.
+
+Tested after the changes: app and ui tests, typecheck, build, browser smoke tests in Chromium and Firefox, and a fresh clone setup and start.
+
+To re-run: `cd app && bun audit` and `cd ui && bun audit`. Nothing checks advisories automatically.
+
 ## License
 
 Licensed under the **GNU Affero General Public License v3.0 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE).
