@@ -17,8 +17,8 @@ export interface UpdateCheckResult {
   availableReleases: GitHubReleaseSummary[];
 }
 
-const RELEASES_URL = "https://api.github.com/repos/Pelski/ytzero/releases?per_page=10";
-const RELEASES_FALLBACK_URL = "https://github.com/Pelski/ytzero/releases";
+const RELEASES_URL = "https://api.github.com/repos/Fogbench/ytzero/releases?per_page=10";
+const RELEASES_FALLBACK_URL = "https://github.com/Fogbench/ytzero/releases";
 const CACHE_MS = 15 * 60_000;
 let cachedResult: { expiresAt: number; value: UpdateCheckResult } | null = null;
 let pendingCheck: Promise<UpdateCheckResult> | null = null;

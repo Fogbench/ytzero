@@ -48,7 +48,7 @@ export function parseGitHubReleases(value: unknown): GitHubReleaseSummary[] {
       version: release.tag_name as string,
       name: typeof release.name === "string" && release.name ? release.name : release.tag_name as string,
       publishedAt: typeof release.published_at === "string" ? release.published_at : "",
-      url: typeof release.html_url === "string" ? release.html_url : "https://github.com/Pelski/ytzero/releases",
+      url: typeof release.html_url === "string" ? release.html_url : "https://github.com/Fogbench/ytzero/releases",
       notes: releaseNotesFromBody(release.body),
     }));
 

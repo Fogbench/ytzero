@@ -61,7 +61,7 @@ const SETTINGS_AREAS: { id: Tab; primaryOnly?: boolean }[] = [
 ];
 
 const DISPLAY_PERMISSION_AREAS: ProfilePermissionArea[] = ["appearance", "feed", "navigation", "playback"];
-const GITHUB_RELEASES_URL = "https://github.com/Pelski/ytzero/releases";
+const GITHUB_RELEASES_URL = "https://github.com/Fogbench/ytzero/releases";
 const PIN_PROTECTED_PERMISSION_AREAS = new Set<ProfilePermissionArea>(["channels", "followed_playlists", "imports", ...DISPLAY_PERMISSION_AREAS, "plugins", "profiles", "public_sharing"]);
 
 
