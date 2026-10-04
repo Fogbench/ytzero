@@ -19,7 +19,7 @@ This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (up
 
 ### Direct player
 
-The direct player is the default. It streams the video from YouTube through your own server with yt-dlp, saves nothing to disk, and plays it in YT Zero's own controls. The YouTube embed stays available (**Downloads > Configuration > Default player**) for those who prefer it.
+The direct player is the default. It streams the video from YouTube through your own server with yt-dlp, saves nothing to disk, and plays it in YT Zero's own controls. The YouTube embed stays available (**Downloads > Configuration > Default player**) for those who prefer it. If your audio keeps muting on new videos, that is a browser permission.
 
 The gear menu holds:
 
@@ -29,8 +29,8 @@ The gear menu holds:
 - **Audio track**, to switch the language of dubbed videos without losing your position.
 - **Sleep timer** from 5 to 60 minutes, or at the end of the video.
 - **Playback speed** slider from 0.25x to 2x in 0.05 steps.
-- **Subtitles**, with language and style (size, colour, background, live sample). The CC button only switches captions on and off.
-- **Quality** up to 4K. Pick a height or Auto, and choose AV1 or H.264. The list only offers what your browser can decode. Auto picks AV1 only when your browser can play it smoothly; when no quality plays smoothly, Auto uses the server's default stream.
+- **Subtitles**, with language and style (size, colour, background, live sample). The CC button switches captions on and off.
+- **Quality** up to 4K. Pick your preferred height or Auto, and choose AV1 or H.264. The list only offers what your browser can decode. Auto picks AV1 only when your browser can play it smoothly; when no quality plays smoothly, Auto uses the server's default stream.
 
 If direct playback fails, the player never falls back to the embed silently. You get an explanation, a YouTube link and a button to use the embed if you want.
 
@@ -59,7 +59,7 @@ bash start.sh            # prints the address to open
 - `bash uninstall.sh` removes what the installer added and keeps your data unless you pass `--remove-data`.
 - The package installs pinned versions of Bun, yt-dlp, Deno and ffmpeg into `./bin` and ignores copies on your `PATH`.
 - Needs `curl`, `xz` and `unzip` or `python3`. Without yt-dlp the app still runs and uses the YouTube embed.
-- Tested on Linux x86_64 only. ARM (aarch64) and macOS are untested. macOS has no installer; `README.txt` inside the package lists the manual steps.
+- Tested: Linux x86_64, the automated install/update/uninstall test on a Proxmox container. macOS has no installer; `README.txt` inside the package lists the manual steps.
 
 ## Run from source
 
@@ -87,7 +87,6 @@ The app starts empty; add channels from **Settings > Channels**. Keep `./data` b
   | Safari | Plays up to 1080p (H.264 only, no AV1, no HDR). Stable volume and Voice boost have no effect. |
 
   Safari plays HLS with its built-in player, which does not let the page change the audio. The M1 has no AV1 decoder, and YouTube's H.264 stops at 1080p. VP9 is not supported by the direct player.
-- The release package's install, start, update and uninstall scripts passed an automated test on Linux x86_64 (2026-10-04). They are untested on ARM and macOS.
 - Upstream's tvOS app and browser extension are not part of this fork.
 
 ## Documentation
