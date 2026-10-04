@@ -77,8 +77,11 @@ take_lock() {
   echo "$$" > "$LOCK/pid"
 }
 
-# Puts the folder back to what it was before the swap started: folders that were
-# moved out of the way come back, and the half-copied new files are thrown away.
+# Undoes what it can of a swap that was cut short: the FOLDERS (and the old MANIFEST)
+# that were moved out of the way come back, and the half-copied new files are thrown away.
+# It does NOT put back top-level FILES that were already replaced (LICENSE, README.txt,
+# the scripts, tools.lock) or new entries the release added: those stay at the new
+# release, and the folder is a mix until update.sh is run again, which finishes it.
 # Safe to run at any time while holding the lock; does nothing when there is nothing to do.
 recover_stage() {
   local d n
@@ -269,7 +272,7 @@ main() {
 
   # Backup of what the database holds, kept (newest 5) in ./backups.
   if [ -d "$ROOT_DIR/data/db" ] || [ -f "$ROOT_DIR/data/database-state.json" ]; then
-    local backup="" tries=0
+    local backup="" tries=0 copied=""
     mkdir -p "$ROOT_DIR/backups"
     # mkdir without -p fails if the name exists (a rerun within the same second): wait and take a new name
     until backup="$ROOT_DIR/backups/pre-update-$current-$(date +%Y%m%d-%H%M%S)"; mkdir "$backup" 2>/dev/null; do
@@ -277,38 +280,41 @@ main() {
       sleep 1
     done
     if [ -d "$ROOT_DIR/data/db" ]; then
-      cp -a "$ROOT_DIR/data/db" "$backup/db" || die "could not back up the database, nothing was changed."
+      cp -a "$ROOT_DIR/data/db" "$backup/db" || die "could not back up the database. No program files were changed (an unfinished copy may be left in ./backups)."
+      copied="data/db"
     fi
     if [ -f "$ROOT_DIR/data/database-state.json" ]; then
-      cp -a "$ROOT_DIR/data/database-state.json" "$backup/database-state.json" || die "could not back up data/database-state.json, nothing was changed."
+      cp -a "$ROOT_DIR/data/database-state.json" "$backup/database-state.json" || die "could not back up data/database-state.json. No program files were changed (an unfinished copy may be left in ./backups)."
+      copied="${copied:+$copied and }data/database-state.json"
     fi
-    echo "==> database copied to ${backup#"$ROOT_DIR/"}"
+    echo "==> copied $copied to ${backup#"$ROOT_DIR/"}"
     prune_backups "$(basename "$backup")"
   fi
 
   # Mirror the release: every top-level entry of the tarball replaces the one here,
   # except the folders that hold your data, tools and caches, your files port and
-  # ytzero.env, and VERSION (written last, see below). Folders are swapped whole (so app/node_modules goes too and is
-  # rebuilt below). A top-level entry that the OLD release shipped and the new one no
+  # ytzero.env, and VERSION (written last, see below). Folders are swapped whole (so
+  # app/node_modules goes too and is rebuilt below). A top-level entry that the OLD release shipped and the new one no
   # longer does is removed too (see "gone" below), so the result matches a fresh download.
   # Two passes, so that a failure (full disk, Ctrl+C) cannot leave half an update:
   #   pass 1: copy everything new into ./.update-stage (the old files are not touched yet)
   #   pass 2: rename the copies into place. Renames are quick and do not need space.
   # If a stop happens in pass 2, the folders that were moved aside are put back (see
-  # recover_stage). VERSION is only changed after the libraries are installed, so until
-  # then a rerun of update.sh sees the old version and does the whole update again.
+  # recover_stage); files that were already replaced stay new. VERSION is only changed
+  # after the libraries are installed, so until then a rerun of update.sh sees the old
+  # version and does the whole update again, which makes everything match the release.
   local entry n f
   rm_path "$STAGE"; mkdir -p "$STAGE/new" "$STAGE/newbin"
   while IFS= read -r -d '' entry; do
     n="$(basename "$entry")"
     # same user-owned and script-owned names as in the "never removed" list below, so a release can neither overwrite nor delete them
     case "$n" in data|backups|bin|.cache|.bun-cache|.tmp|port|ytzero.env|VERSION|VERSION.new|.update-stage|.update.lock) continue ;; esac
-    cp -r "$entry" "$STAGE/new/$n" || die "could not copy the new files (is the disk full?), nothing was changed."
+    cp -r "$entry" "$STAGE/new/$n" || die "could not copy the new files (is the disk full?). No program files were changed."
   done < <(find "$new" -mindepth 1 -maxdepth 1 -print0)
   if [ "${#changed[@]}" -gt 0 ]; then mkdir -p "$ROOT_DIR/bin"; fi
   for tool in ${changed[@]+"${changed[@]}"}; do
     for f in $(tl_files "$tool"); do
-      mv "$fetched/$f" "$STAGE/newbin/$f" || die "could not stage the new $tool, nothing was changed."   # same disk: a rename
+      mv "$fetched/$f" "$STAGE/newbin/$f" || die "could not stage the new $tool. No program files were changed."   # same disk: a rename
     done
   done
 
