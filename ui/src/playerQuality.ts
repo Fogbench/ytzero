@@ -78,7 +78,9 @@ export function decodeVerdict(info: DecodeInfo | null | undefined): DecodeInfo {
  * browser can play at all, and a specific height is always taken from it.
  * "auto" only considers `smoothIds` (what decodes smoothly), so a machine without
  * hardware AV1 does not get 4K software decoding. If nothing is smooth, auto
- * takes the lowest height. Without `smoothIds`, every entry counts as smooth.
+ * returns null ("no quality chosen"), and the caller plays the server's default
+ * stream; a specific height still resolves normally. Also null for an empty
+ * `list`. Without `smoothIds`, every entry counts as smooth.
  */
 export function resolveQuality(
   choice: QualityChoice,
@@ -88,9 +90,8 @@ export function resolveQuality(
   if (list.length === 0) return null;
   if (choice.height === "auto" && smoothIds) {
     const smooth = list.filter((entry) => smoothIds.has(entry.id));
-    const lowest = Math.min(...list.map((entry) => entry.height));
-    const pool = smooth.length > 0 ? smooth : list.filter((entry) => entry.height === lowest);
-    return resolveQuality(choice, pool);
+    if (smooth.length === 0) return null;
+    return resolveQuality(choice, smooth);
   }
   const preferred = ofCodec(list, choice.codec);
   const other = list.filter((entry) => entry.codec !== choice.codec);
