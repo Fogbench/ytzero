@@ -93,6 +93,21 @@ recover_stage() {
   if [ -e "$STAGE" ]; then rm_path "$STAGE"; fi
 }
 
+# A run that was killed hard (kill -9, power loss) never got to remove its temporary
+# folder ./.tmp/update.XXXXXX. Called while holding the lock, so no other update.sh is
+# using one. Only folders named exactly like mktemp's update.<6 letters or digits> go.
+remove_stale_tmp() {
+  local d n
+  [ -d "$ROOT_DIR/.tmp" ] || return 0
+  for d in "$ROOT_DIR/.tmp"/update.*; do
+    [ -d "$d" ] || continue
+    n="$(basename "$d")"
+    [[ "$n" =~ ^update\.[0-9A-Za-z]{6}$ ]] || continue
+    rm_path "$ROOT_DIR/.tmp/$n"
+  done
+  rmdir "$ROOT_DIR/.tmp" 2>/dev/null || true   # only when empty
+}
+
 # Runs on every way out: normal end, die, Ctrl+C, kill.
 cleanup() {
   local rc=$?
@@ -142,6 +157,7 @@ main() {
   trap 'echo >&2; echo "Terminated." >&2; exit 143' TERM HUP
   take_lock
   recover_stage   # a run that was killed in the middle of the swap is repaired here
+  remove_stale_tmp   # and the download folder it left behind is removed
 
   [ -f "$ROOT_DIR/VERSION" ] && [ -f "$ROOT_DIR/app/package.json" ] || die "this does not look like a YT Zero folder."
   command -v curl >/dev/null || die "curl is required."
