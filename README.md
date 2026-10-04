@@ -17,9 +17,19 @@
 > [!NOTE]
 > **This is a community fork of [Pelski/ytzero](https://github.com/Pelski/ytzero).** The original author has stepped away from the project and welcomed anyone who wants to carry it on; all credit for YT Zero itself goes to them and to the contributors named in the upstream README. This fork keeps the app as it was and adds a much more complete **direct player**, described below. Everything added is optional: removals are settings that are shown by default, and every new string is translated into all nine UI languages.
 >
+> ### Running this fork
+>
+> The install commands further down (Docker image, Proxmox, `install.sh`) fetch **upstream's** releases, which do not contain this fork's changes. To run the fork, clone it and start it natively with [Bun](https://bun.sh), with `yt-dlp`, `ffmpeg` and `deno` on your `PATH`:
+>
+> ```bash
+> git clone https://github.com/Fogbench/ytzero && cd ytzero
+> bun run setup
+> bun run start   # http://localhost:3001, data in ./data
+> ```
+>
 > ### Direct player vs. the embedded YouTube player
 >
-> The default player is YouTube's embed. The direct player instead streams the video from YouTube through your own server (via yt-dlp), without saving anything to disk, and plays it in YT Zero's own controls. Turn it on under **Settings > Downloads > Default player > Direct** (needs the yt-dlp integration). In practice:
+> The default player is YouTube's embed. The direct player instead streams the video from YouTube through your own server (via yt-dlp), without saving anything to disk, and plays it in YT Zero's own controls. Turn it on in **Settings > Downloads** (this opens the Downloads page), tab **Configuration**: switch on **Allow downloads for this profile**, then set **Default player** to **Direct stream**. It needs yt-dlp (and Deno) on the server. In practice:
 >
 > - **Faster to start and to seek**, no embed iframe to load, and no YouTube page chrome, end cards or suggestions on top of the video.
 > - **Everything in one gear menu**, laid out like YouTube's: Autoplay, SponsorBlock, Stable volume, Voice boost, Audio track, Sleep timer, Playback speed, Subtitles and Quality. Menus also work in fullscreen.
