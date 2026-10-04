@@ -8,16 +8,22 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 # Optional settings file. "set -a" makes every NAME=value line in it an environment
 # variable of the server. It is read first, so it can also set PORT.
+# Two things make the file forgiving: carriage returns (CRLF line endings, from a file
+# saved on Windows) are removed before it is read, and "set +u" lets a line such as
+# A=$UNSET work (it gives an empty value) instead of stopping with "unbound variable".
 if [ -f "$ROOT_DIR/ytzero.env" ]; then
+  env_text="$(tr -d '\r' < "$ROOT_DIR/ytzero.env")"
+  set +u
   set -a
-  # shellcheck source=/dev/null
-  . "$ROOT_DIR/ytzero.env"
+  eval "$env_text"
   set +a
+  set -u
 fi
 
 export PATH="$ROOT_DIR/bin:$PATH"
 export YTZERO_VERSION="$(cat "$ROOT_DIR/VERSION")"
 # Keep every cache (Bun, yt-dlp, Deno) inside this folder instead of ~/.cache and ~/.bun.
+# These four are set after ytzero.env on purpose, so ytzero.env cannot change them.
 export BUN_INSTALL_CACHE_DIR="$ROOT_DIR/.bun-cache"
 export XDG_CACHE_HOME="$ROOT_DIR/.cache"
 export DENO_DIR="$ROOT_DIR/.cache/deno"

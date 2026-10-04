@@ -37,6 +37,19 @@ if [ -L "$ROOT_DIR/bin" ]; then
   exit 1
 fi
 
+# update.sh keeps a folder .update.lock (with its process number in the file "pid") while
+# it runs. Do not remove things from under it. A lock whose process is gone is a leftover
+# of a run that was killed; that does not block (same rule as in update.sh).
+if [ -d "$ROOT_DIR/.update.lock" ]; then
+  lock_pid=""
+  [ -f "$ROOT_DIR/.update.lock/pid" ] && lock_pid="$(cat "$ROOT_DIR/.update.lock/pid" 2>/dev/null || true)"
+  if [ -z "$lock_pid" ] || kill -0 "$lock_pid" 2>/dev/null; then
+    echo "error: update.sh is running in this folder${lock_pid:+ (pid $lock_pid)}. Wait for it to finish, then run this again." >&2
+    echo "If you are sure it is not running, delete the folder .update.lock and try again." >&2
+    exit 1
+  fi
+fi
+
 # Refuse to remove files from under a running server (a process whose working folder is
 # app/ or inside it).
 for cwd in /proc/[0-9]*/cwd; do
@@ -53,7 +66,7 @@ targets=()
 [ -d "$ROOT_DIR/.cache" ] && targets+=("$ROOT_DIR/.cache")
 [ -d "$ROOT_DIR/.tmp" ] && targets+=("$ROOT_DIR/.tmp")
 [ -e "$ROOT_DIR/port" ] && targets+=("$ROOT_DIR/port")
-for tool in bun yt-dlp deno ffmpeg ffprobe .installed .previous; do
+for tool in bun yt-dlp deno ffmpeg ffprobe .installed; do
   if [ -e "$ROOT_DIR/bin/$tool" ] || [ -L "$ROOT_DIR/bin/$tool" ]; then targets+=("$ROOT_DIR/bin/$tool"); fi
 done
 if [ "$DATA" = 1 ] && [ -d "$ROOT_DIR/data" ]; then targets+=("$ROOT_DIR/data"); fi

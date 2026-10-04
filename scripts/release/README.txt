@@ -176,6 +176,12 @@ start.sh  (run every time)
 
       PORT=8080
 
+  Four settings are the exception: TMPDIR, XDG_CACHE_HOME, DENO_DIR and
+  BUN_INSTALL_CACHE_DIR. start.sh sets them after it reads ytzero.env, so
+  whatever the file says for them is ignored. They always point inside this
+  folder (see PORTABLE above). A file saved on Windows (line ends in CRLF)
+  works too.
+
   update.sh never changes or deletes ytzero.env, and neither does
   uninstall.sh, so your settings survive updates. Do not put them in
   app/.env: an update replaces the whole app folder.
