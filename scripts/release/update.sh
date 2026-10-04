@@ -106,16 +106,19 @@ cleanup() {
   exit "$rc"
 }
 
-# Keeps only the newest 5 copies made by earlier updates (named pre-update-<version>-<date>-<time>).
+# Keeps only the newest 5 copies made by updates (named pre-update-<version>-<date>-<time>).
+# prune_backups <name>: <name> is the copy this run has just made. It always stays (it counts
+# as one of the 5), even if the clock was wrong and older-looking names sort above it.
 prune_backups() {
-  local keep=5 d n rest
+  local keep=5 d n rest current="$1"
   [ -d "$ROOT_DIR/backups" ] || return 0
   rest="$(for d in "$ROOT_DIR/backups"/pre-update-*; do
             [ -d "$d" ] || continue
             n="$(basename "$d")"
+            [ "$n" != "$current" ] || continue
             [[ "$n" =~ ^pre-update-[0-9A-Za-z._-]+-([0-9]{8}-[0-9]{6})$ ]] || continue
             printf '%s %s\n' "${BASH_REMATCH[1]}" "$n"
-          done | sort -r | tail -n +$((keep + 1)) | cut -d' ' -f2)"
+          done | sort -r | tail -n +$keep | cut -d' ' -f2)"   # the others, newest first; the first keep-1 stay
   while IFS= read -r n; do
     [ -n "$n" ] || continue
     rm_path "$ROOT_DIR/backups/$n"
@@ -264,7 +267,7 @@ main() {
       cp -a "$ROOT_DIR/data/database-state.json" "$backup/database-state.json" || die "could not back up data/database-state.json, nothing was changed."
     fi
     echo "==> database copied to ${backup#"$ROOT_DIR/"}"
-    prune_backups
+    prune_backups "$(basename "$backup")"
   fi
 
   # Mirror the release: every top-level entry of the tarball replaces the one here,
