@@ -6,8 +6,6 @@ YT Zero reads public YouTube RSS feeds, stores videos in your own SQLite or Post
 
 ## Start here
 
-- **[Installation](Installation)** — run with Docker or locally with Bun.
-- **[Cloud Deployment](Cloud-Deployment)** — one-click and managed-platform deployment.
 - **[Configuration](Configuration)** — environment variables and Docker Compose settings.
 - **[Features](Features)** — everything the app does, with screens.
 - **[Settings](Settings)** — the current settings layout, sections, and access rules.
@@ -18,7 +16,6 @@ YT Zero reads public YouTube RSS feeds, stores videos in your own SQLite or Post
 - **[Profiles](Profiles)** — multi-account profiles with isolated per-profile state.
 - **[Authentication](Authentication)** — None, shared login, per-profile login, OIDC, or proxy headers.
 - **[Child Lock](Child-Lock)** — PIN-protect household settings, configure child content restrictions, and monitor or stop active child viewing.
-- **[Browser Extensions](Browser-Extensions)** — improve the embedded player and redirect supported links to your instance.
 - **[TubeArchivist Integration](TubeArchivist-Integration)** — use an existing archive as a local source in the normal feed and player.
 
 ## Operations

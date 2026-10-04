@@ -1,8 +1,6 @@
 ### [YT Zero](Home)
 
 **Getting started**
-- [Installation](Installation)
-- [Cloud Deployment](Cloud-Deployment)
 - [Configuration](Configuration)
 
 **Using the app**
@@ -14,7 +12,6 @@
 - [Authentication](Authentication)
 - [Public Sharing](Public-Sharing)
 - [Child Lock](Child-Lock)
-- [Browser Extensions](Browser-Extensions)
 - [YT-DLP Integration](YT-DLP-Integration)
 - [TubeArchivist Integration](TubeArchivist-Integration)
 
