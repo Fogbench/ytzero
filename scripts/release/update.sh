@@ -144,9 +144,11 @@ main() {
   export PATH="$ROOT_DIR/bin:$PATH"
   command -v bun >/dev/null || die "Bun was not found. Run install-linux.sh, or install Bun yourself."
 
-  local cwd
+  # A server counts when its working folder is app/ or any folder below it.
+  local cwd proc_cwd
   for cwd in /proc/[0-9]*/cwd; do
-    if [ "$(readlink "$cwd" 2>/dev/null)" = "$ROOT_DIR/app" ]; then
+    proc_cwd="$(readlink "$cwd" 2>/dev/null || true)"
+    if [ "$proc_cwd" = "$ROOT_DIR/app" ] || [[ "$proc_cwd" == "$ROOT_DIR/app/"* ]]; then
       die "YT Zero is still running from this folder (pid $(basename "$(dirname "$cwd")")). Stop it first."
     fi
   done
@@ -260,7 +262,8 @@ main() {
   # Mirror the release: every top-level entry of the tarball replaces the one here,
   # except the folders that hold your data, tools and caches, and VERSION (written
   # last, see below). Folders are swapped whole (so app/node_modules goes too and is
-  # rebuilt below).
+  # rebuilt below). A top-level entry that the OLD release shipped and the new one no
+  # longer does is removed too (see "gone" below), so the result matches a fresh download.
   # Two passes, so that a failure (full disk, Ctrl+C) cannot leave half an update:
   #   pass 1: copy everything new into ./.update-stage (the old files are not touched yet)
   #   pass 2: rename the copies into place. Renames are quick and do not need space.
@@ -281,6 +284,31 @@ main() {
     done
   done
 
+  # Which top-level entries did the old release ship that the new one does not? Each
+  # release lists its top-level entries in a file called MANIFEST (one name per line).
+  # Only names in the OLD list can be removed, so a file of yours that no release ever
+  # shipped is never touched. Without the old list (an install made before MANIFEST
+  # existed) or without the new one, nothing is removed.
+  local gone=() drop_manifest=0
+  if [ -f "$ROOT_DIR/MANIFEST" ] && [ -f "$new/MANIFEST" ]; then
+    while IFS= read -r n || [ -n "$n" ]; do
+      n="${n%$'\r'}"
+      [[ "$n" =~ ^[0-9A-Za-z._-]+$ ]] || continue          # plain names only: no paths, no spaces
+      case "$n" in .|..) continue ;; esac
+      # your data, tools, caches and this script's own files are never removed
+      case "$n" in data|backups|bin|.cache|.bun-cache|.tmp|.update-stage|.update.lock|port|ytzero.env|node_modules|VERSION|VERSION.new|MANIFEST) continue ;; esac
+      if grep -qxF -- "$n" "$new/MANIFEST"; then continue; fi   # the new release still ships it
+      if [ -e "$new/$n" ]; then continue; fi
+      case " ${gone[*]-} " in *" $n "*) continue ;; esac     # listed twice
+      if [ -e "$ROOT_DIR/$n" ] || [ -L "$ROOT_DIR/$n" ]; then gone+=("$n"); fi
+    done < "$ROOT_DIR/MANIFEST"
+  elif [ -f "$ROOT_DIR/MANIFEST" ]; then
+    drop_manifest=1   # the new release has no MANIFEST: the old list would only go stale
+  fi
+  if [ "${#gone[@]}" -gt 0 ]; then
+    echo "==> the new release no longer ships: ${gone[*]} (removed; a copy is kept until the update has finished)"
+  fi
+
   TOUCHED=1
   mkdir -p "$STAGE/old"
   for entry in "$STAGE/new"/* "$STAGE/new"/.[!.]*; do
@@ -292,9 +320,17 @@ main() {
     else
       # (a folder that the release turned into a file is moved aside first)
       if [ -d "$ROOT_DIR/$n" ] && [ ! -L "$ROOT_DIR/$n" ]; then mv "$ROOT_DIR/$n" "$STAGE/old/$n"; fi
+      # The old MANIFEST is kept aside too: if this update is cut short, the next run still needs to know what the old release shipped.
+      if [ "$n" = MANIFEST ] && [ -f "$ROOT_DIR/MANIFEST" ]; then mv "$ROOT_DIR/MANIFEST" "$STAGE/old/MANIFEST"; fi
       mv -f "$entry" "$ROOT_DIR/$n"   # a file is replaced in one step; this running script can be replaced safely
     fi
   done
+  # Entries the new release dropped: moved aside (not deleted), so recover_stage can put them back.
+  # "mv" moves a symlink itself, never what it points to.
+  for n in ${gone[@]+"${gone[@]}"}; do
+    mv "$ROOT_DIR/$n" "$STAGE/old/$n"
+  done
+  if [ "$drop_manifest" = 1 ]; then mv "$ROOT_DIR/MANIFEST" "$STAGE/old/MANIFEST"; fi
   mv "$STAGE/old" "$STAGE/trash"   # from here on the old folders are not wanted back
   rm_path "$STAGE/trash"
 
