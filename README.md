@@ -38,15 +38,11 @@ It reads public YouTube RSS feeds, stores everything in your own SQLite or Postg
 
 If the problem is "YouTube is good at surfacing more, not better," YT Zero is the opposite: a quiet inbox, your own rules, and a player built around intentional watching.
 
-![YT Zero main feed](docs/assets/feed.png)
+![YT Zero video player with the quality menu open](docs/assets/player-quality.png)
 
-| Standard player | Theater player |
-| --- | --- |
-| <img src="docs/assets/video-standard.png" alt="YT Zero standard video player" width="360"> | <img src="docs/assets/video-theater.png" alt="YT Zero theater video player" width="360"> |
-
-| Tags and rules | Display settings |
-| --- | --- |
-| <img src="docs/assets/tags.png" alt="YT Zero tags and rules settings" width="360"> | <img src="docs/assets/display.png" alt="YT Zero display settings" width="360"> |
+<p align="center">
+  <img src="docs/assets/player-subtitle-style.png" alt="YT Zero player with the subtitle style menu open" width="720">
+</p>
 
 ## Why it exists
 
