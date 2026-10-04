@@ -1,5 +1,6 @@
 import { ChevronRight, LoaderCircle, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { AudioEnhanceMode } from "../playerAudioEnhance";
 import { SLEEP_TIMER_MINUTES } from "../playerSleepTimer";
 import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
@@ -33,6 +34,8 @@ interface PlayerSettingsMenuProps {
   autoplay?: { enabled: boolean; onToggle: (enabled: boolean) => void };
   /** SponsorBlock switch; leave out when the video has no segments. */
   sponsorBlock?: { active: boolean; onToggle: (active: boolean) => void };
+  /** Stable volume and Voice boost switches; leave out when the sound cannot be processed. */
+  audioEnhance?: { mode: AudioEnhanceMode; onChange: (patch: Partial<AudioEnhanceMode>) => void };
   /** Sleep timer: minutes left (null = off) and how to set it. */
   sleep: { minutesLeft: number | null; atEnd: boolean; onSet: (value: number | "end" | null) => void };
   /** Tells the player when the subtitle style panel is open, so it can show a sample line. */
@@ -56,7 +59,7 @@ interface PlayerSettingsMenuProps {
 const SUBTITLE_COLORS = ["#ffffff", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000", "#000000"] as const;
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
-export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, sleep, onStylePreview }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, audioEnhance, sleep, onStylePreview }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle" | "sleep">("main");
@@ -118,6 +121,18 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
                 <span>{t("sponsorblockEnabled")}</span>
                 <Switch checked={sponsorBlock.active} onCheckedChange={sponsorBlock.onToggle} ariaLabel={t("sponsorblockEnabled")} />
               </div>
+            )}
+            {audioEnhance && (
+              <>
+                <div className="lp-sub-toggle">
+                  <span>{t("playerStableVolume")}</span>
+                  <Switch checked={audioEnhance.mode.stableVolume} onCheckedChange={(on) => audioEnhance.onChange({ stableVolume: on })} ariaLabel={t("playerStableVolume")} />
+                </div>
+                <div className="lp-sub-toggle">
+                  <span>{t("playerVoiceBoost")}</span>
+                  <Switch checked={audioEnhance.mode.voiceBoost} onCheckedChange={(on) => audioEnhance.onChange({ voiceBoost: on })} ariaLabel={t("playerVoiceBoost")} />
+                </div>
+              </>
             )}
             <MenuItem
               onClick={() => setPanel("sleep")}

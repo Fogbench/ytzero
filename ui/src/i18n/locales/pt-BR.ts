@@ -433,6 +433,8 @@ export const ptBR: Locale = {
     "playerSpeed": "Velocidade de reprodução",
     "playerSleepTimer": "Timer de sono",
     "playerSleepMinutes": "{count} min",
+    "playerStableVolume": "Volume estável",
+    "playerVoiceBoost": "Reforço de voz",
     "playerSleepEndOfVideo": "No fim do vídeo",
     "playerAudioMode": "Somente áudio",
     "playerAudioModeExit": "Vídeo",

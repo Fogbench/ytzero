@@ -433,6 +433,8 @@ export const ru: Locale = {
     "playerSpeed": "Скорость воспроизведения",
     "playerSleepTimer": "Таймер сна",
     "playerSleepMinutes": "{count} мин",
+    "playerStableVolume": "Стабильная громкость",
+    "playerVoiceBoost": "Усиление голоса",
     "playerSleepEndOfVideo": "В конце видео",
     "playerAudioMode": "Только аудио",
     "playerAudioModeExit": "Видео",

@@ -14,6 +14,7 @@ import {
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
 import { useSleepTimer } from "../playerSleepTimer";
+import { applyAudioEnhance, resumeAudioEnhance, type AudioEnhanceMode } from "../playerAudioEnhance";
 import { stepPlaybackRate } from "../playbackSpeedStep";
 import { resolveShortcutBindings, shortcutActionMatches } from "../keyboardShortcuts";
 import {
@@ -518,6 +519,25 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     if (!autoMutedRef.current) localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
   }, [volume, muted]);
 
+  // Stable volume / Voice boost (gear menu). Saved per browser; only for the direct
+  // player, whose streams come from this server (Web Audio mutes other origins).
+  const [audioEnhance, setAudioEnhance] = useState<AudioEnhanceMode>(() => ({
+    stableVolume: localStorage.getItem("ytzero.player.stableVolume") === "1",
+    voiceBoost: localStorage.getItem("ytzero.player.voiceBoost") === "1",
+  }));
+  const changeAudioEnhance = useCallback((patch: Partial<AudioEnhanceMode>) => {
+    setAudioEnhance((current) => {
+      const next = { ...current, ...patch };
+      localStorage.setItem("ytzero.player.stableVolume", next.stableVolume ? "1" : "0");
+      localStorage.setItem("ytzero.player.voiceBoost", next.voiceBoost ? "1" : "0");
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (!directQualities || !videoRef.current) return;
+    applyAudioEnhance(videoRef.current, audioEnhance);
+  }, [audioEnhance, directQualities]);
+
   // Pauses the video when the sleep timer runs out.
   const sleepTimer = useSleepTimer(() => { videoRef.current?.pause(); });
 
@@ -878,7 +898,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
         onClick={onVideoClick}
         onDoubleClick={onVideoDoubleClick}
         onLoadedMetadata={onLoadedMetadata}
-        onPlay={() => { setPlaying(true); endedRef.current = false; showControls(); }}
+        onPlay={(e) => { resumeAudioEnhance(e.currentTarget); setPlaying(true); endedRef.current = false; showControls(); }}
         onPause={() => { setPlaying(false); setControlsVisible(true); }}
         onWaiting={() => setBuffering(true)}
         onPlaying={() => setBuffering(false)}
@@ -1030,6 +1050,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
               onSpeedPreview={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; }}
               autoplay={autoplaySwitch}
               sponsorBlock={sponsorBlock}
+              audioEnhance={directQualities ? { mode: audioEnhance, onChange: changeAudioEnhance } : undefined}
               sleep={{ minutesLeft: sleepTimer.minutesLeft, atEnd: sleepTimer.atEnd, onSet: sleepTimer.set }}
               onSpeedChange={transportLocked ? undefined : onSpeedChange}
               subtitles={videoId ? {

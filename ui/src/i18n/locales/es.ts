@@ -437,6 +437,8 @@ export const es: Locale = {
     playerSpeed: "Velocidad de reproducción",
     playerSleepTimer: "Temporizador de sueño",
     playerSleepMinutes: "{count} min",
+    playerStableVolume: "Volumen estable",
+    playerVoiceBoost: "Realce de voz",
     playerSleepEndOfVideo: "Al final del vídeo",
     playerAudioMode: "Solo audio",
     playerAudioModeExit: "Vídeo",

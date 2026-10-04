@@ -342,6 +342,8 @@ export const pl: Locale = {
     playerSpeed: "Szybkość odtwarzania",
     playerSleepTimer: "Wyłącznik czasowy",
     playerSleepMinutes: "{count} min",
+    playerStableVolume: "Stabilna głośność",
+    playerVoiceBoost: "Wzmocnienie głosu",
     playerSleepEndOfVideo: "Po zakończeniu filmu",
     playerAudioMode: "Tylko dźwięk",
     playerAudioModeExit: "Wideo",
