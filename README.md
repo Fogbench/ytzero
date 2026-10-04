@@ -19,7 +19,7 @@ This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (up
 
 ### Direct player
 
-The direct player is the default. It streams the video from YouTube through your own server with yt-dlp, saves nothing to disk, and plays it in YT Zero's own controls. The YouTube embed stays available (**Settings > Downloads > Configuration > Default player**) and is used when yt-dlp is not installed.
+The direct player is the default. It streams the video from YouTube through your own server with yt-dlp, saves nothing to disk, and plays it in YT Zero's own controls. The YouTube embed stays available (**Downloads > Configuration > Default player**) and is used when yt-dlp is not installed.
 
 The gear menu holds:
 
@@ -59,7 +59,7 @@ The app starts empty; add channels from **Settings > Channels**. Keep `./data` b
 - The direct player depends on yt-dlp keeping up with YouTube.
 - Two tabs playing the same video at different qualities replace each other's stream.
 - Stable volume and Voice boost only work in the direct player.
-- Tested on an M1 MacBook (2026-10-04):
+- Tested on a MacBook with an M1 (2026-10-04) and on CachyOS (Arch Linux, KDE Plasma on Wayland). Results on the M1:
 
   | Browser | Result |
   | --- | --- |
@@ -78,11 +78,9 @@ In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research
 
 ## Security and upgrades
 
-On 2026-10-04 `bun audit` found **42 known vulnerabilities** in the upstream dependencies (12 in `app/`, 30 in `ui/`). Every dependency has now been upgraded to its latest version, and `bun audit` reports **0**.
+On 2026-10-04 `bun audit` listed **42 known advisories** for the dependency versions at the time of forking (12 in `app/`, 30 in `ui/`). Advisories are published against packages over time, so any project that stands still collects them. Every dependency in this fork is now at its latest version, and `bun audit` reports **0**.
 
-Versions at the fork point, then now:
-
-| Package | Upstream | This fork |
+| Package | At fork (upstream) | Now (this fork) |
 | --- | --- | --- |
 | hono (server) | 4.12.25 | 4.13.13 |
 | fast-xml-parser (server) | 5.9.3 | 5.11.2 |
@@ -100,11 +98,7 @@ Versions at the fork point, then now:
 | emoji-picker-react | 4.19.1 | 4.22.3 |
 | lucide-react | 1.18.0 | 1.52.0 |
 
-The most serious findings were an XML parser denial of service (fast-xml-parser, high), several hono issues (CORS, memory use) and an open redirect in react-router. Most of the other 30 were build tools that never reach the running app.
-
-Checked after the upgrade: app and ui tests, typecheck, build, fresh clone and start, passkey login (virtual authenticator), and the player in Chromium and Firefox.
-
-Not covered: nothing checks for new advisories automatically. Re-run `bun audit` in `app/` and in `ui/` (the root has no lockfile).
+To check again, run `bun audit` in `app/` and in `ui/` (the root has no lockfile).
 
 ## License
 
