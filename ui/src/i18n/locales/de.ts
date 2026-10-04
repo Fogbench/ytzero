@@ -1290,7 +1290,7 @@ export const de: Locale = {
     dearrowSaved: "DeArrow-Einstellungen gespeichert",
     showOriginalVersion: "Originalversion anzeigen",
     showDeArrowVersion: "DeArrow-Version anzeigen",
-    sponsorblockEnabled: "Segmente automatisch überspringen",
+    sponsorblockEnabled: "SponsorBlock",
     sponsorblockHint: "Gesponserte Segmente, Intros, Outros und mehr automatisch überspringen.",
     sponsorblockCategories: "Zu überspringende Segmentkategorien",
     sbSegmentsTitle: "Zu überspringende Segmente:",

@@ -1385,7 +1385,7 @@ export const es: Locale = {
     dearrowSaved: "Ajustes de DeArrow guardados",
     showOriginalVersion: "Mostrar la versión original",
     showDeArrowVersion: "Mostrar la versión de DeArrow",
-    sponsorblockEnabled: "Omisión automática de segmentos",
+    sponsorblockEnabled: "SponsorBlock",
     sponsorblockHint: "Omite automáticamente segmentos patrocinados, introducciones, cierres y mucho más.",
     sponsorblockCategories: "Categorías de segmentos que se omitirán",
     sbSegmentsTitle: "Segmentos que se omitirán:",

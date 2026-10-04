@@ -1236,7 +1236,7 @@ export const hu: Locale = {
     dearrowSaved: "DeArrow-beállítások mentve",
     showOriginalVersion: "Az eredeti verzió megjelenítése",
     showDeArrowVersion: "A DeArrow-verzió megjelenítése",
-    sponsorblockEnabled: "Automatikus szegmenskihagyás",
+    sponsorblockEnabled: "SponsorBlock",
     sponsorblockHint: "Automatikusan kihagyja a szponzorált szegmenseket, bevezetőket, végelőzeteket és egyebeket.",
     sponsorblockCategories: "Kihagyandó szegmenskategóriák",
     sbSegmentsTitle: "Kihagyandó szegmensek:",

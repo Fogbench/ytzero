@@ -844,6 +844,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     // would be wrong. The saved download handles resume on the next visit.
     const isStream = playerKind === "stream" && !audioActive;
     let wasPlaying = false;
+    let lastPlayingPosition: number | null = null; // for telling a seek from normal playback
     let lastLifecycleFlushAt = 0;
 
     const startSeconds = playbackStartSeconds;
@@ -889,12 +890,24 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
             if (!keepWatchedInFeedRef.current) api.archiveVideo(activeVideoId).catch(() => {});
           }
         }
+        let nextLastPosition = position;
         if (!watchTogetherTransportLockedRef.current && !sbPausedRef.current) {
+          const previous = lastPlayingPosition;
           for (const seg of sbSegmentsRef.current) {
             if (disabledSegsRef.current.has(seg.UUID)) continue;
             if (position >= seg.segment[0] && position < seg.segment[1] - 0.3) {
+              // Playing into a segment moves forward a little between polls. A
+              // bigger jump (a click on the bar, a key seek) means the viewer
+              // chose to be here, so leave this segment alone from now on.
+              const arrivedBySeek = previous !== null && (position < previous || position - previous > 3);
+              if (arrivedBySeek) {
+                setDisabledSegs((current) => new Set(current).add(seg.UUID));
+                disabledSegsRef.current = new Set(disabledSegsRef.current).add(seg.UUID);
+                break;
+              }
               const skippedSeconds = seg.segment[1] - position;
               p?.seekTo?.(seg.segment[1], true);
+              nextLastPosition = seg.segment[1];
               showShortcutFeedback("sponsorblock", skippedSeconds, seg.category);
               if (!isIncognitoMode() && !recordedSbSegsRef.current.has(seg.UUID)) {
                 recordedSbSegsRef.current.add(seg.UUID);
@@ -907,6 +920,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
             }
           }
         }
+        lastPlayingPosition = nextLastPosition;
       } catch {}
     };
 

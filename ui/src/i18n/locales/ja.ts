@@ -1381,7 +1381,7 @@ export const ja: Locale = {
     "dearrowSaved": "DeArrow設定保存",
     "showOriginalVersion": "元のバージョンを表示する",
     "showDeArrowVersion": "DeArrowバージョンを表示する",
-    "sponsorblockEnabled": "自動セグメントスキッピング",
+    "sponsorblockEnabled": "SponsorBlock",
     "sponsorblockHint": "スポンサーセグメント、イントロ、アウトロスなどを自動的にスキップします。",
     "sponsorblockCategories": "セグメントカテゴリをスキップする",
     "sbSegmentsTitle": "スキップされるべき区分:",

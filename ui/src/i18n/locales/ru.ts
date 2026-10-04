@@ -1381,7 +1381,7 @@ export const ru: Locale = {
     "dearrowSaved": "Сохранены настройки DeArrow",
     "showOriginalVersion": "Показать оригинальную версию",
     "showDeArrowVersion": "Показать версию DeArrow",
-    "sponsorblockEnabled": "Пропуск автоматического сегмента",
+    "sponsorblockEnabled": "SponsorBlock",
     "sponsorblockHint": "Автоматически пропустите спонсируемые сегменты, интро, аутрос и многое другое.",
     "sponsorblockCategories": "Категории сегментов для пропуска",
     "sbSegmentsTitle": "Сегменты, которые следует пропустить:",

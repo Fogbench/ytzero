@@ -1291,7 +1291,7 @@ export const pl: Locale = {
     dearrowSaved: "Zapisano ustawienia DeArrow",
     showOriginalVersion: "Pokaż oryginalną wersję",
     showDeArrowVersion: "Pokaż wersję DeArrow",
-    sponsorblockEnabled: "Automatyczne pomijanie segmentów",
+    sponsorblockEnabled: "SponsorBlock",
     sponsorblockHint: "Pomija wybrane rodzaje segmentów podczas odtwarzania.",
     sponsorblockCategories: "Pomijane kategorie segmentów",
     sbSegmentsTitle: "Segmenty które zostaną pominięte:",

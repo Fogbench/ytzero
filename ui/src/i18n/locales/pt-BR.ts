@@ -1381,7 +1381,7 @@ export const ptBR: Locale = {
     "dearrowSaved": "Configurações do DeArrow salvas",
     "showOriginalVersion": "Mostrar a versão original",
     "showDeArrowVersion": "Mostrar a versão DeArrow",
-    "sponsorblockEnabled": "Saltar segmento automático",
+    "sponsorblockEnabled": "SponsorBlock",
     "sponsorblockHint": "Saltar automaticamente segmentos patrocinados, apresentações, outros, e muito mais.",
     "sponsorblockCategories": "Categorias de segmentos a ignorar",
     "sbSegmentsTitle": "Segmentos a ignorar:",

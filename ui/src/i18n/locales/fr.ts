@@ -1381,7 +1381,7 @@ export const fr: Locale = {
     "dearrowSaved": "Paramètres DeArrow enregistrés",
     "showOriginalVersion": "Afficher la version originale",
     "showDeArrowVersion": "Afficher la version DeArrow",
-    "sponsorblockEnabled": "Saut automatique des segments",
+    "sponsorblockEnabled": "SponsorBlock",
     "sponsorblockHint": "Passe automatiquement les segments sponsorisés, les intros, les outros et plus encore.",
     "sponsorblockCategories": "Catégories de segments à passer",
     "sbSegmentsTitle": "Segments à passer :",

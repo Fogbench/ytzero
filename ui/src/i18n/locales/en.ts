@@ -1292,7 +1292,7 @@ export const en = {
     dearrowSaved: "DeArrow settings saved",
     showOriginalVersion: "Show the original version",
     showDeArrowVersion: "Show the DeArrow version",
-    sponsorblockEnabled: "Automatic segment skipping",
+    sponsorblockEnabled: "SponsorBlock",
     sponsorblockHint: "Automatically skip sponsored segments, intros, outros, and more.",
     sponsorblockCategories: "Segment categories to skip",
     sbSegmentsTitle: "Segments to be skipped:",
