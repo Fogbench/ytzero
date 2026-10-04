@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildSubtitleAvailability, normalizeSubtitleLanguage } from "./subtitleAvailability";
+import { buildSubtitleAvailability, normalizeSubtitleLanguage, parseMetadata } from "./subtitleAvailability";
 
 const vtt = (name: string, url = "https://www.youtube.com/api/timedtext?lang=en") => [{ name, ext: "vtt", url }];
 
@@ -66,5 +66,13 @@ describe("subtitle availability", () => {
       [],
     );
     expect(available).toEqual([{ lang: "pl", label: "Polski", tracks: ["pl"] }]);
+  });
+});
+
+describe("parseMetadata", () => {
+  test("treats yt-dlp's NA (no uploader subtitles) as an empty map", () => {
+    const parsed = parseMetadata(`NA\n{"en-orig":[]}\n`);
+    expect(parsed.subtitles).toEqual({});
+    expect(Object.keys(parsed.automaticCaptions)).toEqual(["en-orig"]);
   });
 });

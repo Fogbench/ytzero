@@ -123,12 +123,17 @@ async function readTextLimited(stream: ReadableStream<Uint8Array>, limit = MAX_M
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
-function parseMetadata(output: string): SubtitleMetadata {
+/** yt-dlp prints the text "NA" (not "{}") for a field the video does not have. */
+function parseCaptionMap(line: string): Record<string, unknown> {
+  return line.trim() === "NA" ? {} : mapFromJson(JSON.parse(line));
+}
+
+export function parseMetadata(output: string): SubtitleMetadata {
   const lines = output.split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) throw new Error("subtitle metadata was incomplete");
   return {
-    subtitles: mapFromJson(JSON.parse(lines[0])),
-    automaticCaptions: mapFromJson(JSON.parse(lines[1])),
+    subtitles: parseCaptionMap(lines[0]),
+    automaticCaptions: parseCaptionMap(lines[1]),
   };
 }
 
