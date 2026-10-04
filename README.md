@@ -30,7 +30,7 @@ The gear menu holds:
 - **Sleep timer** from 5 to 60 minutes, or at the end of the video.
 - **Playback speed** slider from 0.25x to 2x in 0.05 steps.
 - **Subtitles**, with language and style (size, colour, background, live sample). The CC button switches captions on and off.
-- **Quality** up to 4K. Pick your preferred height or Auto, and choose AV1 or H.264. The list only offers what your browser can decode. Auto picks AV1 only when your browser can play it smoothly; when no quality plays smoothly, Auto uses the server's default stream.
+- **Quality** up to 4K: your preferred or Auto, and choose AV1 or H.264 (MP4). The list only offers what your browser can decode. Auto picks AV1 only when your browser can play it smoothly; when no quality plays smoothly, Auto uses the server's default stream.
 
 If direct playback fails, the player never falls back to the embed silently. You get an explanation, a YouTube link and a button to use the embed if you want.
 
