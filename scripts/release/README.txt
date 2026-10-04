@@ -92,10 +92,13 @@ install-linux.sh  (Linux only, run once)
      ffmpeg with ffprobe (audio and video handling). Every download is
      checked against the sha256 checksum in tools.lock before it is used,
      and must run on your machine, otherwise nothing is installed for it.
-     If one of these tools is already on your PATH it is used as found: it
-     is not downloaded and never touched. (CPUs without AVX2 get Bun's
-     "baseline" build automatically.) It runs on Linux x86_64 and aarch64
-     only; on another CPU it tells you to install the tools yourself.
+     The pinned tools are always installed into ./bin. A copy of any of
+     them on your PATH is ignored (and never touched), so the same release
+     always runs the same tool versions. If ./bin already holds a tool at
+     the pinned version, it is not downloaded again. (CPUs without AVX2 get
+     Bun's "baseline" build automatically.) It runs on Linux x86_64 and
+     aarch64 only; on another CPU it tells you to install the tools
+     yourself.
      Needs unzip or python3 (for Bun and Deno) and xz (for ffmpeg).
 
   2. Asks which port the server should use and shows the default, 3001 (or

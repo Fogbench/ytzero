@@ -46,7 +46,9 @@ tl_sha256() {
   if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
 }
 
-# a copy of this tool that is NOT the one in ./bin (empty output if none)
+# A copy of this tool on the system PATH that is NOT the one in ./bin (empty output if none).
+# Nothing in a release uses system copies any more (the tools always come from tools.lock
+# into ./bin). Only update.sh still calls this; delete it once update.sh stops.
 tl_system_path() {
   local p="" d IFS=:
   for d in $PATH; do [ "$d" = "$TL_BIN" ] || p="${p:+$p:}$d"; done
@@ -58,6 +60,14 @@ tl_system_path() {
 tl_installed_version() {
   [ -f "$TL_INSTALLED" ] || return 0
   sed -n "/^$1 /{s///p;q;}" "$TL_INSTALLED" 2>/dev/null || true
+}
+
+# tl_in_bin <tool> <version>: success when ./bin already holds this tool (all its files, so
+# ffmpeg means ffmpeg and ffprobe) and ./bin/.installed records exactly this version.
+tl_in_bin() {
+  local f
+  for f in $(tl_files "$1"); do [ -x "$TL_BIN/$f" ] || return 1; done
+  [ "$(tl_installed_version "$1")" = "$2" ]
 }
 
 tl_record() { # <tool> <version>
