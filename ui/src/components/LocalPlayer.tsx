@@ -1030,7 +1030,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
               onSpeedPreview={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; }}
               autoplay={autoplaySwitch}
               sponsorBlock={sponsorBlock}
-              sleep={{ minutesLeft: sleepTimer.minutesLeft, onSet: sleepTimer.set }}
+              sleep={{ minutesLeft: sleepTimer.minutesLeft, atEnd: sleepTimer.atEnd, onSet: sleepTimer.set }}
               onSpeedChange={transportLocked ? undefined : onSpeedChange}
               subtitles={videoId ? {
                 available: availableSubs,

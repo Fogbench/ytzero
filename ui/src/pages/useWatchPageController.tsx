@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { consumeStopAtEnd } from "../playerSleepTimer";
 import confetti from "canvas-confetti";
 import { emit, emitToast, subscribe } from "../events";
 import { scheduleSettingWrite } from "../settingsWriteQueue";
@@ -762,6 +763,8 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     // A watch room is tied to one video. Keep the ended player and chat in
     // place instead of silently navigating the host away from every guest.
     if (watchTogetherRoomId) return;
+    // Sleep timer on "End of video": the video counts as watched, but stay here.
+    if (consumeStopAtEnd()) return;
     if (nextInPlaylistRef.current) navigate(nextInPlaylistRef.current);
     else if (queueEndAction === "advance") playNextQueueVideo();
     else if (queueEndAction === "offer") showUpNextVideo();

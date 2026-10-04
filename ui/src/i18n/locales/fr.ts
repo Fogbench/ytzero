@@ -433,6 +433,7 @@ export const fr: Locale = {
     "playerSpeed": "Vitesse de lecture",
     "playerSleepTimer": "Minuterie de veille",
     "playerSleepMinutes": "{count} min",
+    "playerSleepEndOfVideo": "À la fin de la vidéo",
     "playerAudioMode": "Audio seulement",
     "playerAudioModeExit": "Vidéo",
     "playerAudioModeError": "L'audio n'est pas disponible pour cette vidéo.",

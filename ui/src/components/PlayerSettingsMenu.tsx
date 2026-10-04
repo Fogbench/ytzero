@@ -34,7 +34,7 @@ interface PlayerSettingsMenuProps {
   /** SponsorBlock switch; leave out when the video has no segments. */
   sponsorBlock?: { active: boolean; onToggle: (active: boolean) => void };
   /** Sleep timer: minutes left (null = off) and how to set it. */
-  sleep: { minutesLeft: number | null; onSet: (minutes: number | null) => void };
+  sleep: { minutesLeft: number | null; atEnd: boolean; onSet: (value: number | "end" | null) => void };
   /** Tells the player when the subtitle style panel is open, so it can show a sample line. */
   onStylePreview?: (showing: boolean) => void;
   /** Subtitles row; same data the CC button uses. Leave out when there is no video id. */
@@ -121,7 +121,7 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
             )}
             <MenuItem
               onClick={() => setPanel("sleep")}
-              suffix={<span className="lp-settings-value">{sleep.minutesLeft === null ? t("subtitlesOff") : t("playerSleepMinutes", { count: sleep.minutesLeft })}<ChevronRight size={15} /></span>}
+              suffix={<span className="lp-settings-value">{sleep.atEnd ? t("playerSleepEndOfVideo") : sleep.minutesLeft === null ? t("subtitlesOff") : t("playerSleepMinutes", { count: sleep.minutesLeft })}<ChevronRight size={15} /></span>}
             >
               {t("playerSleepTimer")}
             </MenuItem>
@@ -153,12 +153,13 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
           <>
             <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerSleepTimer")}</MenuHeader>
             <Menu>
-              <MenuItem selected={sleep.minutesLeft === null} onClick={() => { sleep.onSet(null); changeOpen(false); }}>{t("subtitlesOff")}</MenuItem>
+              <MenuItem selected={sleep.minutesLeft === null && !sleep.atEnd} onClick={() => { sleep.onSet(null); changeOpen(false); }}>{t("subtitlesOff")}</MenuItem>
               {SLEEP_TIMER_MINUTES.map((minutes) => (
                 <MenuItem key={minutes} onClick={() => { sleep.onSet(minutes); changeOpen(false); }}>
                   {t("playerSleepMinutes", { count: minutes })}
                 </MenuItem>
               ))}
+              <MenuItem selected={sleep.atEnd} onClick={() => { sleep.onSet("end"); changeOpen(false); }}>{t("playerSleepEndOfVideo")}</MenuItem>
             </Menu>
           </>
         ) : panel === "subtitleStyle" && subtitles?.onStyleChange ? (

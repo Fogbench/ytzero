@@ -342,6 +342,7 @@ export const en = {
     playerSpeed: "Playback speed",
     playerSleepTimer: "Sleep timer",
     playerSleepMinutes: "{count} min",
+    playerSleepEndOfVideo: "End of video",
     playerAudioMode: "Audio only",
     playerAudioModeExit: "Video",
     playerAudioModeError: "Audio isn't available for this video.",
