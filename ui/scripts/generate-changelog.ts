@@ -32,7 +32,12 @@ interface GitHubCompare {
 const outputPath = resolve(import.meta.dir, "../public/changelog.json");
 const repositoryPath = resolve(import.meta.dir, "../..");
 const CHANGELOG_RELEASE_LIMIT = 10;
-const releasesUrl = `https://api.github.com/repos/Fogbench/ytzero/releases?per_page=${CHANGELOG_RELEASE_LIMIT}`;
+// YTZERO_CHANGELOG_API only moves the API host (the release test points it at a fake GitHub on 127.0.0.1).
+const apiBase = process.env.YTZERO_CHANGELOG_API || "https://api.github.com";
+const releasesUrl = `${apiBase}/repos/Fogbench/ytzero/releases?per_page=${CHANGELOG_RELEASE_LIMIT}`;
+// YTZERO_CHANGELOG_OFFLINE=1 (set by scripts/package-release.sh): never contact GitHub. The release list
+// is the one already committed in ui/public/changelog.json, so the same commit always builds the same bytes.
+const offline = process.env.YTZERO_CHANGELOG_OFFLINE === "1";
 
 export function notesFromBody(body: unknown): string[] {
   if (typeof body !== "string") return [];
@@ -97,9 +102,9 @@ async function releaseFromCurrentTag(tag: string, previousVersion: string | unde
   // Docker builds intentionally exclude .git. The tag ref already exists when
   // tag CI starts, even though the GitHub Release may still be publishing, so
   // compare it with the latest previously published release.
-  if (notes.length === 0 && previous) {
+  if (notes.length === 0 && previous && !offline) {
     try {
-      const compareUrl = `https://api.github.com/repos/Fogbench/ytzero/compare/${encodeURIComponent(previous)}...${encodeURIComponent(tag)}`;
+      const compareUrl = `${apiBase}/repos/Fogbench/ytzero/compare/${encodeURIComponent(previous)}...${encodeURIComponent(tag)}`;
       const response = await fetch(compareUrl, { headers });
       if (!response.ok) throw new Error(`GitHub compare API returned ${response.status}`);
       const compared = await response.json() as GitHubCompare;
@@ -139,6 +144,7 @@ export async function generate() {
   };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   try {
+    if (offline) throw new Error("offline build (YTZERO_CHANGELOG_OFFLINE=1), using the committed list");
     const response = await fetch(releasesUrl, { headers });
     if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
     const raw = await response.json() as GitHubRelease[];

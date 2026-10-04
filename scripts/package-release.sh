@@ -42,7 +42,11 @@ fi
 # The ui build rewrites ui/public/changelog.json; that happens in the temp copy
 # only. The temp copy has no .git, so the release label is passed as
 # YTZERO_VERSION (the changelog script ignores it unless it is a release version).
-(cd "$SRC/ui" && bun install --frozen-lockfile >/dev/null && YTZERO_VERSION="$VERSION" bun run build)
+# YTZERO_CHANGELOG_OFFLINE=1: the changelog script must not contact GitHub, it keeps the
+# committed release list and only adds the entry for $VERSION itself. Otherwise the tarball
+# bytes would depend on the live GitHub release list, and the same commit would not give the
+# same tarball.
+(cd "$SRC/ui" && bun install --frozen-lockfile >/dev/null && YTZERO_CHANGELOG_OFFLINE=1 YTZERO_VERSION="$VERSION" bun run build)
 
 cp -r "$SRC/app/src" "$STAGE/$NAME/app/src"
 cp "$SRC/app/package.json" "$SRC/app/bun.lock" "$STAGE/$NAME/app/"
