@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UI_DIST_DIR="$ROOT_DIR/ui/dist"
+export PATH="$ROOT_DIR/bin:$PATH"
 
 if [ ! -f "$UI_DIST_DIR/index.html" ]; then
   echo "ui/dist is missing. Building the frontend first..."

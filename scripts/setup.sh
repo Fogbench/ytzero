@@ -11,3 +11,6 @@ bun install
 
 cd "$ROOT_DIR"
 bun run hooks:install
+
+cd "$ROOT_DIR"
+bash ./scripts/install-deps.sh
