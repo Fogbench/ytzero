@@ -1,8 +1,7 @@
 import { Captions, Check, LoaderCircle } from "lucide-react";
-import { useState } from "react";
 import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
-import { FloatingPopover, Menu, MenuItem, MenuSeparator, ScrollArea, Switch } from "./ui";
+import { Menu, MenuItem, MenuSeparator, ScrollArea, Switch } from "./ui";
 
 interface SubtitleMenuBodyProps {
   available: AvailableSubtitle[];
@@ -77,46 +76,25 @@ export function SubtitleMenuBody({
   );
 }
 
-interface SubtitlePickerProps extends Omit<SubtitleMenuBodyProps, "onSelect"> {
+interface SubtitlePickerProps {
   videoId?: string;
-  onSelect: (language: string | null) => void;
+  selectedLanguage: string | null;
+  loadingLanguage: string | null;
+  onToggle: () => void;
 }
 
-export default function SubtitlePicker({ videoId, onSelect, onToggle, ...menu }: SubtitlePickerProps) {
+/** The CC button: only switches subtitles on or off. Language and style live in the gear menu. */
+export default function SubtitlePicker({ videoId, selectedLanguage, loadingLanguage, onToggle }: SubtitlePickerProps) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-
   if (!videoId) return null;
-
-  const select = (language: string) => {
-    setOpen(false);
-    onSelect(language);
-  };
-  const toggle = () => {
-    setOpen(false);
-    onToggle();
-  };
-
   return (
-    <div className="lp-sub-menu-wrap">
-      <FloatingPopover
-        open={open}
-        onOpenChange={setOpen}
-        align="end"
-        preferTop
-        className="lp-sub-menu"
-        trigger={
-          <button
-            className={`lp-btn${menu.selectedLanguage ? " active" : ""}`}
-            aria-label={t("subtitles")}
-            aria-pressed={Boolean(menu.selectedLanguage)}
-          >
-            {menu.loadingLanguage ? <LoaderCircle className="spin" size={19} /> : <Captions size={20} />}
-          </button>
-        }
-      >
-        <SubtitleMenuBody {...menu} onSelect={select} onToggle={toggle} />
-      </FloatingPopover>
-    </div>
+    <button
+      className={`lp-btn${selectedLanguage ? " active" : ""}`}
+      aria-label={t("subtitles")}
+      aria-pressed={Boolean(selectedLanguage)}
+      onClick={onToggle}
+    >
+      {loadingLanguage ? <LoaderCircle className="spin" size={19} /> : <Captions size={20} />}
+    </button>
   );
 }

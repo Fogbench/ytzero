@@ -1012,12 +1012,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
           )}
           <SubtitlePicker
             videoId={videoId}
-            available={availableSubs}
             selectedLanguage={subLang}
-            preferredLanguages={preferredSubtitleLanguages}
             loadingLanguage={subLoading}
-            errorLanguage={subError}
-            onSelect={pickSubLang}
             onToggle={toggleSubtitles}
           />
           {(directQualities || onSpeedChange || videoId) && (
