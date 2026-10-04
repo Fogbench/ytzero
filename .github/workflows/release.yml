@@ -28,6 +28,21 @@ jobs:
           # Do not leave the token in .git/config while installs and the build run.
           persist-credentials: false
 
+      - name: Check that an existing tag matches this build
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          # An existing tag is kept by "gh release create", so its source archive would
+          # be the tag's commit. If that is not the commit built here, the tarball and
+          # the source would not match. Stop before building. No tag yet: nothing to check.
+          # The checkout has fetch-depth 0, so all tags are present locally.
+          if tag_commit=$(git rev-parse -q --verify "refs/tags/$VERSION^{commit}"); then
+            if [ "$tag_commit" != "$GITHUB_SHA" ]; then
+              echo "::error::Tag $VERSION points at $tag_commit but this run built $GITHUB_SHA: delete the tag or dispatch from that commit."
+              exit 1
+            fi
+          fi
+
       - name: Set up the Bun runtime
         uses: oven-sh/setup-bun@v2
         with:
