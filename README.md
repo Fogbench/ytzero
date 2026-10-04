@@ -7,7 +7,7 @@
   </p>
 </div>
 
-This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream). No support or releases are promised for now; that may change. For everything this README does not cover (features, settings, authentication, TubeArchivist, public sharing, child profiles and more), see upstream and its [wiki](https://github.com/Pelski/ytzero/wiki) (upstream). All credit for YT Zero itself goes to Pelski and the contributors listed under [Thanks](#thanks).
+This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream). No support or releases are promised for now; that may change. For everything this README does not cover (features, settings, authentication, TubeArchivist, public sharing, child profiles and more), see upstream and its [wiki](https://github.com/Pelski/ytzero/wiki) (upstream). This fork has upgraded every dependency to its latest major version (React 19, react-router 8, vite 8, TypeScript 7 and more); see [Security and upgrades](#security-and-upgrades). All credit for YT Zero itself goes to Pelski and the contributors listed under [Thanks](#thanks).
 
 ## What this fork adds
 
@@ -59,7 +59,15 @@ The app starts empty; add channels from **Settings > Channels**. Keep `./data` b
 - The direct player depends on yt-dlp keeping up with YouTube.
 - Two tabs playing the same video at different qualities replace each other's stream.
 - Stable volume and Voice boost only work in the direct player.
-- Tested mostly in Firefox and Chrome.
+- Tested on an M1 MacBook (2026-10-04):
+
+  | Browser | Result |
+  | --- | --- |
+  | Firefox | Everything works, including HDR. |
+  | Chrome | Everything works, including HDR. |
+  | Safari | Plays up to 1080p (H.264 only, no AV1, no HDR). Stable volume and Voice boost have no effect. |
+
+  Safari plays HLS with its built-in player, which does not let the page change the audio. The M1 has no AV1 decoder, and YouTube's H.264 stops at 1080p. VP9 is not supported by the direct player.
 - Upstream's tvOS app and browser extension are not part of this fork.
 
 ## Documentation
@@ -68,20 +76,35 @@ General documentation is in the [upstream wiki](https://github.com/Pelski/ytzero
 
 In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research](docs/direct-streaming-research.md), [Public sharing](docs/public-sharing.md), [Backup and restore architecture](docs/backup-restore-architecture.md) and [Localization](docs/localization.md).
 
-## Security
+## Security and upgrades
 
-2026-10-04: ran `bun audit` in `app/` and `ui/` (the root has no lockfile). It reported 42 advisories (app 12, ui 30).
+On 2026-10-04 `bun audit` found **42 known vulnerabilities** in the upstream dependencies (12 in `app/`, 30 in `ui/`). Every dependency has now been upgraded to its latest version, and `bun audit` reports **0**.
 
-Patched:
+Versions at the fork point, then now:
 
-- app: hono 4.12.25 to 4.13.12 (CORS ReDoS, hono/jsx and memo() issues, parseBody memory exhaustion; this app only uses parseBody). fast-xml-parser 5.9.3 to 5.11.2 (XML DOCTYPE entity-limit DoS, high).
-- ui: a lockfile refresh within the existing ranges cleared 28. These are build tooling (brace-expansion, browserslist, fast-uri, nanoid, postcss) and react-router / react-router-dom 6.30.4 to 6.30.6 (open redirect leading to XSS).
+| Package | Upstream | This fork |
+| --- | --- | --- |
+| hono (server) | 4.12.25 | 4.13.13 |
+| fast-xml-parser (server) | 5.9.3 | 5.11.2 |
+| @simplewebauthn/server | 13.3.2 | 14.0.3 |
+| @simplewebauthn/browser | 13.3.0 | 14.0.0 |
+| openid-client | 6.8.4 | 6.8.8 |
+| sharp | 0.35.4 | 0.35.5 |
+| react, react-dom | 18.3.1 | 19.3.0 |
+| react-router | 6.30.4 | 8.4.0 |
+| vite | 6.4.3 | 8.3.2 |
+| @vitejs/plugin-react | 4.7.0 | 6.1.1 |
+| vite-plugin-pwa | 1.3.0 | 2.0.0 |
+| typescript | 5.9.3 | 7.0.2 |
+| hls.js | 1.6.16 | 1.7.3 |
+| emoji-picker-react | 4.19.1 | 4.22.3 |
+| lucide-react | 1.18.0 | 1.52.0 |
 
-- ui: react-router 6.30.6 to 8.4.0 (via 7.18.4; the `react-router-dom` package is gone and the app imports from `react-router`), together with React 19, vite 8 and the rest of the packages. This clears the last 2 moderate advisories (backslash open redirect in `Link` / `useNavigate`, `deserializeErrors()` during server-side rendering; the app never exposed either). `bun audit` reports no vulnerabilities in app or ui, and `bun outdated` is empty in both.
+The most serious findings were an XML parser denial of service (fast-xml-parser, high), several hono issues (CORS, memory use) and an open redirect in react-router. Most of the other 30 were build tools that never reach the running app.
 
-Tested after the changes: app and ui tests, typecheck, build, browser smoke tests in Chromium and Firefox, and a fresh clone setup and start.
+Checked after the upgrade: app and ui tests, typecheck, build, fresh clone and start, passkey login (virtual authenticator), and the player in Chromium and Firefox.
 
-To re-run: `cd app && bun audit` and `cd ui && bun audit`. Nothing checks advisories automatically.
+Not covered: nothing checks for new advisories automatically. Re-run `bun audit` in `app/` and in `ui/` (the root has no lockfile).
 
 ## License
 
