@@ -1,10 +1,13 @@
 import { ChevronRight, LoaderCircle, Settings } from "lucide-react";
 import { useState } from "react";
+import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
 import {
   codecName, heightLabel, qualityRows,
   type DirectQuality, type QualityChoice, type QualityCodec,
 } from "../playerQuality";
+import { subtitleLanguageLabel } from "../subtitleLanguages";
+import { SubtitleMenuBody } from "./SubtitlePicker";
 import { FloatingPopover, Menu, MenuHeader, MenuItem, ScrollArea, Switch } from "./ui";
 
 interface PlayerSettingsMenuProps {
@@ -23,13 +26,23 @@ interface PlayerSettingsMenuProps {
   /** Speeds to offer, as the strings the page uses ("0.5", "1", "1.25"). */
   speedOptions: string[];
   onSpeedChange?: (speed: number) => void;
+  /** Subtitles row; same data the CC button uses. Leave out when there is no video id. */
+  subtitles?: {
+    available: AvailableSubtitle[];
+    selectedLanguage: string | null;
+    preferredLanguages: string[];
+    loadingLanguage: string | null;
+    errorLanguage: string | null;
+    onSelect: (language: string) => void;
+    onToggle: () => void;
+  };
 }
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
-export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpeedChange }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpeedChange, subtitles }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [panel, setPanel] = useState<"main" | "quality" | "speed">("main");
+  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles">("main");
   const { qualities = [], loading = false, choice = { height: "auto", codec: "av01" } as QualityChoice, active = null, onChoiceChange = () => {} } = quality ?? {};
 
   const changeOpen = (next: boolean) => {
@@ -74,6 +87,14 @@ export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpe
                 {t("playerSpeed")}
               </MenuItem>
             )}
+            {subtitles && (
+              <MenuItem
+                onClick={() => setPanel("subtitles")}
+                suffix={<span className="lp-settings-value">{subtitles.selectedLanguage ? subtitleLanguageLabel(subtitles.selectedLanguage) : t("subtitlesOff")}<ChevronRight size={15} /></span>}
+              >
+                {t("subtitles")}
+              </MenuItem>
+            )}
             {quality && <MenuItem
               disabled={qualities.length === 0}
               onClick={() => setPanel("quality")}
@@ -82,6 +103,15 @@ export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpe
               {t("playerQuality")}
             </MenuItem>}
           </Menu>
+        ) : panel === "subtitles" && subtitles ? (
+          <>
+            <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("subtitles")}</MenuHeader>
+            <SubtitleMenuBody
+              {...subtitles}
+              onSelect={(language) => { changeOpen(false); subtitles.onSelect(language); }}
+              onToggle={() => { changeOpen(false); subtitles.onToggle(); }}
+            />
+          </>
         ) : panel === "speed" ? (
           <>
             <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerSpeed")}</MenuHeader>

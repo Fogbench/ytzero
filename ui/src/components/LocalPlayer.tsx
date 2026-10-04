@@ -997,7 +997,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
             onSelect={pickSubLang}
             onToggle={toggleSubtitles}
           />
-          {(directQualities || onSpeedChange) && (
+          {(directQualities || onSpeedChange || videoId) && (
             <PlayerSettingsMenu
               quality={directQualities ? {
                 qualities: playable ?? [],
@@ -1009,6 +1009,15 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
               speed={playbackRate}
               speedOptions={speedOptions}
               onSpeedChange={transportLocked ? undefined : onSpeedChange}
+              subtitles={videoId ? {
+                available: availableSubs,
+                selectedLanguage: subLang,
+                preferredLanguages: preferredSubtitleLanguages,
+                loadingLanguage: subLoading,
+                errorLanguage: subError,
+                onSelect: pickSubLang,
+                onToggle: toggleSubtitles,
+              } : undefined}
             />
           )}
           {showScreenshotButton && (
