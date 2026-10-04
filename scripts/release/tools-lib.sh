@@ -98,7 +98,7 @@ tl_fetch() {
       mv "$f" "$out/$tool" ;;
     yt-dlp) mv "$work/download" "$out/yt-dlp" ;;
     ffmpeg)
-      command -v xz >/dev/null || { echo "error: xz is required to unpack ffmpeg (apt install xz-utils), or install ffmpeg yourself." >&2; return 1; }
+      command -v xz >/dev/null || { echo "error: xz is required to unpack ffmpeg (apt install xz-utils)." >&2; return 1; }
       tar -xJf "$work/download" -C "$work" --wildcards '*/ffmpeg' '*/ffprobe' || return 1
       mv "$work"/*/ffmpeg "$work"/*/ffprobe "$out/" ;;
     *) echo "error: unknown tool $tool." >&2; return 1 ;;

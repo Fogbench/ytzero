@@ -3,7 +3,8 @@
 # identical to a fresh install of that release: the program files, the libraries
 # and the tools in ./bin (Bun, yt-dlp, Deno, ffmpeg), the tools at exactly the
 # versions pinned in the release's tools.lock (never "latest"), checksum-verified.
-# Only tools whose pinned version changed are replaced.
+# Only tools whose pinned version changed are replaced. (Linux only: on macOS the
+# tools are your own installs and update.sh leaves them alone.)
 # Your ./data is never touched; a copy of the database is saved first.
 #
 # Usage: bash update.sh [--check] [--yes] [--allow-downgrade]
@@ -76,8 +77,11 @@ take_lock() {
   echo "$$" > "$LOCK/pid"
 }
 
-# Puts the folder back to what it was before the swap started: folders that were
-# moved out of the way come back, and the half-copied new files are thrown away.
+# Undoes what it can of a swap that was cut short: the FOLDERS (and the old MANIFEST)
+# that were moved out of the way come back, and the half-copied new files are thrown away.
+# It does NOT put back top-level FILES that were already replaced (LICENSE, README.txt,
+# the scripts, tools.lock) or new entries the release added: those stay at the new
+# release, and the folder is a mix until update.sh is run again, which finishes it.
 # Safe to run at any time while holding the lock; does nothing when there is nothing to do.
 recover_stage() {
   local d n
@@ -90,6 +94,21 @@ recover_stage() {
     done
   fi
   if [ -e "$STAGE" ]; then rm_path "$STAGE"; fi
+}
+
+# A run that was killed hard (kill -9, power loss) never got to remove its temporary
+# folder ./.tmp/update.XXXXXX. Called while holding the lock, so no other update.sh is
+# using one. Only folders named exactly like mktemp's update.<6 letters or digits> go.
+remove_stale_tmp() {
+  local d n
+  [ -d "$ROOT_DIR/.tmp" ] || return 0
+  for d in "$ROOT_DIR/.tmp"/update.*; do
+    [ -d "$d" ] || continue
+    n="$(basename "$d")"
+    [[ "$n" =~ ^update\.[0-9A-Za-z]{6}$ ]] || continue
+    rm_path "$ROOT_DIR/.tmp/$n"
+  done
+  rmdir "$ROOT_DIR/.tmp" 2>/dev/null || true   # only when empty
 }
 
 # Runs on every way out: normal end, die, Ctrl+C, kill.
@@ -105,16 +124,19 @@ cleanup() {
   exit "$rc"
 }
 
-# Keeps only the newest 5 copies made by earlier updates (named pre-update-<version>-<date>-<time>).
+# Keeps only the newest 5 copies made by updates (named pre-update-<version>-<date>-<time>).
+# prune_backups <name>: <name> is the copy this run has just made. It always stays (it counts
+# as one of the 5), even if the clock was wrong and older-looking names sort above it.
 prune_backups() {
-  local keep=5 d n rest
+  local keep=5 d n rest current="$1"
   [ -d "$ROOT_DIR/backups" ] || return 0
   rest="$(for d in "$ROOT_DIR/backups"/pre-update-*; do
             [ -d "$d" ] || continue
             n="$(basename "$d")"
+            [ "$n" != "$current" ] || continue
             [[ "$n" =~ ^pre-update-[0-9A-Za-z._-]+-([0-9]{8}-[0-9]{6})$ ]] || continue
             printf '%s %s\n' "${BASH_REMATCH[1]}" "$n"
-          done | sort -r | tail -n +$((keep + 1)) | cut -d' ' -f2)"
+          done | sort -r | tail -n +$keep | cut -d' ' -f2)"   # the others, newest first; the first keep-1 stay
   while IFS= read -r n; do
     [ -n "$n" ] || continue
     rm_path "$ROOT_DIR/backups/$n"
@@ -138,6 +160,7 @@ main() {
   trap 'echo >&2; echo "Terminated." >&2; exit 143' TERM HUP
   take_lock
   recover_stage   # a run that was killed in the middle of the swap is repaired here
+  remove_stale_tmp   # and the download folder it left behind is removed
 
   [ -f "$ROOT_DIR/VERSION" ] && [ -f "$ROOT_DIR/app/package.json" ] || die "this does not look like a YT Zero folder."
   command -v curl >/dev/null || die "curl is required."
@@ -222,27 +245,34 @@ main() {
   # tools elsewhere on your PATH are ignored, as in install-linux.sh. New downloads
   # are verified and test-run BEFORE anything changes. A missing ./bin/.installed
   # simply means "nothing recorded".
+  # The pinned tools are Linux builds. On any other system (macOS) this whole step is
+  # skipped: there is no ./bin there, so every tool would count as missing, and the
+  # Linux builds would be downloaded and then refuse to run.
   # shellcheck source=/dev/null
   . "$new/scripts/tools-lib.sh"
-  tl_machine >/dev/null || die "unsupported CPU $(uname -m), nothing was changed."
-  local tool arch pinned recorded files changed=() fetched="$tmp/newbin"
-  mkdir -p "$fetched"
-  for tool in $TL_TOOLS; do
-    arch="$(tl_arch "$tool")"
-    pinned="$(tl_version "$new/tools.lock" "$tool" "$arch")" || die "the release's tools.lock has no $tool for this CPU, nothing was changed."
-    recorded="$(tl_installed_version "$tool")"
-    if tl_in_bin "$tool" "$pinned"; then
-      echo "==> $tool: already at the pinned version $pinned"
-    else
-      echo "==> $tool: ${recorded:-unknown version} -> $pinned"
-      tl_fetch "$new/tools.lock" "$tool" "$arch" "$fetched" || die "could not get $tool $pinned, nothing was changed."
-      changed+=("$tool")
-    fi
-  done
+  local tool arch pinned recorded changed=() fetched="$tmp/newbin"
+  if [ "$(uname -s)" != Linux ]; then
+    echo "==> tools: not touched on $(uname -s); Bun, yt-dlp, Deno and ffmpeg come from your own installs (see the MACOS section of README.txt)"
+  else
+    tl_machine >/dev/null || die "unsupported CPU $(uname -m), nothing was changed."
+    mkdir -p "$fetched"
+    for tool in $TL_TOOLS; do
+      arch="$(tl_arch "$tool")"
+      pinned="$(tl_version "$new/tools.lock" "$tool" "$arch")" || die "the release's tools.lock has no $tool for this CPU, nothing was changed."
+      recorded="$(tl_installed_version "$tool")"
+      if tl_in_bin "$tool" "$pinned"; then
+        echo "==> $tool: already at the pinned version $pinned"
+      else
+        echo "==> $tool: ${recorded:-unknown version} -> $pinned"
+        tl_fetch "$new/tools.lock" "$tool" "$arch" "$fetched" || die "could not get $tool $pinned, nothing was changed."
+        changed+=("$tool")
+      fi
+    done
+  fi
 
   # Backup of what the database holds, kept (newest 5) in ./backups.
   if [ -d "$ROOT_DIR/data/db" ] || [ -f "$ROOT_DIR/data/database-state.json" ]; then
-    local backup="" tries=0
+    local backup="" tries=0 copied=""
     mkdir -p "$ROOT_DIR/backups"
     # mkdir without -p fails if the name exists (a rerun within the same second): wait and take a new name
     until backup="$ROOT_DIR/backups/pre-update-$current-$(date +%Y%m%d-%H%M%S)"; mkdir "$backup" 2>/dev/null; do
@@ -250,37 +280,41 @@ main() {
       sleep 1
     done
     if [ -d "$ROOT_DIR/data/db" ]; then
-      cp -a "$ROOT_DIR/data/db" "$backup/db" || die "could not back up the database, nothing was changed."
+      cp -a "$ROOT_DIR/data/db" "$backup/db" || die "could not back up the database. No program files were changed (an unfinished copy may be left in ./backups)."
+      copied="data/db"
     fi
     if [ -f "$ROOT_DIR/data/database-state.json" ]; then
-      cp -a "$ROOT_DIR/data/database-state.json" "$backup/database-state.json" || die "could not back up data/database-state.json, nothing was changed."
+      cp -a "$ROOT_DIR/data/database-state.json" "$backup/database-state.json" || die "could not back up data/database-state.json. No program files were changed (an unfinished copy may be left in ./backups)."
+      copied="${copied:+$copied and }data/database-state.json"
     fi
-    echo "==> database copied to ${backup#"$ROOT_DIR/"}"
-    prune_backups
+    echo "==> copied $copied to ${backup#"$ROOT_DIR/"}"
+    prune_backups "$(basename "$backup")"
   fi
 
   # Mirror the release: every top-level entry of the tarball replaces the one here,
-  # except the folders that hold your data, tools and caches, and VERSION (written
-  # last, see below). Folders are swapped whole (so app/node_modules goes too and is
-  # rebuilt below). A top-level entry that the OLD release shipped and the new one no
+  # except the folders that hold your data, tools and caches, your files port and
+  # ytzero.env, and VERSION (written last, see below). Folders are swapped whole (so
+  # app/node_modules goes too and is rebuilt below). A top-level entry that the OLD release shipped and the new one no
   # longer does is removed too (see "gone" below), so the result matches a fresh download.
   # Two passes, so that a failure (full disk, Ctrl+C) cannot leave half an update:
   #   pass 1: copy everything new into ./.update-stage (the old files are not touched yet)
   #   pass 2: rename the copies into place. Renames are quick and do not need space.
   # If a stop happens in pass 2, the folders that were moved aside are put back (see
-  # recover_stage). VERSION is only changed after the libraries are installed, so until
-  # then a rerun of update.sh sees the old version and does the whole update again.
+  # recover_stage); files that were already replaced stay new. VERSION is only changed
+  # after the libraries are installed, so until then a rerun of update.sh sees the old
+  # version and does the whole update again, which makes everything match the release.
   local entry n f
   rm_path "$STAGE"; mkdir -p "$STAGE/new" "$STAGE/newbin"
   while IFS= read -r -d '' entry; do
     n="$(basename "$entry")"
-    case "$n" in data|backups|bin|.cache|.bun-cache|VERSION|.update-stage|.update.lock) continue ;; esac
-    cp -r "$entry" "$STAGE/new/$n" || die "could not copy the new files (is the disk full?), nothing was changed."
+    # same user-owned and script-owned names as in the "never removed" list below, so a release can neither overwrite nor delete them
+    case "$n" in data|backups|bin|.cache|.bun-cache|.tmp|port|ytzero.env|VERSION|VERSION.new|.update-stage|.update.lock) continue ;; esac
+    cp -r "$entry" "$STAGE/new/$n" || die "could not copy the new files (is the disk full?). No program files were changed."
   done < <(find "$new" -mindepth 1 -maxdepth 1 -print0)
-  mkdir -p "$ROOT_DIR/bin"
+  if [ "${#changed[@]}" -gt 0 ]; then mkdir -p "$ROOT_DIR/bin"; fi
   for tool in ${changed[@]+"${changed[@]}"}; do
     for f in $(tl_files "$tool"); do
-      mv "$fetched/$f" "$STAGE/newbin/$f" || die "could not stage the new $tool, nothing was changed."   # same disk: a rename
+      mv "$fetched/$f" "$STAGE/newbin/$f" || die "could not stage the new $tool. No program files were changed."   # same disk: a rename
     done
   done
 

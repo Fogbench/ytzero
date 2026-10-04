@@ -74,7 +74,11 @@ There is no installer for macOS. Do these steps once instead:
  3. Start it:
         bash start.sh
 
-update.sh and uninstall.sh also work on macOS, but this is untested.
+update.sh and uninstall.sh also work on macOS, but this is untested. On
+macOS, update.sh never downloads or replaces tools: the pinned tools in
+tools.lock are Linux builds. It updates the program files and the server's
+libraries only, and you keep Bun, yt-dlp, Deno and ffmpeg up to date
+yourself (for example with "brew upgrade").
 
 
 THE SCRIPTS
@@ -201,22 +205,34 @@ update.sh  (update to the latest release)
     read; "bash update.sh --allow-downgrade" overrides that.
   - After you confirm, it downloads the tarball and its .sha256 file,
     refuses to go on if the checksum file is missing or does not match, and
-    copies your database (data/db) to
-    ./backups/pre-update-<old version>-<time>/ before changing anything.
+    copies your database (data/db, and data/database-state.json if you have
+    that file) to ./backups/pre-update-<old version>-<time>/ before changing
+    any program file.
   - It makes this folder match the new release: every program folder (app,
     ui/dist, shared, scripts) and every other file at the top of the release
     (the scripts, tools.lock, README.txt, LICENSE, VERSION) is replaced.
-    ./data, ./backups, ./bin, ./.cache and ./.bun-cache are kept. The
-    server's libraries are deleted and installed again from bun.lock, so
-    the result equals a fresh install of that release.
+    ./data, ./backups, ./bin, ./.cache, ./.bun-cache, ./port and
+    ./ytzero.env are kept. The server's libraries are deleted and installed
+    again from bun.lock, so the result equals a fresh install of that
+    release.
   - It changes only what the release specifies. For each tool it compares the
     version pinned in the new tools.lock with the version recorded in
     ./bin/.installed. Only a tool whose pinned version differs is replaced:
-    the new one is downloaded and checked against its sha256 first, and the
-    old one is kept until the new one works (and put back if anything
-    fails). Tools with the same pinned version are not touched. A tool on
-    your PATH is ignored: the pinned tools always live in ./bin. Nothing is
-    ever fetched as "latest".
+    the new one is downloaded, checked against its sha256 and test-run
+    first; the old one stays in place until then. If the new one does not
+    work, nothing is changed. Once the program files are in place, the new
+    tool is kept even if a later step fails (the library install, for
+    example), and a rerun does not download it again. Tools with the same
+    pinned version are not touched. A tool on your PATH is ignored: the
+    pinned tools always live in ./bin. Nothing is ever fetched as "latest".
+    (Linux only: on macOS this step is skipped, see the MACOS section.)
+  - Every release contains a file named MANIFEST: the list of the names at
+    the top of the release, one per line. If a release no longer ships
+    something the previous release shipped, update.sh removes it, so the
+    result matches a fresh download. Only names that the earlier release's
+    MANIFEST lists are removed: your own files are never touched, and
+    neither are data, backups, bin, .cache, .bun-cache, port or ytzero.env.
+    A release can not replace those either.
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
   - Only one update can run at a time. While it runs, it keeps a folder
@@ -225,7 +241,11 @@ update.sh  (update to the latest release)
     as long as no update is running.
   - If an update stops partway (for example the library install fails
     because there is no internet), your data is untouched and the folder
-    still counts as the old version. Run "bash update.sh" again to finish.
+    still counts as the old version. Program folders are put back to the
+    old ones, but top-level files such as README.txt may already be the new
+    ones until you run "bash update.sh" again, which finishes the update.
+    A temporary folder left by an update that was killed is removed the
+    next time update.sh runs.
   - It keeps the newest 5 database copies in ./backups and removes older
     ones that it made itself (the folders named pre-update-...).
   - It needs internet access and a published (not draft) release.
@@ -267,6 +287,8 @@ WHAT IS IN THE FOLDER
   scripts/              tools-lib.sh, used by install-linux.sh and update.sh
   data/                 Created at first start: database, avatars, downloads
   VERSION               The release name shown by the app
+  MANIFEST              The names at the top of this release (used by
+                        update.sh, see there)
   port                  The port you chose in install-linux.sh
   install-linux.sh      Installer (Linux)
   start.sh              Starts the server
