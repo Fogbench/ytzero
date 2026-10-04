@@ -44,7 +44,7 @@ for tool in $TL_TOOLS; do
     PLAN+="     $tool $ver: already in ./bin at this version, not downloaded again."$'\n'
   else
     NEED+=("$tool")
-    PLAN+="     $tool $ver: will be downloaded into $BIN_DIR (checksum from tools.lock is checked)"$'\n'
+    PLAN+="     $tool $ver: will be downloaded into ./bin (checksum from tools.lock is checked)"$'\n'
     [ "$tool" = ffmpeg ] && PLAN+="       (ffprobe comes with ffmpeg and goes into ./bin too)"$'\n'
   fi
 done
