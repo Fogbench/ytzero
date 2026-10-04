@@ -92,7 +92,6 @@ On 2026-10-04 `bun audit` listed **42 known advisories** for the dependency vers
 | react-router | 6.30.4 | 8.4.0 |
 | vite | 6.4.3 | 8.3.2 |
 | @vitejs/plugin-react | 4.7.0 | 6.1.1 |
-| vite-plugin-pwa | 1.3.0 | 2.0.0 |
 | typescript | 5.9.3 | 7.0.2 |
 | hls.js | 1.6.16 | 1.7.3 |
 | emoji-picker-react | 4.19.1 | 4.22.3 |
