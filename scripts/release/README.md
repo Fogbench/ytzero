@@ -1,14 +1,13 @@
 # YT Zero (release tarball)
 
-A self-hosted YouTube inbox. This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream): no support is promised for now, and that may change. The fork's own README, with what it adds and known limits, is at <https://github.com/Fogbench/ytzero>. Everything else (features, settings, authentication) is documented in the [upstream wiki](https://github.com/Pelski/ytzero/wiki). All credit for YT Zero goes to Pelski and the contributors. Licence: AGPL-3.0-only, see `LICENSE`.
+A self-hosted YouTube inbox. This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream): no support is promised for now, and that may change. The fork's own README, with what it adds and known limits, is at <https://github.com/Fogbench/ytzero>. Everything else (features, settings, authentication) is documented in the [upstream wiki](https://github.com/Pelski/ytzero/wiki). All credit for YT Zero goes to Pelski and the contributors. Licence: AGPL-3.0-only, see `LICENSE`. The full source code is at <https://github.com/Fogbench/ytzero> (every release also has a source archive).
 
 This archive is a ready-built copy. Nothing needs compiling, and nothing is installed outside this folder.
 
 ## What you need
 
-- Linux (x86_64 or aarch64) or macOS. Only Linux has been tested.
-- [Bun](https://bun.sh) (install it yourself first; these scripts never install it).
-- On Linux, for the automatic tool download: `curl`, `xz`, and `unzip` or `python3`.
+- **Linux** (x86_64 or aarch64): nothing installed beforehand except `curl`, and `unzip` or `python3`. `install-linux.sh` installs everything else, including Bun.
+- **macOS**: you install Bun and the tools yourself, see [macOS](#macos). Only Linux has been tested.
 - Without yt-dlp the app still runs and uses the YouTube embed player.
 
 ## Check the download
@@ -21,28 +20,38 @@ sha256sum -c ytzero-<version>.tar.gz.sha256     # should print: ... OK
 
 On macOS use `shasum -a 256 -c` instead. The check only proves the file arrived intact and matches what was published.
 
-## Quick start
+## Quick start (Linux)
 
 ```bash
 tar -xzf ytzero-<version>.tar.gz
 cd ytzero-<version>
-bash install.sh      # once
-bash start.sh        # http://localhost:3001
+bash install-linux.sh    # once
+bash start.sh            # http://localhost:3001
 ```
 
 Start with no channels and add them under **Settings > Channels**. Your data is saved in `./data`; keep it backed up.
 
+## macOS
+
+There is no installer for macOS. Do these steps once instead:
+
+1. Install [Bun](https://bun.sh), and the tools, for example with Homebrew: `brew install yt-dlp deno ffmpeg` (Deno 2.3 or newer; yt-dlp is optional).
+2. In the unpacked folder: `cd app && bun install --production --frozen-lockfile && cd ..`
+3. `bash start.sh`
+
+`update.sh` and `uninstall.sh` also work on macOS, but this is untested.
+
 ## The scripts
 
-### `install.sh` (run once)
+### `install-linux.sh` (Linux only, run once)
 
-1. Checks that Bun is installed and stops with a message if not.
-2. Runs `bun install --production --frozen-lockfile` in `app/`. This downloads the server's libraries into `app/node_modules`, using exactly the versions in `app/bun.lock`. Libraries are not shipped in the archive because some contain files that differ per CPU.
-3. Runs `scripts/install-deps.sh` (below).
+This is the installer. Everything happens inside this folder. It needs no root and does not edit your shell profile. It first prints what it is about to do and asks for confirmation (`--yes` skips the question), then:
 
-Bun also keeps a download cache in `~/.bun`. That is Bun's own, shared with your other Bun projects.
+1. **Installs Bun if you don't already have it.** Bun is the program that runs the server. If `bun` is already on your system it is used as it is and not changed. If not, the matching Bun release is downloaded for your CPU into `./bin/bun`, and checked against the checksum Bun publishes. (CPUs without AVX2 get Bun's "baseline" build automatically.)
+2. **Downloads the server's libraries** by running Bun's `bun install --production --frozen-lockfile` in `app/`. Note: here `bun install` is Bun's command for fetching a project's libraries. It does not install Bun itself. The libraries land in `app/node_modules`, at exactly the versions in `app/bun.lock`. They are not inside the archive because some contain files that differ per CPU. Bun's download cache is kept in `./.bun-cache`.
+3. **Runs `scripts/install-deps.sh`** (below).
 
-### `scripts/install-deps.sh` (called by install.sh)
+### `scripts/install-deps.sh` (called by install-linux.sh)
 
 Downloads the helper tools into `./bin`, but only those not already available on your system:
 
@@ -62,14 +71,14 @@ Starts the server on `http://localhost:3001`. It puts `./bin` first on the `PATH
 
 To change the port: `PORT=8080 bash start.sh`. Other settings are environment variables, listed on the [upstream Configuration page](https://github.com/Pelski/ytzero/wiki/Configuration).
 
-### `uninstall.sh` (undo `install.sh`)
+### `uninstall.sh` (undo `install-linux.sh`)
 
-Removes what `install.sh` added, inside this folder only:
+Removes what `install-linux.sh` added, inside this folder only:
 
-- `app/node_modules`
-- the tools in `./bin` that were downloaded (`yt-dlp`, `deno`, `ffmpeg`, `ffprobe`)
+- `app/node_modules` and `.bun-cache`
+- Bun and the tools in `./bin` that the installer downloaded (`bun`, `yt-dlp`, `deno`, `ffmpeg`, `ffprobe`)
 
-It keeps `./data` unless you ask otherwise, and never touches anything outside this folder. A yt-dlp, deno or ffmpeg that was already on your system stays exactly as it was. Bun and `~/.bun` are also left alone.
+It keeps `./data` and `./backups` unless you ask otherwise, and never touches anything outside this folder. A Bun, yt-dlp, deno or ffmpeg that was already on your system stays exactly as it was.
 
 ```bash
 bash uninstall.sh --dry-run      # list what would be removed, remove nothing
@@ -80,9 +89,16 @@ bash uninstall.sh --yes          # no confirmation question
 
 It refuses to run while the server is running from this folder. At the end it prints the `rm -rf` command for the folder itself; run it only if you also want to delete the program (and `./data`, if you kept it).
 
-## Updating
+### `update.sh` (update to the latest release)
 
-There is no updater. To move to a newer release: stop the server, unpack the new archive into a new folder, move your `data` folder into it, then run `bash install.sh` and `bash start.sh` there. Back up `./data` first.
+Asks GitHub for the latest release of `Fogbench/ytzero` and compares it with the `VERSION` file in this folder.
+
+- **Same version:** prints `Already on version 2.0.0 (latest)` and changes nothing.
+- **Newer version:** shows both versions and asks to continue (`--yes` skips the question). It then downloads the tarball and its `.sha256` file, refuses to go on if the checksum file is missing or does not match, and copies your database (`data/db`) to `./backups/pre-update-<old version>-<time>/`.
+- It replaces only the program files (`app/src`, `ui/dist`, `shared`, `scripts`, the three scripts, `README.md`, `LICENSE`, `VERSION`) and then updates the libraries with Bun. `./data`, `./bin` and `./backups` are never overwritten.
+- `bash update.sh --check` only tells you whether an update exists.
+- It refuses to run while the server is running from this folder.
+- It needs internet access and a published (not draft) release. It does not update yt-dlp, Deno or ffmpeg.
 
 ## What is in the folder
 
@@ -91,7 +107,9 @@ There is no updater. To move to a newer release: stop the server, unpack the new
 | `app/` | The server (`src/`) and its dependency list |
 | `ui/dist/` | The built web client |
 | `shared/` | Code used by both the server and the web client |
-| `bin/` | Created by `install.sh`: downloaded tools |
+| `bin/` | Created by `install-linux.sh`: Bun and the downloaded tools |
 | `data/` | Created at first start: your database, avatars and downloads |
 | `VERSION` | The release name shown by the app |
-| `install.sh`, `start.sh`, `uninstall.sh` | Described above |
+| `install-linux.sh`, `start.sh`, `update.sh`, `uninstall.sh` | Described above |
+| `.bun-cache/` | Bun's download cache, created by the installer |
+| `backups/` | Database copies made by `update.sh` |

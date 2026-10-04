@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Undoes what install.sh did, inside this folder only:
+# Undoes what install-linux.sh did, inside this folder only:
 #   - removes app/node_modules
-#   - removes the tools install.sh downloaded into ./bin (yt-dlp, deno, ffmpeg, ffprobe)
+#   - removes Bun and the tools install-linux.sh downloaded into ./bin (bun, yt-dlp, deno, ffmpeg, ffprobe)
+#   - removes .bun-cache (Bun's download cache for this folder)
 #   - keeps ./data (your database and downloads) unless you ask for it to be removed
-# It never touches anything outside this folder, so a yt-dlp, deno or ffmpeg that
-# was already installed on your system stays exactly as it was.
+# It never touches anything outside this folder, so a Bun, yt-dlp, deno or ffmpeg
+# that was already installed on your system stays exactly as it was.
 #
 # Usage: bash uninstall.sh [--dry-run] [--remove-data] [--yes]
 #   --dry-run      only list what would be removed
@@ -35,7 +36,8 @@ done
 
 targets=()
 [ -d "$ROOT_DIR/app/node_modules" ] && targets+=("$ROOT_DIR/app/node_modules")
-for tool in yt-dlp deno ffmpeg ffprobe; do
+[ -d "$ROOT_DIR/.bun-cache" ] && targets+=("$ROOT_DIR/.bun-cache")
+for tool in bun yt-dlp deno ffmpeg ffprobe; do
   if [ -e "$ROOT_DIR/bin/$tool" ] || [ -L "$ROOT_DIR/bin/$tool" ]; then targets+=("$ROOT_DIR/bin/$tool"); fi
 done
 if [ "$DATA" = 1 ] && [ -d "$ROOT_DIR/data" ]; then targets+=("$ROOT_DIR/data"); fi
@@ -54,6 +56,6 @@ for target in "${targets[@]}"; do rm -rf -- "$target"; done
 rmdir "$ROOT_DIR/bin" 2>/dev/null || true
 
 echo "Done."
-echo "Left alone: Bun and its package cache (~/.bun), and anything you installed yourself."
+echo "Left alone: anything you installed yourself (a Bun already on your system, ~/.bun), and ./backups if update.sh made any."
 echo "To remove the program itself, delete this folder (this includes ./data if you kept it):"
 echo "  rm -rf \"$ROOT_DIR\""
