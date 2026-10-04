@@ -53,6 +53,27 @@ if [ "$YES" != 1 ]; then
   [[ "$answer" =~ ^[Yy]$ ]] || { echo "Cancelled."; exit 1; }
 fi
 
+# ---------- port ----------
+PORT_DEFAULT=3001
+[ -f "$ROOT_DIR/port" ] && PORT_DEFAULT="$(tr -dc '0-9' < "$ROOT_DIR/port")"
+[ -n "${PORT:-}" ] && PORT_DEFAULT="$PORT"
+CHOSEN="$PORT_DEFAULT"
+if [ "$YES" != 1 ]; then
+  while :; do
+    answer=""
+    read -r -p "Which port should the server use? [$PORT_DEFAULT] " answer || true
+    CHOSEN="${answer:-$PORT_DEFAULT}"
+    if [[ "$CHOSEN" =~ ^[0-9]+$ ]] && [ "$CHOSEN" -ge 1 ] && [ "$CHOSEN" -le 65535 ]; then break; fi
+    echo "Please enter a number from 1 to 65535."
+  done
+fi
+[[ "$CHOSEN" =~ ^[0-9]+$ ]] && [ "$CHOSEN" -ge 1 ] && [ "$CHOSEN" -le 65535 ] || die "invalid port: $CHOSEN"
+if (exec 3<>"/dev/tcp/127.0.0.1/$CHOSEN") 2>/dev/null; then
+  echo "Note: something is already listening on port $CHOSEN right now. Stop it before starting YT Zero, or re-run this installer and pick another port."
+fi
+echo "$CHOSEN" > "$ROOT_DIR/port"
+msg "port: $CHOSEN (saved in ./port; to change it later, re-run bash install-linux.sh or edit ./port)"
+
 # ---------- tools ----------
 if [ "${#NEED[@]}" -gt 0 ]; then
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT

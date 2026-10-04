@@ -53,8 +53,9 @@ QUICK START (LINUX)
 
     tar -xzf ytzero-<version>.tar.gz
     cd ytzero-<version>
-    bash install-linux.sh      (once)
-    bash start.sh              (then open http://localhost:3001)
+    bash install-linux.sh      (once; it asks which port to use, default 3001)
+    bash start.sh              (prints the address to open, for example
+                               http://localhost:3001)
 
 Start with no channels and add them under Settings > Channels. Your data is
 saved in ./data. Keep it backed up.
@@ -97,7 +98,13 @@ install-linux.sh  (Linux only, run once)
      only; on another CPU it tells you to install the tools yourself.
      Needs unzip or python3 (for Bun and Deno) and xz (for ffmpeg).
 
-  2. Downloads the server's libraries by running Bun's command
+  2. Asks which port the server should use and shows the default, 3001 (or
+     the port you chose last time). Press Enter to keep it. The choice is
+     saved in ./port, which start.sh reads. With "--yes" the question is
+     skipped and the default is used (or PORT=... from the environment). If
+     something is already listening on that port, it tells you.
+
+  3. Downloads the server's libraries by running Bun's command
      "bun install --production --frozen-lockfile" in app/. Note: here
      "bun install" is Bun's command for fetching a project's libraries. It
      does not install Bun itself. The libraries land in app/node_modules, at
@@ -129,14 +136,18 @@ tools.lock  (the pinned tool list, one per release)
 
 start.sh  (run every time)
 
-  Starts the server on http://localhost:3001. It puts ./bin first on the PATH
+  Starts the server. First it prints a box with the address to open, for
+  example http://localhost:3001, and then the server log follows. The port is
+  the one you chose in install-linux.sh (saved in the file ./port; 3001 if
+  you accepted the default). It puts ./bin first on the PATH
   (so the downloaded tools are found), reads the version from the file
   VERSION, and runs "bun src/index.ts" inside app/ with the built web client
   from ui/dist. It stays in the foreground; press Ctrl+C to stop it. Run it
   under tmux, screen or a systemd service if you want it to keep running.
   Setting that up is not covered here.
 
-  To change the port:
+  To change the port for good, run bash install-linux.sh again or edit the
+  number in ./port. For a single run:
 
       PORT=8080 bash start.sh
 
@@ -182,7 +193,7 @@ uninstall.sh  (undo install-linux.sh)
 
   - app/node_modules, .bun-cache and .cache
   - Bun and the tools in ./bin that the installer downloaded
-    (bun, yt-dlp, deno, ffmpeg, ffprobe) and the list ./bin/.installed
+    (bun, yt-dlp, deno, ffmpeg, ffprobe), the list ./bin/.installed and ./port
 
   It keeps ./data and ./backups unless you ask otherwise, and never touches
   anything outside this folder. A Bun, yt-dlp, deno or ffmpeg that was
@@ -210,6 +221,7 @@ WHAT IS IN THE FOLDER
   scripts/              tools-lib.sh, used by install-linux.sh and update.sh
   data/                 Created at first start: database, avatars, downloads
   VERSION               The release name shown by the app
+  port                  The port you chose in install-linux.sh
   install-linux.sh      Installer (Linux)
   start.sh              Starts the server
   update.sh             Updates to the latest release (same result as a fresh
