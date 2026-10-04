@@ -3,8 +3,9 @@
 # It installs the tools YT Zero needs (Bun, Deno, yt-dlp, ffmpeg) and the
 # server's libraries, all inside this folder. The tools are exactly the
 # versions pinned in tools.lock, each checked against its sha256 before use;
-# nothing is ever downloaded as "latest". A tool that is already on your PATH is
-# used as found and not downloaded. It needs no root and does not edit your
+# nothing is ever downloaded as "latest". The tools always go into ./bin; a copy
+# of Bun, Deno, yt-dlp or ffmpeg on your system is ignored, so the same release
+# always runs the same tool versions. It needs no root and does not edit your
 # shell profile.
 # macOS: do not use this script, follow the macOS steps in README.txt.
 #
@@ -32,20 +33,26 @@ tl_machine >/dev/null || die "unsupported CPU $(uname -m): install bun, deno (2.
 YES=0
 [ "${1:-}" = "--yes" ] && YES=1
 
-# Decide per tool: found on PATH (used as found) or download the pinned version.
+# Decide per tool. Every tool comes from tools.lock into ./bin; a copy elsewhere on the
+# system is never looked at. The download is skipped only when ./bin/.installed says this
+# tool is already in ./bin at the pinned version (and the files are there), so a rerun is cheap.
+# ffmpeg and ffprobe are one tool here: they come together from the same pinned download.
 NEED=(); PLAN=""
 for tool in $TL_TOOLS; do
   ver="$(tl_version "$LOCK" "$tool" "$(tl_arch "$tool")")" || die "tools.lock has no $tool for this CPU."
-  if command -v "$tool" >/dev/null; then
-    PLAN+="     $tool: already installed ($(command -v "$tool")), used as found, not changed."$'\n'
+  if tl_in_bin "$tool" "$ver"; then
+    PLAN+="     $tool $ver: already in ./bin at this version, not downloaded again."$'\n'
   else
-    NEED+=("$tool"); PLAN+="     $tool $ver: will be downloaded into $BIN_DIR (checksum from tools.lock is checked)."$'\n'
+    NEED+=("$tool")
+    PLAN+="     $tool $ver: will be downloaded into $BIN_DIR (checksum from tools.lock is checked)"$'\n'
+    [ "$tool" = ffmpeg ] && PLAN+="       (ffprobe comes with ffmpeg and goes into ./bin too)"$'\n'
   fi
 done
 
 cat <<EOF2
 This installer will, inside $ROOT_DIR only:
-  1. Install the tools, exactly the versions pinned in tools.lock:
+  1. Install the tools into $BIN_DIR, exactly the versions pinned in tools.lock.
+     Copies of these tools elsewhere on this computer are not used or changed.
 $PLAN  2. Download the server's libraries into app/node_modules (Bun's cache goes to .bun-cache).
 Nothing is installed system-wide. 'bash uninstall.sh' removes all of it again.
 EOF2
@@ -90,8 +97,8 @@ echo "$CHOSEN" > "$ROOT_DIR/port"
 msg "port: $CHOSEN (saved in ./port; to change it later, re-run bash install-linux.sh or edit ./port)"
 
 # ---------- tools ----------
-# ./bin/.installed is the list of what this installer put in ./bin. It is created
-# every time, even when all tools were found on your PATH and the list stays empty.
+# ./bin/.installed is the list of what this installer put in ./bin: one line "<tool> <version>"
+# for each of the four tools. It is created every time.
 mkdir -p "$BIN_DIR"
 touch "$BIN_DIR/.installed"
 if [ "${#NEED[@]}" -gt 0 ]; then
@@ -109,7 +116,7 @@ if [ "${#NEED[@]}" -gt 0 ]; then
     msg "$tool: installed to $BIN_DIR"
   done
 fi
-for tool in $TL_TOOLS; do msg "$tool: $(command -v "$tool")"; done
+for tool in $TL_TOOLS; do msg "$tool: $BIN_DIR/$tool"; done
 
 # ---------- libraries ----------
 msg "installing the server's libraries"
