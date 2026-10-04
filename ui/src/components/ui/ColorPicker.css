@@ -19,3 +19,4 @@
 .ui-color-picker__swatch svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.7)); height: 15px; width: 15px; }
 .ui-color-picker__hex { align-items: center; border-top: 1px solid var(--surface-3); color: var(--text-2); display: flex; font-size: 10px; font-weight: 700; gap: 8px; letter-spacing: .08em; margin-top: 9px; padding-top: 9px; }
 .ui-color-picker__hex .ui-input { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; width: 0; }
+.ui-color-picker__done { width: 100%; margin-top: 8px; }

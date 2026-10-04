@@ -43,6 +43,12 @@ describe("subtitle availability", () => {
     expect(available.find((subtitle) => subtitle.lang === "fr")?.tracks).toEqual(["fr", "fr-gqnk0mWVyHo"]);
   });
 
+  test("with fallback-only, automatic captions appear only when there are no author tracks", () => {
+    const automatic = { fr: vtt("French (auto-generated)") };
+    expect(buildSubtitleAvailability({ en: vtt("English") }, automatic, ["fr"], true).map((s) => s.lang)).toEqual(["en"]);
+    expect(buildSubtitleAvailability({}, automatic, ["fr"], true).map((s) => s.lang)).toEqual(["fr"]);
+  });
+
   test("offers only direct WebVTT and excludes HLS manifests", () => {
     const available = buildSubtitleAvailability(
       {

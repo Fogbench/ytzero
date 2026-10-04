@@ -477,10 +477,10 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
           {displaySubTab === "subtitles" && canManageArea("playback") && <SettingsSection title={t("subtitles")} className="settings-display-group">
           <SettingRow label={t("playerAutoCaptions")} description={t("playerAutoCaptionsHint")}>
             <Switch
-              checked={autoCaptions}
-              onCheckedChange={(next) => {
-                setAutoCaptions(next);
-                savePlayer({ player_auto_captions: next ? "1" : "0" });
+              checked={!autoCaptions}
+              onCheckedChange={(fallbackOnly) => {
+                setAutoCaptions(!fallbackOnly);
+                savePlayer({ player_auto_captions: fallbackOnly ? "0" : "1" });
               }}
             />
           </SettingRow>

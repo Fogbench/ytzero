@@ -71,6 +71,8 @@ export function buildSubtitleAvailability(
   subtitles: Record<string, unknown>,
   automaticCaptions: Record<string, unknown>,
   automaticLanguages: Iterable<string>,
+  /** Use auto captions only when the uploader made no subtitles at all. */
+  automaticOnlyAsFallback = false,
 ): AvailableSubtitle[] {
   const automatic = new Set([...automaticLanguages].filter(validLanguageCode).map(normalizeSubtitleLanguage));
   const groups = new Map<string, { label: string; tracks: string[] }>();
@@ -92,7 +94,7 @@ export function buildSubtitleAvailability(
   // Author tracks always belong in the menu. Auto captions supplement them,
   // but never replace their order or label.
   add(subtitles, () => true);
-  add(automaticCaptions, (lang) => automatic.has(lang));
+  if (!(automaticOnlyAsFallback && groups.size > 0)) add(automaticCaptions, (lang) => automatic.has(lang));
   return [...groups.entries()]
     .map(([lang, value]) => ({ lang, label: value.label, tracks: value.tracks }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -181,15 +183,15 @@ async function cachedMetadata(userId: number, videoId: string): Promise<Subtitle
   }
 }
 
-export async function availableSubtitlesForVideo(userId: number, videoId: string, automaticLanguages: Iterable<string>): Promise<AvailableSubtitle[]> {
+export async function availableSubtitlesForVideo(userId: number, videoId: string, automaticLanguages: Iterable<string>, automaticOnlyAsFallback = false): Promise<AvailableSubtitle[]> {
   const metadata = await cachedMetadata(userId, videoId);
-  return buildSubtitleAvailability(metadata.subtitles, metadata.automaticCaptions, automaticLanguages);
+  return buildSubtitleAvailability(metadata.subtitles, metadata.automaticCaptions, automaticLanguages, automaticOnlyAsFallback);
 }
 
 /** Resolve one current direct WebVTT URL without exposing it to the client. */
-export async function subtitleStreamForVideo(userId: number, videoId: string, language: string, automaticLanguages: Iterable<string>): Promise<string | null> {
+export async function subtitleStreamForVideo(userId: number, videoId: string, language: string, automaticLanguages: Iterable<string>, automaticOnlyAsFallback = false): Promise<string | null> {
   const metadata = await cachedMetadata(userId, videoId);
-  const available = buildSubtitleAvailability(metadata.subtitles, metadata.automaticCaptions, automaticLanguages);
+  const available = buildSubtitleAvailability(metadata.subtitles, metadata.automaticCaptions, automaticLanguages, automaticOnlyAsFallback);
   const selected = available.find((subtitle) => subtitle.lang === language);
   if (!selected) return null;
   for (const track of selected.tracks) {

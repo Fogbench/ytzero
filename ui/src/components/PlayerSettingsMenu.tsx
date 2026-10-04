@@ -166,7 +166,7 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
             <MenuHeader onBack={() => setPanel("subtitles")} backLabel={t("subtitles")}>{t("subtitleStyleTitle")}</MenuHeader>
             <div className="lp-sub-toggle">
               <span>{t("subtitleColor")}</span>
-              <ColorPicker label={t("subtitleColor")} variant="swatch" colors={SUBTITLE_COLORS} value={subtitles.style.color} onChange={(color) => subtitles.onStyleChange?.({ color })} />
+              <ColorPicker label={t("subtitleColor")} variant="swatch" doneLabel={t("colorPickerDone")} colors={SUBTITLE_COLORS} value={subtitles.style.color} onChange={(color) => subtitles.onStyleChange?.({ color })} />
             </div>
             <div className="lp-sub-toggle">
               <span>{t("subtitleSize")} ({subtitles.style.size}px)</span>

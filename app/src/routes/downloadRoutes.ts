@@ -420,8 +420,6 @@ async function subtitleList(videoId: string) {
 }
 
 async function subtitlePreferences(userId: number, videoId: string): Promise<string[]> {
-  // These languages are the ones that may use auto-generated captions; none means only creator-made tracks.
-  if (getUserSetting(userId, "player_auto_captions") === "0") return [];
   const settings = await dlSettings(userId);
   const row = await database.prepare(`
     SELECT uc.caption_mode, uc.caption_language
@@ -436,6 +434,9 @@ async function subtitlePreferences(userId: number, videoId: string): Promise<str
   ].filter((language): language is string => typeof language === "string" && language.length > 0))];
 }
 
+// "0" = offer auto-generated captions only when the uploader made no subtitles.
+const autoCaptionsFallbackOnly = (userId: number) => getUserSetting(userId, "player_auto_captions") === "0";
+
 api.get("/videos/:id/subtitles", async (c) => {
   const uid = currentUserId(c);
   const videoId = c.req.param("id");
@@ -446,7 +447,7 @@ api.get("/videos/:id/subtitles", async (c) => {
   for (const subtitle of tubeArchivist) subtitles.set(subtitle.lang, subtitle);
   for (const subtitle of local) if (!subtitles.has(subtitle.lang)) subtitles.set(subtitle.lang, subtitle);
   if (!childLocalOnly(uid)) try {
-    const available = await availableSubtitlesForVideo(uid, videoId, await subtitlePreferences(uid, videoId));
+    const available = await availableSubtitlesForVideo(uid, videoId, await subtitlePreferences(uid, videoId), autoCaptionsFallbackOnly(uid));
     for (const subtitle of available) {
       if (!subtitles.has(subtitle.lang)) subtitles.set(subtitle.lang, {
         lang: subtitle.lang,
@@ -480,7 +481,7 @@ api.get("/videos/:id/subtitles/:lang", async (c) => {
   }
   if (childLocalOnly(uid)) return c.json({ error: "not found" }, 404);
   try {
-    const url = await subtitleStreamForVideo(uid, videoId, language, await subtitlePreferences(uid, videoId));
+    const url = await subtitleStreamForVideo(uid, videoId, language, await subtitlePreferences(uid, videoId), autoCaptionsFallbackOnly(uid));
     if (!url) return c.json({ error: "not found" }, 404);
     const upstream = await fetchSubtitleUpstream(fetch, url, { signal: c.req.raw.signal });
     const proxied = upstream && proxySubtitleResponse(upstream);

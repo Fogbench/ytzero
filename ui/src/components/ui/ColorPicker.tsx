@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type PointerEvent } from "react";
 import { Check } from "lucide-react";
 import { FloatingPopover } from "./FloatingPopover";
+import { Button } from "./Button";
 import { Input } from "./Fields";
 import { cx } from "./utils";
 import "./ColorPicker.css";
@@ -42,7 +43,7 @@ function hsvToHex({ h, s, v }: Hsv) {
   return `#${[r, g, b].map((channel) => Math.round((channel + m) * 255).toString(16).padStart(2, "0")).join("")}`;
 }
 
-export function ColorPicker({ value, onChange, label, colors = DEFAULT_COLORS, disabled, id, className, variant = "default" }: { value: string; onChange: (value: string) => void; label: string; colors?: readonly string[]; disabled?: boolean; id?: string; className?: string; variant?: "default" | "swatch" }) {
+export function ColorPicker({ value, onChange, label, colors = DEFAULT_COLORS, disabled, id, className, variant = "default", doneLabel }: { value: string; onChange: (value: string) => void; label: string; colors?: readonly string[]; disabled?: boolean; id?: string; className?: string; variant?: "default" | "swatch"; doneLabel?: string }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
   const [hsv, setHsv] = useState(() => hexToHsv(value));
@@ -100,5 +101,6 @@ export function ColorPicker({ value, onChange, label, colors = DEFAULT_COLORS, d
       {colors.map((color) => <button key={color} type="button" role="option" aria-selected={color.toLowerCase() === value.toLowerCase()} aria-label={color} title={color} className="ui-color-picker__swatch" style={{ background: color }} onClick={() => { const normalized = color.toLowerCase(); onChange(normalized); setDraft(normalized); setHsv(hexToHsv(normalized)); }}>{color.toLowerCase() === value.toLowerCase() && <Check />}</button>)}
     </div>
     <div className="ui-color-picker__hex"><Input size="sm" aria-label={`${label} HEX`} value={draft} maxLength={7} spellCheck={false} onChange={(event) => setDraft(event.target.value.startsWith("#") ? event.target.value : `#${event.target.value}`)} onBlur={commitHex} onKeyDown={(event) => { if (event.key === "Enter") commitHex(); }} /></div>
+    {doneLabel && <Button size="sm" variant="primary" className="ui-color-picker__done" onClick={() => { commitHex(); setOpen(false); }}>{doneLabel}</Button>}
   </FloatingPopover>;
 }
