@@ -41,15 +41,6 @@ export function LogLine({ line }: { line: string }) {
   );
 }
 
-export function ChangelogNote({ children }: { children: string }) {
-  return <>{children.split(/(#\d+)/g).map((part, index) => {
-    const issue = part.match(/^#(\d+)$/);
-    return issue ? (
-      <a className="settings-release-note-link" href={`https://github.com/Pelski/ytzero/issues/${issue[1]}`} target="_blank" rel="noreferrer" key={`${part}-${index}`}>{part}</a>
-    ) : part;
-  })}</>;
-}
-
 export function SettingsLoadingState() {
   const { t } = useI18n();
   const navGroups = [5, 7, 3, 4];

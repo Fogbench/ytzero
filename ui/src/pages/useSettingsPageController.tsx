@@ -34,7 +34,7 @@ import DatabaseSettings from "../components/DatabaseSettings";
 import { scheduleSettingWrite } from "../settingsWriteQueue";
 import ProfilesSettings, { ProfilePasswordSettings } from "../components/settings/ProfileSettings";
 import { ChannelOwnership, FilterRuleGroups, PlaylistSettingsItem, PluginMultiselect, RuleRow, SidebarNavEditor, TagRow } from "../components/settings/SettingsEditors";
-import { ChangelogNote, LogLine, SettingsLoadingState } from "../components/settings/SettingsSupport";
+import { LogLine, SettingsLoadingState } from "../components/settings/SettingsSupport";
 
 type Tab = "channels" | "tags" | "playlists" | "display" | "notifications" | "plugins" | "sharing" | "advanced" | "profiles" | "auth" | "cluster";
 const TIME_ZONES = (() => {

@@ -32,7 +32,7 @@ interface GitHubCompare {
 const outputPath = resolve(import.meta.dir, "../public/changelog.json");
 const repositoryPath = resolve(import.meta.dir, "../..");
 const CHANGELOG_RELEASE_LIMIT = 10;
-const releasesUrl = `https://api.github.com/repos/Pelski/ytzero/releases?per_page=${CHANGELOG_RELEASE_LIMIT}`;
+const releasesUrl = `https://api.github.com/repos/Fogbench/ytzero/releases?per_page=${CHANGELOG_RELEASE_LIMIT}`;
 
 export function notesFromBody(body: unknown): string[] {
   if (typeof body !== "string") return [];
@@ -99,7 +99,7 @@ async function releaseFromCurrentTag(tag: string, previousVersion: string | unde
   // compare it with the latest previously published release.
   if (notes.length === 0 && previous) {
     try {
-      const compareUrl = `https://api.github.com/repos/Pelski/ytzero/compare/${encodeURIComponent(previous)}...${encodeURIComponent(tag)}`;
+      const compareUrl = `https://api.github.com/repos/Fogbench/ytzero/compare/${encodeURIComponent(previous)}...${encodeURIComponent(tag)}`;
       const response = await fetch(compareUrl, { headers });
       if (!response.ok) throw new Error(`GitHub compare API returned ${response.status}`);
       const compared = await response.json() as GitHubCompare;
@@ -115,7 +115,7 @@ async function releaseFromCurrentTag(tag: string, previousVersion: string | unde
     version: tag,
     name: tag,
     publishedAt,
-    url: `https://github.com/Pelski/ytzero/releases/tag/${encodeURIComponent(tag)}`,
+    url: `https://github.com/Fogbench/ytzero/releases/tag/${encodeURIComponent(tag)}`,
     notes,
     current: true,
   };
@@ -155,12 +155,11 @@ export async function generate() {
         version: release.tag_name,
         name: typeof release.name === "string" && release.name ? release.name : release.tag_name,
         publishedAt: typeof release.published_at === "string" ? release.published_at : "",
-        url: typeof release.html_url === "string" ? release.html_url : "https://github.com/Pelski/ytzero/releases",
+        url: typeof release.html_url === "string" ? release.html_url : "https://github.com/Fogbench/ytzero/releases",
         notes: notesFromBody(release.body),
       }));
   } catch (error) {
     releases = sortAndDedupeReleases(await cachedReleases());
-    if (releases.length === 0) throw error;
     console.warn(`Changelog refresh skipped: ${error instanceof Error ? error.message : String(error)}`);
   }
 
