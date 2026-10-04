@@ -74,7 +74,11 @@ There is no installer for macOS. Do these steps once instead:
  3. Start it:
         bash start.sh
 
-update.sh and uninstall.sh also work on macOS, but this is untested.
+update.sh and uninstall.sh also work on macOS, but this is untested. On
+macOS, update.sh never downloads or replaces tools: the pinned tools in
+tools.lock are Linux builds. It updates the program files and the server's
+libraries only, and you keep Bun, yt-dlp, Deno and ffmpeg up to date
+yourself (for example with "brew upgrade").
 
 
 THE SCRIPTS
@@ -210,7 +214,8 @@ update.sh  (update to the latest release)
     old one is kept until the new one works (and put back if anything
     fails). Tools with the same pinned version are not touched. A tool on
     your PATH is ignored: the pinned tools always live in ./bin. Nothing is
-    ever fetched as "latest".
+    ever fetched as "latest". (Linux only: on macOS this step is skipped,
+    see the MACOS section.)
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
   - Only one update can run at a time. While it runs, it keeps a folder

@@ -3,7 +3,8 @@
 # identical to a fresh install of that release: the program files, the libraries
 # and the tools in ./bin (Bun, yt-dlp, Deno, ffmpeg), the tools at exactly the
 # versions pinned in the release's tools.lock (never "latest"), checksum-verified.
-# Only tools whose pinned version changed are replaced.
+# Only tools whose pinned version changed are replaced. (Linux only: on macOS the
+# tools are your own installs and update.sh leaves them alone.)
 # Your ./data is never touched; a copy of the database is saved first.
 #
 # Usage: bash update.sh [--check] [--yes] [--allow-downgrade]
@@ -222,23 +223,30 @@ main() {
   # tools elsewhere on your PATH are ignored, as in install-linux.sh. New downloads
   # are verified and test-run BEFORE anything changes. A missing ./bin/.installed
   # simply means "nothing recorded".
+  # The pinned tools are Linux builds. On any other system (macOS) this whole step is
+  # skipped: there is no ./bin there, so every tool would count as missing, and the
+  # Linux builds would be downloaded and then refuse to run.
   # shellcheck source=/dev/null
   . "$new/scripts/tools-lib.sh"
-  tl_machine >/dev/null || die "unsupported CPU $(uname -m), nothing was changed."
-  local tool arch pinned recorded files changed=() fetched="$tmp/newbin"
-  mkdir -p "$fetched"
-  for tool in $TL_TOOLS; do
-    arch="$(tl_arch "$tool")"
-    pinned="$(tl_version "$new/tools.lock" "$tool" "$arch")" || die "the release's tools.lock has no $tool for this CPU, nothing was changed."
-    recorded="$(tl_installed_version "$tool")"
-    if tl_in_bin "$tool" "$pinned"; then
-      echo "==> $tool: already at the pinned version $pinned"
-    else
-      echo "==> $tool: ${recorded:-unknown version} -> $pinned"
-      tl_fetch "$new/tools.lock" "$tool" "$arch" "$fetched" || die "could not get $tool $pinned, nothing was changed."
-      changed+=("$tool")
-    fi
-  done
+  local tool arch pinned recorded changed=() fetched="$tmp/newbin"
+  if [ "$(uname -s)" != Linux ]; then
+    echo "==> tools: not touched on $(uname -s); Bun, yt-dlp, Deno and ffmpeg come from your own installs (see the MACOS section of README.txt)"
+  else
+    tl_machine >/dev/null || die "unsupported CPU $(uname -m), nothing was changed."
+    mkdir -p "$fetched"
+    for tool in $TL_TOOLS; do
+      arch="$(tl_arch "$tool")"
+      pinned="$(tl_version "$new/tools.lock" "$tool" "$arch")" || die "the release's tools.lock has no $tool for this CPU, nothing was changed."
+      recorded="$(tl_installed_version "$tool")"
+      if tl_in_bin "$tool" "$pinned"; then
+        echo "==> $tool: already at the pinned version $pinned"
+      else
+        echo "==> $tool: ${recorded:-unknown version} -> $pinned"
+        tl_fetch "$new/tools.lock" "$tool" "$arch" "$fetched" || die "could not get $tool $pinned, nothing was changed."
+        changed+=("$tool")
+      fi
+    done
+  fi
 
   # Backup of what the database holds, kept (newest 5) in ./backups.
   if [ -d "$ROOT_DIR/data/db" ] || [ -f "$ROOT_DIR/data/database-state.json" ]; then
@@ -277,7 +285,7 @@ main() {
     case "$n" in data|backups|bin|.cache|.bun-cache|VERSION|.update-stage|.update.lock) continue ;; esac
     cp -r "$entry" "$STAGE/new/$n" || die "could not copy the new files (is the disk full?), nothing was changed."
   done < <(find "$new" -mindepth 1 -maxdepth 1 -print0)
-  mkdir -p "$ROOT_DIR/bin"
+  if [ "${#changed[@]}" -gt 0 ]; then mkdir -p "$ROOT_DIR/bin"; fi
   for tool in ${changed[@]+"${changed[@]}"}; do
     for f in $(tl_files "$tool"); do
       mv "$fetched/$f" "$STAGE/newbin/$f" || die "could not stage the new $tool, nothing was changed."   # same disk: a rename
