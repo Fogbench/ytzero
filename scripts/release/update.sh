@@ -69,7 +69,7 @@ main() {
 
   tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
   local new="$tmp/$name" required
-  for required in app/src app/package.json app/bun.lock ui/dist shared scripts VERSION LICENSE README.md install-linux.sh start.sh uninstall.sh update.sh; do
+  for required in app/src app/package.json app/bun.lock ui/dist shared scripts VERSION LICENSE README.txt install-linux.sh start.sh uninstall.sh update.sh; do
     [ -e "$new/$required" ] || die "the release is incomplete (missing $required), nothing was changed."
   done
 
@@ -86,7 +86,7 @@ main() {
   done
   # Single files are copied next to the target and renamed into place, so this
   # running script can be replaced safely (update.sh goes last).
-  for f in app/package.json app/bun.lock VERSION LICENSE README.md install-linux.sh start.sh uninstall.sh update.sh; do
+  for f in app/package.json app/bun.lock VERSION LICENSE README.txt install-linux.sh start.sh uninstall.sh update.sh; do
     cp "$new/$f" "$ROOT_DIR/$f.new" && mv "$ROOT_DIR/$f.new" "$ROOT_DIR/$f"
   done
 

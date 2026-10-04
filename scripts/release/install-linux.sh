@@ -2,7 +2,7 @@
 # Installer for Linux (x86_64 and aarch64). Run it once after unpacking.
 # It installs Bun if you don't have it, then everything YT Zero needs, all inside
 # this folder. It needs no root and does not edit your shell profile.
-# macOS: do not use this script, follow the macOS steps in README.md.
+# macOS: do not use this script, follow the macOS steps in README.txt.
 #
 # Usage: bash install-linux.sh [--yes]     (--yes skips the confirmation question)
 set -euo pipefail
@@ -16,7 +16,7 @@ export BUN_INSTALL_CACHE_DIR="$ROOT_DIR/.bun-cache"
 msg() { printf '==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
-[ "$(uname -s)" = "Linux" ] || die "install-linux.sh is for Linux only. On macOS follow the macOS steps in README.md."
+[ "$(uname -s)" = "Linux" ] || die "install-linux.sh is for Linux only. On macOS follow the macOS steps in README.txt."
 command -v curl >/dev/null || die "curl is required."
 
 YES=0
