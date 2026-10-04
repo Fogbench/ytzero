@@ -533,6 +533,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       return next;
     });
   }, []);
+  // The effect below can run before the <video> exists, so playback also applies the mode.
+  const audioEnhanceRef = useRef(audioEnhance);
+  audioEnhanceRef.current = audioEnhance;
   useEffect(() => {
     if (!directQualities || !videoRef.current) return;
     applyAudioEnhance(videoRef.current, audioEnhance);
@@ -898,7 +901,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
         onClick={onVideoClick}
         onDoubleClick={onVideoDoubleClick}
         onLoadedMetadata={onLoadedMetadata}
-        onPlay={(e) => { resumeAudioEnhance(e.currentTarget); setPlaying(true); endedRef.current = false; showControls(); }}
+        onPlay={(e) => { if (directQualities) applyAudioEnhance(e.currentTarget, audioEnhanceRef.current); resumeAudioEnhance(e.currentTarget); setPlaying(true); endedRef.current = false; showControls(); }}
         onPause={() => { setPlaying(false); setControlsVisible(true); }}
         onWaiting={() => setBuffering(true)}
         onPlaying={() => setBuffering(false)}

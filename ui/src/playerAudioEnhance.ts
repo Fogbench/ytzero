@@ -47,9 +47,9 @@ export function applyAudioEnhance(video: HTMLMediaElement, mode: AudioEnhanceMod
   }
   const { context, highpass, presence, compressor, makeup } = chain;
   const now = context.currentTime;
-  // Voice boost: cut rumble below 120 Hz and lift the range where speech is clearest.
-  highpass.frequency.setValueAtTime(mode.voiceBoost ? 120 : 10, now);
-  presence.gain.setValueAtTime(mode.voiceBoost ? 5 : 0, now);
+  // Voice boost: cut rumble below 150 Hz and lift the range where speech is clearest.
+  highpass.frequency.setValueAtTime(mode.voiceBoost ? 150 : 10, now);
+  presence.gain.setValueAtTime(mode.voiceBoost ? 9 : 0, now);
   // Stable volume: ratio 1 leaves the sound unchanged, a high ratio squeezes loud parts down.
   compressor.threshold.setValueAtTime(mode.stableVolume ? -32 : 0, now);
   compressor.knee.setValueAtTime(mode.stableVolume ? 24 : 0, now);
