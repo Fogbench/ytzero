@@ -1,8 +1,0 @@
-{
-  "name": "ytzero-release",
-  "private": true,
-  "scripts": {
-    "setup": "bash ./install.sh",
-    "start": "bash ./start.sh"
-  }
-}
