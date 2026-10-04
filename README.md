@@ -59,7 +59,7 @@ The app starts empty; add channels from **Settings > Channels**. Keep `./data` b
 - The direct player depends on yt-dlp keeping up with YouTube.
 - Two tabs playing the same video at different qualities replace each other's stream.
 - Stable volume and Voice boost only work in the direct player.
-- Tested on a MacBook with an M1 (2026-10-04) and on CachyOS (Arch Linux, KDE Plasma on Wayland). Results on the M1:
+- Tested on a MacBook with an M1 and on CachyOS (Arch Linux, KDE Plasma on Wayland) 2026-10-04.
 
   | Browser | Result |
   | --- | --- |
@@ -78,7 +78,7 @@ In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research
 
 ## Security and upgrades
 
-On 2026-10-04 `bun audit` listed **42 known advisories** for the dependency versions at the time of forking (12 in `app/`, 30 in `ui/`). Advisories are published against packages over time, so any project that stands still collects them. Every dependency in this fork is now at its latest version, and `bun audit` reports **0**.
+On 2026-10-04 `bun audit` listed **42 known advisories** for the dependency versions at the time of forking (12 in `app/`, 30 in `ui/`). `bun audit` now reports **0**.
 
 | Package | At fork (upstream) | Now (this fork) |
 | --- | --- | --- |
@@ -98,7 +98,6 @@ On 2026-10-04 `bun audit` listed **42 known advisories** for the dependency vers
 | emoji-picker-react | 4.19.1 | 4.22.3 |
 | lucide-react | 1.18.0 | 1.52.0 |
 
-To check again, run `bun audit` in `app/` and in `ui/` (the root has no lockfile).
 
 ## License
 
@@ -107,17 +106,7 @@ Licensed under the **GNU Affero General Public License v3.0 only** (`AGPL-3.0-on
 YouTube is a trademark of Google LLC. This project is not affiliated with, endorsed by, or associated with YouTube or Google LLC.
 
 ## Thanks
-
-YT Zero is better because of the people who contribute translations, testing,
-research, ideas, and code. Special thanks to:
-
-| Contributor | Contributions |
-| --- | --- |
-| <a href="https://github.com/Green-Kite"><img src="https://github.com/Green-Kite.png?size=40" height="20" alt="@Green-Kite avatar"> <strong>@Green-Kite</strong></a> | German language support and wiki updates. |
-| <a href="https://github.com/Zan1456"><img src="https://github.com/Zan1456.png?size=40" height="20" alt="@Zan1456 avatar"> <strong>@Zan1456</strong></a> | Hungarian language support. |
-| <a href="https://github.com/cerede2000"><img src="https://github.com/cerede2000.png?size=40" height="20" alt="@cerede2000 avatar"> <strong>@cerede2000</strong></a> | French translation and major contributions to audio mode through implementation, research, detailed issue reports, and continued testing. |
-| <a href="https://github.com/baldemar-wuda"><img src="https://github.com/baldemar-wuda.png?size=40" height="20" alt="@baldemar-wuda avatar"> <strong>@baldemar-wuda</strong></a> | Extensive testing, thoughtful suggestions, and bug reports. |
-| <a href="https://github.com/Taruvi"><img src="https://github.com/Taruvi.png?size=40" height="20" alt="@Taruvi avatar"> <strong>@Taruvi</strong></a> | Issue support, hands-on testing, and feature ideas. |
+To all contributors and special thanks to https://github.com/Pelski for this fantastic application.
 
 ## Development note
 
