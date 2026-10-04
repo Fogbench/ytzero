@@ -26,7 +26,7 @@ this.
 WHAT YOU NEED
 -------------
 
-Linux (x86_64 or aarch64): nothing installed beforehand except curl, and
+Linux (x86_64 or aarch64): nothing installed beforehand except curl, xz, and
 unzip or python3. install-linux.sh installs everything else, including Bun.
 
 macOS: you install Bun and the tools yourself, see the MACOS section. Only
@@ -85,11 +85,17 @@ install-linux.sh  (Linux only, run once)
   root and does not edit your shell profile. It first prints what it is about
   to do and asks for confirmation ("--yes" skips the question), then:
 
-  1. Installs Bun if you don't already have it. Bun is the program that runs
-     the server. If bun is already on your system it is used as it is and
-     not changed. If not, the matching Bun release is downloaded for your
-     CPU into ./bin/bun and checked against the checksum Bun publishes.
-     (CPUs without AVX2 get Bun's "baseline" build automatically.)
+  1. Installs the tools from the pinned list tools.lock (see below) into
+     ./bin: Bun (runs the server), Deno (lets yt-dlp solve YouTube's
+     JavaScript checks), yt-dlp (reads YouTube for the direct player), and
+     ffmpeg with ffprobe (audio and video handling). Every download is
+     checked against the sha256 checksum in tools.lock before it is used,
+     and must run on your machine, otherwise nothing is installed for it.
+     If one of these tools is already on your PATH it is used as found: it
+     is not downloaded and never touched. (CPUs without AVX2 get Bun's
+     "baseline" build automatically.) It runs on Linux x86_64 and aarch64
+     only; on another CPU it tells you to install the tools yourself.
+     Needs unzip or python3 (for Bun and Deno) and xz (for ffmpeg).
 
   2. Downloads the server's libraries by running Bun's command
      "bun install --production --frozen-lockfile" in app/. Note: here
@@ -99,28 +105,26 @@ install-linux.sh  (Linux only, run once)
      archive because some contain files that differ per CPU. Bun's download
      cache is kept in ./.bun-cache.
 
-  3. Runs scripts/install-deps.sh (next).
+  It also writes ./bin/.installed, a short list of which pinned versions it
+  installed, so update.sh can tell what has to change.
 
 
-scripts/install-deps.sh  (called by install-linux.sh)
+tools.lock  (the pinned tool list, one per release)
 
-  Downloads the helper tools into ./bin, but only those not already available
-  on your system:
+  A plain text list in this folder: for each tool, its exact version, and for
+  each CPU the download address and sha256 checksum. Nothing in it is
+  "latest". A given release always installs exactly these versions, whether
+  you install it fresh or reach it with update.sh, so two people on the same
+  release have the same tools. The tools are:
 
-    yt-dlp              Reads YouTube for the direct player.
-                        Source: the latest yt-dlp release on GitHub.
-    deno                Lets yt-dlp solve YouTube's JavaScript checks.
-                        Source: the latest Deno release on GitHub.
-    ffmpeg and ffprobe  Audio and video handling.
-                        Source: a static build from johnvansickle.com.
+    bun      1.4.2        deno     2.9.7
+    yt-dlp   2026.08.19   ffmpeg   7.0.2 (static build, johnvansickle.com)
 
-  - If yt-dlp, deno or ffmpeg is already on your PATH, it says "found" and
-    downloads nothing. Your own copy is never touched.
-  - It runs on Linux x86_64 and aarch64 only. On macOS or another CPU it
-    tells you to install the three tools yourself (for example with
-    Homebrew).
-  - These three downloads are not checksum-verified, and the versions are
-    "latest", not pinned.
+  One exception: yt-dlp. YouTube changes often, and the app can update yt-dlp
+  by itself on a schedule (set under Settings; it replaces the copy in ./bin).
+  So yt-dlp may be newer than the pinned version. update.sh does not
+  downgrade it: it only replaces yt-dlp when a new release pins a different
+  yt-dlp version.
 
 
 start.sh  (run every time)
@@ -153,18 +157,23 @@ update.sh  (update to the latest release)
     refuses to go on if the checksum file is missing or does not match, and
     copies your database (data/db) to
     ./backups/pre-update-<old version>-<time>/ before changing anything.
-  - It updates the whole application: the program files (app/src, ui/dist,
-    shared, scripts, the four scripts, README.txt, LICENSE, VERSION), the
-    server's libraries, and the tools in ./bin that the installer downloaded
-    (Bun, yt-dlp, Deno, ffmpeg, ffprobe), by running the new install-linux.sh.
-    The old tools are kept until the new ones work, and put back if the
-    refresh fails. A Bun, yt-dlp, Deno or ffmpeg already on your system is
-    left alone. ./data and ./backups are never overwritten.
+  - It makes this folder match the new release: every program folder (app,
+    ui/dist, shared, scripts) and every other file at the top of the release
+    (the scripts, tools.lock, README.txt, LICENSE, VERSION) is replaced.
+    ./data, ./backups, ./bin, ./.cache and ./.bun-cache are kept. The
+    server's libraries are deleted and installed again from bun.lock, so
+    the result equals a fresh install of that release.
+  - It changes only what the release specifies. For each tool it compares the
+    version pinned in the new tools.lock with the version recorded in
+    ./bin/.installed. Only a tool whose pinned version differs is replaced:
+    the new one is downloaded and checked against its sha256 first, and the
+    old one is kept until the new one works (and put back if anything
+    fails). Tools with the same pinned version are not touched, and a tool
+    found elsewhere on your PATH is left alone. Nothing is ever fetched as
+    "latest".
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
   - It needs internet access and a published (not draft) release.
-  - Between updates the app also keeps yt-dlp current by itself (it updates
-    the copy in ./bin on a schedule).
 
 
 uninstall.sh  (undo install-linux.sh)
@@ -173,7 +182,7 @@ uninstall.sh  (undo install-linux.sh)
 
   - app/node_modules, .bun-cache and .cache
   - Bun and the tools in ./bin that the installer downloaded
-    (bun, yt-dlp, deno, ffmpeg, ffprobe)
+    (bun, yt-dlp, deno, ffmpeg, ffprobe) and the list ./bin/.installed
 
   It keeps ./data and ./backups unless you ask otherwise, and never touches
   anything outside this folder. A Bun, yt-dlp, deno or ffmpeg that was
@@ -195,12 +204,16 @@ WHAT IS IN THE FOLDER
   app/                  The server (src/) and its dependency list
   ui/dist/              The built web client
   shared/               Code used by both the server and the web client
-  bin/                  Created by install-linux.sh: Bun and downloaded tools
+  bin/                  Created by install-linux.sh: the downloaded tools and
+                        .installed, the list of pinned versions installed
+  tools.lock            The pinned tool versions and checksums of this release
+  scripts/              tools-lib.sh, used by install-linux.sh and update.sh
   data/                 Created at first start: database, avatars, downloads
   VERSION               The release name shown by the app
   install-linux.sh      Installer (Linux)
   start.sh              Starts the server
-  update.sh             Updates to the latest release
+  update.sh             Updates to the latest release (same result as a fresh
+                        install of it)
   uninstall.sh          Removes what the installer added
   .bun-cache/           Bun's download cache, created by the installer
   .cache/               yt-dlp, Deno and Bun caches, created by start.sh
