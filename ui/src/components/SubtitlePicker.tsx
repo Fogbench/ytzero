@@ -1,4 +1,4 @@
-import { Captions, Check, LoaderCircle } from "lucide-react";
+import { Check, ClosedCaption, LoaderCircle } from "lucide-react";
 import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
 import { Menu, MenuItem, MenuSeparator, ScrollArea, Switch } from "./ui";
@@ -89,12 +89,12 @@ export default function SubtitlePicker({ videoId, selectedLanguage, loadingLangu
   if (!videoId) return null;
   return (
     <button
-      className={`lp-btn${selectedLanguage ? " active" : ""}`}
+      className={`lp-btn lp-cc${selectedLanguage ? " active" : ""}`}
       aria-label={t("subtitles")}
       aria-pressed={Boolean(selectedLanguage)}
       onClick={onToggle}
     >
-      {loadingLanguage ? <LoaderCircle className="spin" size={19} /> : <Captions size={20} />}
+      {loadingLanguage ? <LoaderCircle className="spin" size={19} /> : <ClosedCaption size={22} />}
     </button>
   );
 }
