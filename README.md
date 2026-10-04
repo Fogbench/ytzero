@@ -34,7 +34,7 @@
 >
 > Known limits: the direct player proxies H.264/AAC and AV1 streams from YouTube, so it depends on yt-dlp keeping up with YouTube, and two tabs playing the same video at different qualities replace each other's stream. Stable volume and Voice boost only work in the direct player. It has been tested mostly in Firefox and Chrome.
 
-It reads public YouTube RSS feeds, stores everything in your own SQLite or PostgreSQL database, and gives you a calm place to sort, schedule, watch, archive, and revisit videos from creators you already follow. With the optional [yt-dlp](https://github.com/yt-dlp/yt-dlp) integration it can even download those videos and play them from disk, in its own player.
+It reads public YouTube RSS feeds, stores everything in your own SQLite or PostgreSQL database, and gives you a calm place to sort, schedule, watch, archive, and revisit videos from creators you already follow. [yt-dlp](https://github.com/yt-dlp/yt-dlp) is installed with the app: it lets YT Zero stream videos through your own server into its own player, and, if you switch Downloads on, keep copies on disk.
 
 PostgreSQL deployments can run multiple HTTP replicas with one nominated
 background worker. See the [clustered deployment configuration](wiki/Configuration.md#clustered-postgresql-deployment)
@@ -77,7 +77,7 @@ YT Zero removes that layer. It keeps subscriptions, watch progress, playlists, t
 - **Real playback controls** — theater view, captions, quality, display settings, and optional SponsorBlock support.
 - **Audio-only background playback** — switch a video or active livestream to a compact audio player that can keep playing from the lock screen on supported mobile browsers.
 - **[Direct video streaming](docs/direct-streaming-research.md)** — play YouTube video and audio on demand in the built-in player, with seeking and no offline file or background download. Supports available H.264/AAC formats within your selected quality limit.
-- **Downloads & local playback** — the optional yt-dlp plugin fetches videos to disk and plays them in YT Zero's own player: instant seeking, no embeds, no buffering, works offline.
+- **Downloads & local playback** — Downloads (a per-profile switch, off by default) fetch videos to disk and play them in YT Zero's own player: instant seeking, no embeds, no buffering, works offline.
 - **TubeArchivist source** — connect an existing TubeArchivist archive and let its videos appear directly in the normal feed, with protected local playback, archived comments and subtitles, and watched-status synchronization.
 - **Works for households** — profiles, authentication modes, child profiles with watch-time limits, and child lock make one install usable by more than one person.
 - **Pulse** — understand actual viewing time by profile, channel, tag, hour, weekday, and content type without sending analytics outside your server.
@@ -99,7 +99,7 @@ YT Zero removes that layer. It keeps subscriptions, watch progress, playlists, t
 - **Public sharing** — optional, default-off bearer links for individual videos, personal playlists, and followed YouTube playlists, with per-link local-media access and a separate read-only `/share/*` surface. Public links bypass normal sign-in; read the [security and proxy guide](docs/public-sharing.md) before enabling or exposing them.
 - **Child lock** — PIN-protect household settings while leaving each profile's own tags and playlists editable.
 - **Child profiles** — daily watch-time limits, parent-approved extensions, subscribed-content-only mode, optional Shorts/live blocking, downloaded-videos-only mode, reduced settings access, and a parent activity panel with immediate stop/unlock controls.
-- **Downloads (yt-dlp)** — an optional plugin for scheduled, manual, playlist-wide, and rule-based downloads. It plays local files in a built-in player, supports metadata and subtitle sidecars, shows live progress, and cleans up with retention rules and a storage cap.
+- **Downloads (yt-dlp)** — a per-profile switch, off by default, for scheduled, manual, playlist-wide, and rule-based downloads. It plays local files in a built-in player, supports metadata and subtitle sidecars, shows live progress, and cleans up with retention rules and a storage cap.
 - **TubeArchivist Integration** — an optional, default-disabled plugin that treats TubeArchivist as a headless source for the existing feed rather than adding a separate library page. Catalog items are deduplicated by YouTube ID and protected media is streamed through YT Zero without exposing the TubeArchivist token.
 - **Shorts tab & player** — a followed-channels-only vertical Shorts feed with format-native cards and a full-screen swipe player.
 - **SponsorBlock** — optionally skip sponsored segments, intros, outros, and more.
@@ -115,9 +115,9 @@ YT Zero removes that layer. It keeps subscriptions, watch progress, playlists, t
 
 See the full list with screens in the **[Features](wiki/Features.md)** wiki page.
 
-## Downloads & offline playback (yt-dlp)
+## yt-dlp: direct playback and downloads
 
-The **YT-DLP Integration** plugin (disabled by default) uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) to keep local copies of the videos you actually plan to watch — and plays them in YT Zero's own player instead of the YouTube embed:
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) is installed by `bun run setup` and is always used for direct playback, audio mode, subtitles and comments. On top of that, the **Downloads** feature, a per-profile switch in **Settings > Downloads** that is off by default, uses it to keep local copies of the videos you actually plan to watch — and plays them in YT Zero's own player instead of the YouTube embed:
 
 - **Automatic downloads** — videos you schedule for later are fetched ahead of time; optionally every fresh upload from followed channels.
 - **Watch your way** — when a video isn't downloaded yet, choose: play from YouTube now, or wait for a priority download and watch locally. Either can be the default.
@@ -126,8 +126,7 @@ The **YT-DLP Integration** plugin (disabled by default) uses [yt-dlp](https://gi
 - **Household-aware** — one download serves every profile, and child profiles can be limited to downloaded videos only.
 
 `bun run setup` downloads yt-dlp, ffmpeg and Deno into `./bin` (Linux). Deno is
-the JavaScript runtime yt-dlp uses to solve YouTube's extraction challenges;
-Deno 2.3 or newer must be on `PATH`. YT Zero checks
+the JavaScript runtime yt-dlp uses to solve YouTube's extraction challenges. YT Zero checks
 available Deno executables in PATH order and passes a supported executable
 directly to yt-dlp, so an older installation cannot shadow a working one.
 Administrators
@@ -144,8 +143,8 @@ is locked. Media Session integration provides system play/pause and seeking
 controls where the browser supports them.
 
 Audio mode supports regular public videos and active public livestreams. It
-requires yt-dlp to be available on the YT Zero server, but the downloads plugin
-does not need to be enabled and no media file is kept on disk. The choice is
+uses yt-dlp on the YT Zero server, but the Downloads switch
+does not need to be on and no media file is kept on disk. The choice is
 remembered in that browser for the active profile, so continuous playback can
 remain in audio mode across videos. Upcoming, private, members-only, unavailable,
 child-profile, and Watch Together playback is excluded.
@@ -178,7 +177,7 @@ security, backup behavior, troubleshooting, and limitations:
 
 ## How it works
 
-YT Zero does not scrape your account or sync with YouTube through a private API. It watches public channel feeds, fetches the metadata needed to build your local library, and serves that library back as a quieter interface. With the yt-dlp plugin enabled, it additionally downloads the video files themselves — everything else stays the same.
+YT Zero does not scrape your account or sync with YouTube through a private API. It watches public channel feeds, fetches the metadata needed to build your local library, and serves that library back as a quieter interface. It then streams the video through your server with yt-dlp, or, with Downloads switched on, saves the video files — everything else stays the same.
 
 That means:
 
@@ -189,7 +188,7 @@ That means:
 
 ## Quick start
 
-Run it natively with [Bun](https://bun.sh). `bun run setup` installs the JavaScript dependencies and, on Linux (x86_64, aarch64), downloads yt-dlp, Deno and ffmpeg into `./bin` when they are not already on your `PATH` (needs `curl`, `xz` and `unzip` or `python3`). On macOS install them yourself, for example with Homebrew. Without yt-dlp the app still runs, but plays through the YouTube embed.
+Run it natively with [Bun](https://bun.sh). `bun run setup` installs the JavaScript dependencies and, on Linux (x86_64, aarch64), downloads yt-dlp, Deno and ffmpeg into `./bin` when they are not already on your `PATH` (needs `curl`, `xz` and `unzip` or `python3`). On macOS install them yourself, for example with Homebrew. If yt-dlp is missing the app still runs and uses the YouTube embed.
 
 ```bash
 git clone https://github.com/Fogbench/ytzero && cd ytzero
@@ -225,13 +224,13 @@ Documentation lives in the [`wiki/`](wiki/) folder of this repository (some of t
 | Backend | Bun, Hono |
 | Frontend | React, Vite, TypeScript |
 | Storage | SQLite by default, PostgreSQL optional |
-| Downloads | [yt-dlp](https://github.com/yt-dlp/yt-dlp) + Deno + ffmpeg (optional plugin) |
+| Media | [yt-dlp](https://github.com/yt-dlp/yt-dlp) + Deno + ffmpeg (installed by `bun run setup`) |
 | Archive integration | TubeArchivist API and protected media proxy (optional plugin) |
 | Runtime | Bun |
 
 ## Privacy & license
 
-YT Zero does not require a Google account or a YouTube Data API key, and stores app data in your own SQLite or PostgreSQL database. It still connects to YouTube to fetch RSS feeds, metadata, thumbnails, pages, and embedded videos. With the YT-DLP Integration plugin enabled it also downloads video files from YouTube via yt-dlp; those files are stored locally and removed by the plugin's retention rules.
+YT Zero does not require a Google account or a YouTube Data API key, and stores app data in your own SQLite or PostgreSQL database. It still connects to YouTube to fetch RSS feeds, metadata, thumbnails, pages, and embedded videos. It also uses yt-dlp to stream videos from YouTube through your server for the direct player; with Downloads switched on it saves video files locally, removed by the retention rules.
 
 With the optional TubeArchivist plugin enabled, the YT Zero server connects to
 the administrator-configured TubeArchivist origin to synchronize metadata,
