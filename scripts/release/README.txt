@@ -19,14 +19,8 @@ PORTABLE: install-linux.sh, start.sh, update.sh and uninstall.sh make no
 changes to your PC outside this folder. Nothing is written to your home
 directory (no ~/.bashrc edit, no ~/.cache, no ~/.bun), to /usr, /etc or /opt,
 and no system service or scheduled job is created. Bun, yt-dlp, Deno, ffmpeg
-and every cache live inside the folder, so you can move or delete the folder.
-Checked on Linux (2026-10-04) by comparing the home directory and system
-folders before and after install, running the server with real video
-playback, updating and uninstalling. Only short-lived temporary files in /tmp
-while a script runs are outside the folder; they are removed afterwards.
-This holds when you start the server with start.sh. If you start it some
-other way, Bun, yt-dlp and Deno will use their normal cache folders under
-your home directory. macOS (manual steps) is not covered by this check.
+and every cache live inside the folder. macOS (manual steps) is not covered by
+this.
 
 
 WHAT YOU NEED
@@ -165,7 +159,9 @@ update.sh  (update to the latest release)
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
   - It needs internet access and a published (not draft) release. It does
-    not update yt-dlp, Deno or ffmpeg.
+    not update yt-dlp, Deno or ffmpeg. The app keeps yt-dlp current by
+    itself (it updates the copy in ./bin on a schedule). To refresh Deno or
+    ffmpeg, delete them from ./bin and run bash install-linux.sh again.
 
 
 uninstall.sh  (undo install-linux.sh)
