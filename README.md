@@ -125,7 +125,7 @@ The **YT-DLP Integration** plugin (disabled by default) uses [yt-dlp](https://gi
 - **Smart retention** — keep files for N days or retain them in a profile until manually deleted; optionally drop watched files, protect liked and pinned videos, and cap total shared disk usage. The storage cap can still evict unprotected downloads retained by a profile.
 - **Household-aware** — one download serves every profile, and child profiles can be limited to downloaded videos only.
 
-yt-dlp, ffmpeg and Deno are not bundled: install them yourself. Deno is
+`bun run setup` downloads yt-dlp, ffmpeg and Deno into `./bin` (Linux). Deno is
 the JavaScript runtime yt-dlp uses to solve YouTube's extraction challenges;
 Deno 2.3 or newer must be on `PATH`. YT Zero checks
 available Deno executables in PATH order and passes a supported executable
@@ -189,7 +189,7 @@ That means:
 
 ## Quick start
 
-Run it natively with [Bun](https://bun.sh) on Linux or macOS, with `yt-dlp`, `ffmpeg` and `deno` (2.3 or newer) on your `PATH`. Without yt-dlp the app still runs, but plays through the YouTube embed.
+Run it natively with [Bun](https://bun.sh). `bun run setup` installs the JavaScript dependencies and, on Linux (x86_64, aarch64), downloads yt-dlp, Deno and ffmpeg into `./bin` when they are not already on your `PATH` (needs `curl`, `xz` and `unzip` or `python3`). On macOS install them yourself, for example with Homebrew. Without yt-dlp the app still runs, but plays through the YouTube embed.
 
 ```bash
 git clone https://github.com/Fogbench/ytzero && cd ytzero
