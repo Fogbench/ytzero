@@ -76,12 +76,13 @@ export function buildSubtitleAvailability(
 ): AvailableSubtitle[] {
   const automatic = new Set([...automaticLanguages].filter(validLanguageCode).map(normalizeSubtitleLanguage));
   const groups = new Map<string, { label: string; tracks: string[] }>();
-  const add = (source: Record<string, unknown>, include: (lang: string) => boolean) => {
+  const add = (source: Record<string, unknown>, include: (lang: string, track: string) => boolean) => {
     for (const [track, formats] of Object.entries(source)) {
       if (!validLanguageCode(track)) continue;
       if (!directVttUrl(formats)) continue;
-      const lang = normalizeSubtitleLanguage(track);
-      if (!include(lang)) continue;
+      // YouTube names the video's own spoken language "<lang>-orig" among the auto captions.
+      const lang = normalizeSubtitleLanguage(track.replace(/-orig$/, ""));
+      if (!include(lang, track)) continue;
       const current = groups.get(lang);
       if (current) {
         if (!current.tracks.includes(track)) current.tracks.push(track);
@@ -94,7 +95,11 @@ export function buildSubtitleAvailability(
   // Author tracks always belong in the menu. Auto captions supplement them,
   // but never replace their order or label.
   add(subtitles, () => true);
-  if (!(automaticOnlyAsFallback && groups.size > 0)) add(automaticCaptions, (lang) => automatic.has(lang));
+  // With no author tracks at all, also offer the video's own language, even if it is not one of the preferred ones.
+  const noAuthorTracks = groups.size === 0;
+  if (!(automaticOnlyAsFallback && !noAuthorTracks)) {
+    add(automaticCaptions, (lang, track) => automatic.has(lang) || (noAuthorTracks && track.endsWith("-orig")));
+  }
   return [...groups.entries()]
     .map(([lang, value]) => ({ lang, label: value.label, tracks: value.tracks }))
     .sort((a, b) => a.label.localeCompare(b.label));

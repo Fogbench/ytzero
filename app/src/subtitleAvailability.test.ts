@@ -49,6 +49,12 @@ describe("subtitle availability", () => {
     expect(buildSubtitleAvailability({}, automatic, ["fr"], true).map((s) => s.lang)).toEqual(["fr"]);
   });
 
+  test("with no author tracks, offers the video's own auto-caption language", () => {
+    const available = buildSubtitleAvailability({}, { "en-orig": vtt("English (Original)"), en: vtt("English"), de: vtt("German") }, ["pl"], true);
+    expect(available.map((s) => s.lang)).toEqual(["en"]);
+    expect(available[0].tracks).toEqual(["en-orig"]);
+  });
+
   test("offers only direct WebVTT and excludes HLS manifests", () => {
     const available = buildSubtitleAvailability(
       {
