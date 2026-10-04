@@ -2,7 +2,7 @@
 # Undoes what install-linux.sh did, inside this folder only:
 #   - removes app/node_modules
 #   - removes Bun and the tools install-linux.sh downloaded into ./bin (bun, yt-dlp, deno, ffmpeg, ffprobe)
-#   - removes .bun-cache (Bun's download cache for this folder)
+#   - removes .bun-cache and .cache (Bun, yt-dlp and Deno caches for this folder)
 #   - keeps ./data (your database and downloads) unless you ask for it to be removed
 # It never touches anything outside this folder, so a Bun, yt-dlp, deno or ffmpeg
 # that was already installed on your system stays exactly as it was.
@@ -37,6 +37,7 @@ done
 targets=()
 [ -d "$ROOT_DIR/app/node_modules" ] && targets+=("$ROOT_DIR/app/node_modules")
 [ -d "$ROOT_DIR/.bun-cache" ] && targets+=("$ROOT_DIR/.bun-cache")
+[ -d "$ROOT_DIR/.cache" ] && targets+=("$ROOT_DIR/.cache")
 for tool in bun yt-dlp deno ffmpeg ffprobe; do
   if [ -e "$ROOT_DIR/bin/$tool" ] || [ -L "$ROOT_DIR/bin/$tool" ]; then targets+=("$ROOT_DIR/bin/$tool"); fi
 done
