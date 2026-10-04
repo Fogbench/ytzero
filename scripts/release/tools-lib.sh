@@ -53,7 +53,12 @@ tl_system_path() {
   PATH="$p" command -v "$1" 2>/dev/null || true
 }
 
-tl_installed_version() { sed -n "s/^$1 //p" "$TL_INSTALLED" 2>/dev/null | head -n 1; }
+# The recorded version of a tool. No file, or no line for the tool, means "no record":
+# empty output and success (a missing file must not stop a script that uses set -e).
+tl_installed_version() {
+  [ -f "$TL_INSTALLED" ] || return 0
+  sed -n "/^$1 /{s///p;q;}" "$TL_INSTALLED" 2>/dev/null || true
+}
 
 tl_record() { # <tool> <version>
   local tmp="$TL_INSTALLED.tmp"
