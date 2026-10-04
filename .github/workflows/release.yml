@@ -1,0 +1,48 @@
+name: Release tarball
+
+# Runs when a tag starting with "v" is pushed (or by hand). It builds the tarball
+# and its checksum and attaches them to a DRAFT release. Nothing is public until
+# the draft is published by hand on GitHub.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version name for the files (for example v2.0.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  tarball:
+    name: Build the tarball and draft the release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up the Bun runtime
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install server dependencies
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Build the tarball
+        env:
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: bash scripts/package-release.sh "$VERSION"
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.event.inputs.version || github.ref_name }}
+        run: |
+          gh release create "$VERSION" --draft --title "$VERSION" \
+            --notes "Draft: edit the notes, then publish." \
+            release/ytzero-"$VERSION".tar.gz release/ytzero-"$VERSION".tar.gz.sha256
