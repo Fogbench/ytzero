@@ -24,8 +24,9 @@ interface PlayerSettingsMenuProps {
   };
   /** Current playback speed, e.g. 1.5. */
   speed: number;
-  /** Speeds to offer, as the strings the page uses ("0.5", "1", "1.25"). */
-  speedOptions: string[];
+  /** Called while the slider moves: apply the speed to the video only. */
+  onSpeedPreview?: (speed: number) => void;
+  /** Called when the viewer lets go of the slider: apply and save the speed. */
   onSpeedChange?: (speed: number) => void;
   /** Subtitles row; same data the CC button uses. Leave out when there is no video id. */
   subtitles?: {
@@ -46,15 +47,22 @@ interface PlayerSettingsMenuProps {
 const SUBTITLE_COLORS = ["#ffffff", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000", "#000000"] as const;
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
-export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpeedChange, subtitles }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle">("main");
+  // While the slider is being dragged we show its own value; null means "use the saved speed".
+  const [speedDraft, setSpeedDraft] = useState<number | null>(null);
+  const commitSpeed = () => {
+    if (speedDraft == null) return;
+    onSpeedChange?.(speedDraft);
+    setSpeedDraft(null);
+  };
   const { qualities = [], loading = false, choice = { height: "auto", codec: "av01" } as QualityChoice, active = null, onChoiceChange = () => {} } = quality ?? {};
 
   const changeOpen = (next: boolean) => {
     setOpen(next);
-    if (!next) setPanel("main");
+    if (!next) { commitSpeed(); setPanel("main"); }
   };
   const otherCodec = (codec: QualityCodec): QualityCodec => (codec === "av01" ? "avc1" : "av01");
   // The two codec switches behave like a pair: one is always on.
@@ -149,19 +157,22 @@ export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpe
         ) : panel === "speed" ? (
           <>
             <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerSpeed")}</MenuHeader>
-            <ScrollArea className="lp-sub-menu-list-wrap" viewportClassName="lp-sub-menu-list">
-              <Menu>
-                {speedOptions.map((option) => (
-                  <MenuItem
-                    key={option}
-                    selected={Number(option) === speed}
-                    onClick={() => { onSpeedChange?.(Number(option)); changeOpen(false); }}
-                  >
-                    {option}×
-                  </MenuItem>
-                ))}
-              </Menu>
-            </ScrollArea>
+            <div className="lp-sub-toggle">
+              <span>{(speedDraft ?? speed).toFixed(2)}×</span>
+            </div>
+            <div className="lp-settings-slider">
+              <Slider
+                min={0.25}
+                max={2}
+                step={0.05}
+                value={speedDraft ?? speed}
+                aria-label={t("playerSpeed")}
+                onChange={(next) => { const rate = Math.round(next * 100) / 100; setSpeedDraft(rate); onSpeedPreview?.(rate); }}
+                onPointerUp={commitSpeed}
+                onKeyUp={commitSpeed}
+                onBlur={commitSpeed}
+              />
+            </div>
           </>
         ) : (
           <>

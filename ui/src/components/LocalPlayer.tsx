@@ -13,7 +13,6 @@ import {
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
-import { DEFAULT_PLAYBACK_SPEEDS } from "../../../shared/playbackSpeeds";
 import { stepPlaybackRate } from "../playbackSpeedStep";
 import { resolveShortcutBindings, shortcutActionMatches } from "../keyboardShortcuts";
 import {
@@ -94,8 +93,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   poster?: string;
   startSeconds?: number;
   playbackRate?: number;
-  /** Speeds listed in the gear menu, and what to call when the viewer picks one. */
-  speedOptions?: string[];
+  /** Called when the viewer sets a speed in the gear menu (the page saves it). */
   onSpeedChange?: (speed: number) => void;
   autoplay?: boolean;
   /** Locks viewer-initiated play, pause, seek, and speed changes while still
@@ -153,7 +151,6 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   poster,
   startSeconds = 0,
   playbackRate = 1,
-  speedOptions = DEFAULT_PLAYBACK_SPEEDS as readonly string[] as string[],
   onSpeedChange,
   autoplay = true,
   transportLocked = false,
@@ -1022,7 +1019,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
                 onChoiceChange: changeQualityChoice,
               } : undefined}
               speed={playbackRate}
-              speedOptions={speedOptions}
+              onSpeedPreview={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; }}
               onSpeedChange={transportLocked ? undefined : onSpeedChange}
               subtitles={videoId ? {
                 available: availableSubs,
