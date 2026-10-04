@@ -8,8 +8,8 @@ import { useI18n } from "../i18n";
 import SubtitlePicker from "./SubtitlePicker";
 import PlayerSettingsMenu from "./PlayerSettingsMenu";
 import {
-  qualityContentType, readQualityChoice, resolveQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
-  type DirectAudioTrack, type DirectQuality, type QualityChoice,
+  decodeVerdict, qualityContentType, readQualityChoice, resolveQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
+  type DecodeInfo, type DirectAudioTrack, type DirectQuality, type QualityChoice,
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
@@ -67,12 +67,19 @@ function fmtTime(s: number): string {
   return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-/** Can this browser decode the quality's codec, smoothly where it can tell? */
-async function canDecodeQuality(quality: DirectQuality): Promise<boolean> {
+/**
+ * Asks the browser whether it can decode this quality, and whether it can do so
+ * smoothly (`smooth` is false for software decoding that cannot keep up).
+ * Where the browser cannot tell (no `mediaCapabilities`, or it throws), we
+ * assume it can; an unsupported codec string is always refused.
+ */
+async function checkDecode(quality: DirectQuality): Promise<DecodeInfo> {
   const contentType = qualityContentType(quality);
-  if (typeof MediaSource !== "undefined" && !MediaSource.isTypeSupported(contentType)) return false;
+  if (typeof MediaSource !== "undefined" && !MediaSource.isTypeSupported(contentType)) {
+    return { supported: false, smooth: false };
+  }
   const capabilities = navigator.mediaCapabilities;
-  if (!capabilities?.decodingInfo) return true;
+  if (!capabilities?.decodingInfo) return decodeVerdict(null);
   try {
     const info = await capabilities.decodingInfo({
       type: "media-source",
@@ -84,9 +91,9 @@ async function canDecodeQuality(quality: DirectQuality): Promise<boolean> {
         framerate: quality.fps,
       },
     });
-    return info.supported;
+    return decodeVerdict(info);
   } catch {
-    return true;
+    return decodeVerdict(null);
   }
 }
 
@@ -439,6 +446,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   });
   // null while the list is loading; [] when it failed, which plays the server default.
   const [playable, setPlayable] = useState<DirectQuality[] | null>(directQualities ? null : []);
+  // Which of those decode smoothly. "auto" picks only from these; a quality the viewer picks by hand may be outside it.
+  const [smoothIds, setSmoothIds] = useState<ReadonlySet<string>>(() => new Set());
   const switchRef = useRef<{ position: number; playing: boolean } | null>(null);
   const [switchStart, setSwitchStart] = useState<number | null>(null);
   // Audio languages the video offers (empty = just one), and the one picked (null = the video's own).
@@ -449,20 +458,26 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     if (!directQualities || !videoId) { setPlayable([]); return; }
     let cancelled = false;
     setPlayable(null);
+    setSmoothIds(new Set());
     setAudioTracks([]);
     setAudioChoice(null);
     void api.directQualities(videoId)
       .then(async ({ qualities, audioTracks: tracks }) => {
         if (!cancelled) setAudioTracks(tracks ?? []);
-        const checks = await Promise.all(qualities.map((quality) => canDecodeQuality(quality)));
-        return qualities.filter((_, index) => checks[index]);
+        const checks = await Promise.all(qualities.map((quality) => checkDecode(quality)));
+        const smooth = new Set(qualities.filter((_, index) => checks[index].smooth).map((quality) => quality.id));
+        return { list: qualities.filter((_, index) => checks[index].supported), smooth };
       })
-      .catch(() => [] as DirectQuality[])
-      .then((list) => { if (!cancelled) setPlayable(list); });
+      .catch(() => ({ list: [] as DirectQuality[], smooth: new Set<string>() }))
+      .then(({ list, smooth }) => {
+        if (cancelled) return;
+        setSmoothIds(smooth);
+        setPlayable(list);
+      });
     return () => { cancelled = true; };
   }, [directQualities, videoId]);
 
-  const activeQuality = useMemo(() => resolveQuality(qualityChoice, playable ?? []), [qualityChoice, playable]);
+  const activeQuality = useMemo(() => resolveQuality(qualityChoice, playable ?? [], smoothIds), [qualityChoice, playable, smoothIds]);
   // When the chosen quality fails for good, retry once on the server's default
   // stream before the page gives up on the direct player altogether.
   const [qualityFailed, setQualityFailed] = useState(false);
@@ -485,7 +500,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       localStorage.setItem(QUALITY_CODEC_KEY, choice.codec);
     } catch {}
     setQualityFailed(false);
-    const next = resolveQuality(choice, playable ?? []);
+    const next = resolveQuality(choice, playable ?? [], smoothIds);
     const video = videoRef.current;
     if (next && next.id !== activeQuality?.id && video) {
       // Remember where we were; the new stream starts there, playing only if we were.

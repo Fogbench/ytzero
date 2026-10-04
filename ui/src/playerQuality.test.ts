@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { heightLabel, qualityRows, readQualityChoice, resolveQuality, type DirectQuality } from "./playerQuality";
+import { decodeVerdict, heightLabel, qualityRows, readQualityChoice, resolveQuality, type DirectQuality } from "./playerQuality";
 
 const q = (height: number, codec: "avc1" | "av01", fps = 30, hdr = false): DirectQuality => (
   { id: `${height}-${codec}`, width: Math.round(height * 16 / 9), height, fps, codec, hdr }
@@ -37,5 +37,28 @@ describe("player quality menu", () => {
     expect(readQualityChoice(store({}))).toEqual({ height: "auto", codec: "av01" });
     expect(readQualityChoice(store({ "ytzero.player.qualityHeight": "720", "ytzero.player.qualityCodec": "avc1" })))
       .toEqual({ height: 720, codec: "avc1" });
+  });
+
+  test("decode verdict: smooth needs supported and smooth; no answer counts as fine", () => {
+    expect(decodeVerdict({ supported: true, smooth: true })).toEqual({ supported: true, smooth: true });
+    expect(decodeVerdict({ supported: true, smooth: false })).toEqual({ supported: true, smooth: false });
+    expect(decodeVerdict({ supported: false, smooth: true })).toEqual({ supported: false, smooth: false });
+    expect(decodeVerdict(null)).toEqual({ supported: true, smooth: true });
+    expect(decodeVerdict(undefined)).toEqual({ supported: true, smooth: true });
+  });
+
+  test("auto skips entries that are not smooth; a picked height still uses them", () => {
+    // No hardware AV1: AV1 plays (supported) but not smoothly; MP4 is fine.
+    const smooth = new Set(["1080-avc1", "720-avc1"]);
+    expect(resolveQuality({ height: "auto", codec: "av01" }, list, smooth)?.id).toBe("1080-avc1");
+    expect(resolveQuality({ height: "auto", codec: "avc1" }, list, smooth)?.id).toBe("1080-avc1");
+    expect(resolveQuality({ height: 2160, codec: "av01" }, list, smooth)?.id).toBe("2160-av01");
+    expect(resolveQuality({ height: 1080, codec: "av01" }, list, smooth)?.id).toBe("1080-av01");
+    expect(qualityRows("av01", list).map((e) => e.id)).toEqual(["2160-av01", "1440-av01", "1080-av01", "720-av01"]); // menu unchanged
+    // Nothing smooth: auto takes the lowest height rather than the tallest.
+    expect(resolveQuality({ height: "auto", codec: "av01" }, list, new Set())?.id).toBe("720-av01");
+    // All smooth (or the browser could not tell): same as before.
+    const all = new Set(list.map((entry) => entry.id));
+    expect(resolveQuality({ height: "auto", codec: "av01" }, list, all)?.id).toBe("2160-av01");
   });
 });
