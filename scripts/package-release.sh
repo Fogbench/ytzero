@@ -3,7 +3,8 @@
 # Usage: bash scripts/package-release.sh [version]   (default: git describe)
 # The tarball keeps the repository layout (app/, ui/dist, shared/) because the
 # server imports ../../shared. Dependencies are NOT inside it: the user runs
-# `bash install-linux.sh`, which installs them for their own CPU.
+# `bash install-linux.sh`, which installs them for their own CPU, together
+# with the tools pinned in tools.lock.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,7 +25,8 @@ cp -r app/src "$OUT/$NAME/app/src"
 cp app/package.json app/bun.lock "$OUT/$NAME/app/"
 cp -r ui/dist "$OUT/$NAME/ui/dist"
 cp -r shared "$OUT/$NAME/shared"
-cp scripts/install-deps.sh "$OUT/$NAME/scripts/"
+cp scripts/release/tools-lib.sh "$OUT/$NAME/scripts/"
+cp scripts/release/tools.lock "$OUT/$NAME/"
 cp scripts/release/install-linux.sh scripts/release/start.sh scripts/release/uninstall.sh scripts/release/update.sh "$OUT/$NAME/"
 cp LICENSE "$OUT/$NAME/"; cp scripts/release/README.txt "$OUT/$NAME/README.txt"
 echo "$VERSION" > "$OUT/$NAME/VERSION"

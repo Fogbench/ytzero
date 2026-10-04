@@ -37,7 +37,6 @@ else
   if command -v unzip >/dev/null; then unzip -q -o "$tmp/deno.zip" deno -d "$BIN_DIR"
   else python3 -c "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extract('deno', sys.argv[2])" "$tmp/deno.zip" "$BIN_DIR"; fi
   chmod 0755 "$BIN_DIR/deno"
-  rm -rf "$tmp"
 fi
 
 if command -v ffmpeg >/dev/null; then
@@ -49,7 +48,6 @@ else
   curl -fsSL "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-$FFMPEG_ARCH-static.tar.xz" -o "$tmp/ffmpeg.tar.xz"
   tar -xJf "$tmp/ffmpeg.tar.xz" -C "$tmp" --wildcards '*/ffmpeg' '*/ffprobe'
   mv "$tmp"/*/ffmpeg "$tmp"/*/ffprobe "$BIN_DIR/"
-  rm -rf "$tmp"
 fi
 
 "$BIN_DIR/yt-dlp" --version >/dev/null 2>&1 || command -v yt-dlp >/dev/null || die "yt-dlp does not run on this machine."
