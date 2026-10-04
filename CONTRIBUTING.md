@@ -1,6 +1,7 @@
 # Contributing to YT Zero
 
-Thanks for your interest in improving ytzero! This is a personal, self-hosted
+Thanks for your interest in improving ytzero! This is a community fork of
+[Pelski/ytzero](https://github.com/Pelski/ytzero). This is a personal, self-hosted
 project, so contributions are welcome but kept lightweight. Please read this
 guide before opening an issue or pull request.
 
@@ -31,7 +32,6 @@ Vite, and in production the backend serves the static files from `ui/dist`.
 ## Prerequisites
 
 - [Bun](https://bun.sh) (the only required toolchain — no Node.js needed)
-- Optionally Docker, if you want to test the container build
 
 ## Getting started
 
@@ -85,20 +85,12 @@ include migration paths for both supported database engines.
 
 ## Pull request workflow
 
-`main` is protected. All changes go through a pull request:
+All changes go through a pull request:
 
 1. Branch off `main` (e.g. `fix/live-detection`, `feat/playlist-import`).
 2. Make your change and keep commits focused.
 3. Make sure type-checks and the build pass locally.
 4. Open a PR against `main` with a clear description of *what* and *why*.
-
-Notes:
-
-- PRs are **squash-merged**, so the final commit on `main` is your PR title and
-  description. A clean per-commit history on your branch is appreciated but not
-  required — it gets squashed anyway.
-- History on `main` is linear; force-pushes and direct pushes to `main` are
-  blocked.
 
 ## Release versioning
 
@@ -109,11 +101,10 @@ counter that starts at `1` each month. For example, the first two releases in
 August 2026 are `2026.08.1` and `2026.08.2`; the first September release is
 `2026.09.1`.
 
-Pushing a valid release tag builds the GitHub release assets and publishes
-container tags for the exact release, its month and year channels, and
-`latest` (for example `2026.08.1`, `2026.08`, `2026`, and `latest`). The
-private `app/package.json` and `ui/package.json` versions are package-manager
-metadata and are intentionally independent from the product release tag.
+Release tags are cut by hand; the fork has no container images or automated
+release builds. The private `app/package.json` and `ui/package.json` versions
+are package-manager metadata and are intentionally independent from the
+product release tag.
 
 ## Coding style
 
