@@ -172,6 +172,40 @@ check "P1 package-release.sh stamped the commit of the git repo (real git-archiv
   bash -c '[ "$(tar -xzOf "$1" ytzero-v2.0.0/app/src/build-commit.txt 2>/dev/null)" = "$2" ]' _ "$REL/ytzero-v2.0.0.tar.gz" "$BUILD_COMMIT"
 checkx "P2 MANIFEST lists exactly the top-level entries of the tarball" \
   '[ "$(tar -xzOf "$REL/ytzero-v2.0.0.tar.gz" ytzero-v2.0.0/MANIFEST 2>/dev/null | LC_ALL=C sort)" = "$(tar -tzf "$REL/ytzero-v2.0.0.tar.gz" | cut -d/ -f2 | grep . | LC_ALL=C sort -u)" ]'
+# P3 (R2-14): the tarball does not depend on GitHub. Package the same commit twice while a fake GitHub
+# (own port, own log) answers a different release list every time; the ui build is pointed at it with
+# YTZERO_CHANGELOG_API. Same bytes both times, and the releases list was never requested.
+mkdir -p "$T/repro"; : > "$T/repro/requests.log"
+cat > "$T/repro/fake-github.py" <<'PYEOF'
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+log, count = sys.argv[2], [0]
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        count[0] += 1
+        with open(log, "a") as f: f.write(self.path + "\n")
+        body = json.dumps([{"tag_name": "2026.09.%d" % count[0], "name": "fake %d" % count[0], "body": "- note %d" % count[0],
+                            "published_at": "2026-09-01T00:00:00Z", "html_url": "http://127.0.0.1/%d" % count[0]}]).encode()
+        self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(body)
+    def log_message(self, *a): pass
+HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+PYEOF
+RP_PORT="$(free_port)"
+python3 "$T/repro/fake-github.py" "$RP_PORT" "$T/repro/requests.log" >/dev/null 2>&1 &
+RP_PID=$!
+for _ in $(seq 50); do curl -s -o /dev/null "http://127.0.0.1:$RP_PORT/ready" && break; sleep 0.1; done
+: > "$T/repro/requests.log"   # the readiness probe above does not count
+RP_SHA=()
+for n in 1 2; do
+  (cd "$T/build/src" && TMPDIR="$T/build/tmp" YTZERO_CHANGELOG_API="http://127.0.0.1:$RP_PORT" bash scripts/package-release.sh v2.0.9 >"$T/repro/build$n.log" 2>&1) || tail -5 "$T/repro/build$n.log"
+  RP_SHA+=("$(cut -d' ' -f1 "$REL/ytzero-v2.0.9.tar.gz.sha256" 2>/dev/null)")
+done
+stop_pid "$RP_PID"
+rm -f "$REL/ytzero-v2.0.9.tar.gz" "$REL/ytzero-v2.0.9.tar.gz.sha256"
+checkx "P3 two builds of one commit give the same tarball bytes although the fake GitHub release list changes" \
+  '[ -n "${RP_SHA[0]}" ] && [ "${RP_SHA[0]}" = "${RP_SHA[1]}" ]'
+checkx "P3 the package build never asked GitHub for the releases list" \
+  '! grep -q "/releases" "$T/repro/requests.log"'
 
 # ---------- 2. faux releases (edited copies, repacked like package-release.sh) ----------
 # fake pinned yt-dlp artifact, served locally; its sha256 goes into tools.lock
