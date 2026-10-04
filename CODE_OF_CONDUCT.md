@@ -57,8 +57,9 @@ spaces. It also applies when someone is representing YT Zero in public.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported privately to the project maintainer at
-[pelski@togi.media](mailto:pelski@togi.media). Please do not report Code of
+reported privately to the maintainer of this fork through GitHub
+([private vulnerability report](https://github.com/Fogbench/ytzero/security/advisories/new)
+or a message to [@Fogbench](https://github.com/Fogbench)). Please do not report Code of
 Conduct incidents in a public issue or pull request.
 
 Reports will be reviewed promptly and fairly. The maintainer will handle the

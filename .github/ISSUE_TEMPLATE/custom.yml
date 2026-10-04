@@ -2,12 +2,12 @@ name: Other issue
 description: Open an issue that does not fit the bug or feature templates
 title: "other: "
 labels: ["question"]
-assignees: ["Pelski"]
+assignees: ["Fogbench"]
 body:
   - type: markdown
     attributes:
       value: |
-        Use this form when the bug report and feature request forms do not fit. For questions and help, use [GitHub Discussions](https://github.com/Pelski/ytzero/discussions).
+        Use this form when the bug report and feature request forms do not fit. For questions and help, use [GitHub Discussions](https://github.com/Fogbench/ytzero/discussions).
 
   - type: textarea
     id: details

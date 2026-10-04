@@ -6,8 +6,7 @@ there is no SLA, and fixes ship on a best-effort basis.
 
 ## Supported versions
 
-Only the latest code on `main` (and the matching `ghcr.io/pelski/ytzero:latest`
-image) is supported. There are no backports to older tags — please update to
+Only the latest code on `main` is supported. There are no backports to older tags — please update to
 the latest version before reporting an issue.
 
 ## Reporting a vulnerability
@@ -15,7 +14,7 @@ the latest version before reporting an issue.
 **Please do not open a public issue for security problems.**
 
 Report privately through GitHub's
-[private vulnerability reporting](https://github.com/pelski/ytzero/security/advisories/new):
+[private vulnerability reporting](https://github.com/Fogbench/ytzero/security/advisories/new):
 
 1. Go to the repository's **Security** tab → **Report a vulnerability**.
 2. Describe the issue, the impact, and clear steps to reproduce.

@@ -2,14 +2,14 @@ name: Bug report
 description: Report something that is not working as expected
 title: "bug: "
 labels: ["bug"]
-assignees: ["Pelski"]
+assignees: ["Fogbench"]
 body:
   - type: markdown
     attributes:
       value: |
         Thank you for taking the time to report a bug!
 
-        Before opening an issue, please check the [existing issues](https://github.com/Pelski/ytzero/issues?q=is%3Aissue).
+        Before opening an issue, please check the [existing issues](https://github.com/Fogbench/ytzero/issues?q=is%3Aissue).
 
   - type: textarea
     id: description

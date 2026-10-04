@@ -2,7 +2,7 @@ name: Feature request
 description: Suggest an improvement or a new capability
 title: "feat: "
 labels: ["enhancement"]
-assignees: ["Pelski"]
+assignees: ["Fogbench"]
 body:
   - type: markdown
     attributes:
