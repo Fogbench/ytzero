@@ -311,7 +311,8 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
         if (configuredMode === "ask" || configuredMode === "download") downloadWatchMode = configuredMode;
       }
       const experimentalStreaming = downloadsEnabled && Number(downloadConfig?.settings.experimental_streaming) === 1;
-      const defaultPlayer = downloadConfig?.settings.default_player === "direct" ? "direct" : "youtube";
+      // Direct needs yt-dlp on the server; without it the YouTube embed is the only thing that can play.
+      const defaultPlayer = downloadConfig?.settings.default_player === "direct" && downloadConfig.ytdlp?.version ? "direct" : "youtube";
       if (cancelled) return;
       setPrefetchNextPlaylistVideo(downloadsEnabled && Number(downloadConfig?.settings.prefetch_next_playlist_video) === 1);
       setDownloadSubtitleLanguages(subtitleLanguages);

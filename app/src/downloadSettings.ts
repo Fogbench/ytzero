@@ -45,7 +45,7 @@ export const DL_DEFAULTS = {
   quality: "1080",
   compatible_format: 0,
   watch_source_mode: "youtube",
-  default_player: "youtube",
+  default_player: "direct",
   prefetch_next_playlist_video: 0,
   // HEAVILY EXPERIMENTAL: play a not-yet-downloaded video through a direct,
   // indexed HLS presentation while the normal download continues in the
