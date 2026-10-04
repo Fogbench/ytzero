@@ -130,6 +130,10 @@ tools.lock  (the pinned tool list, one per release)
     bun      1.4.2        deno     2.9.7
     yt-dlp   2026.08.19   ffmpeg   7.0.2 (static build, johnvansickle.com)
 
+  If johnvansickle.com does not answer, ffmpeg is downloaded from a backup
+  copy of the same file on this project's own GitHub release instead (the
+  sha256 checksum is the same and is checked either way).
+
   One exception: yt-dlp. YouTube changes often, and the app can update yt-dlp
   by itself on a schedule (set under Settings; it replaces the copy in ./bin).
   So yt-dlp may be newer than the pinned version. update.sh does not
