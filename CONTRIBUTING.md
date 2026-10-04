@@ -1,9 +1,9 @@
 # Contributing to YT Zero
 
 This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero),
-shared as is. Nobody maintains it as a project: issues and pull requests may
-never be read, and nothing is promised (no support, review, merging or
-releases). You are free to fork it and carry it on yourself. This guide is
+shared as is. It is currently a personal fork: issues and pull requests may
+not be read, and for now nothing is promised (no support, review, merging or
+releases). That may change. You are free to fork it and carry it on yourself. This guide is
 kept for anyone doing that, and for the fork's own development.
 
 ## Project layout
@@ -90,7 +90,7 @@ counter that starts at `1` each month. For example, the first two releases in
 August 2026 are `2026.08.1` and `2026.08.2`; the first September release is
 `2026.09.1`.
 
-This fork publishes no releases, container images or automated release builds. The private `app/package.json` and `ui/package.json` versions
+This fork currently publishes no releases, container images or automated release builds. The private `app/package.json` and `ui/package.json` versions
 are package-manager metadata and are intentionally independent from the
 product release tag.
 

@@ -1,8 +1,9 @@
 # Security Policy
 
 This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero).
-Nobody maintains it as a project: there is no support, no SLA, and no promise
-to read reports or fix anything. It is shared as is, under the AGPL.
+It is currently a personal fork: for now there is no support, no SLA, and no
+promise to read reports or fix anything. That may change. It is shared as is,
+under the AGPL.
 
 ## Reporting
 

@@ -8,7 +8,7 @@
 </div>
 
 > [!NOTE]
-> **This is a community fork of [Pelski/ytzero](https://github.com/Pelski/ytzero).** The original author has stepped away from the project and welcomed anyone who wants to carry it on; all credit for YT Zero itself goes to them and to the contributors named in the upstream README. This fork keeps the app as it was and adds a much more complete **direct player**, described below. It is a personal fork: no maintenance, support or releases are promised. Everything added is optional: removals are settings that are shown by default, and every new string is translated into all nine UI languages.
+> **This is a community fork of [Pelski/ytzero](https://github.com/Pelski/ytzero).** The original author has stepped away from the project and welcomed anyone who wants to carry it on; all credit for YT Zero itself goes to them and to the contributors named in the upstream README. This fork keeps the app as it was and adds a much more complete **direct player**, described below. It is currently a personal fork: no support, response times, releases or fixes are promised for now; that may change. Everything added is optional: removals are settings that are shown by default, and every new string is translated into all nine UI languages.
 >
 > ### Direct player vs. the embedded YouTube player
 >
