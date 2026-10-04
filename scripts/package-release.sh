@@ -25,7 +25,7 @@ cp app/package.json app/bun.lock "$OUT/$NAME/app/"
 cp -r ui/dist "$OUT/$NAME/ui/dist"
 cp -r shared "$OUT/$NAME/shared"
 cp scripts/install-deps.sh "$OUT/$NAME/scripts/"
-cp scripts/release/install.sh scripts/release/start.sh "$OUT/$NAME/"
+cp scripts/release/install.sh scripts/release/start.sh scripts/release/uninstall.sh "$OUT/$NAME/"
 cp LICENSE README.md "$OUT/$NAME/"
 echo "$VERSION" > "$OUT/$NAME/VERSION"
 
