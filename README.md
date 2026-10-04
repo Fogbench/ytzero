@@ -77,7 +77,7 @@ Patched:
 - app: hono 4.12.25 to 4.13.12 (CORS ReDoS, hono/jsx and memo() issues, parseBody memory exhaustion; this app only uses parseBody). fast-xml-parser 5.9.3 to 5.11.2 (XML DOCTYPE entity-limit DoS, high).
 - ui: a lockfile refresh within the existing ranges cleared 28. These are build tooling (brace-expansion, browserslist, fast-uri, nanoid, postcss) and react-router / react-router-dom 6.30.4 to 6.30.6 (open redirect leading to XSS).
 
-- ui: react-router 6.30.6 to 7.18.4 (the `react-router-dom` package is gone; the app imports from `react-router`). This clears the last 2 moderate advisories (backslash open redirect in `Link` / `useNavigate`, `deserializeErrors()` during server-side rendering; the app never exposed either). `bun audit` reports no vulnerabilities in app or ui. React-router 8 needs React 19 and is not used.
+- ui: react-router 6.30.6 to 8.4.0 (via 7.18.4; the `react-router-dom` package is gone and the app imports from `react-router`), together with React 19, vite 8 and the rest of the packages. This clears the last 2 moderate advisories (backslash open redirect in `Link` / `useNavigate`, `deserializeErrors()` during server-side rendering; the app never exposed either). `bun audit` reports no vulnerabilities in app or ui, and `bun outdated` is empty in both.
 
 Tested after the changes: app and ui tests, typecheck, build, browser smoke tests in Chromium and Firefox, and a fresh clone setup and start.
 
