@@ -89,7 +89,7 @@ research, ideas, and code. Special thanks to:
 
 ## Development note
 
-AI-assisted coding tools have been used selectively to support development tasks such as code exploration, prototyping, and review. Project direction, architectural decisions, validation, and responsibility for the final code remain with the author of this fork.
+AI-assisted coding tools have been used moderately. Project direction, architectural decisions, validation, and responsibility for the final code remain with the author of this fork.
 
 <div align="center">
   <img src="docs/assets/ai-generated.svg" width="160" alt="AI-generated content">
