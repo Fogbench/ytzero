@@ -34,7 +34,7 @@ export function registerDirectVideoRoutes(
     const generation = context.req.query("v") ?? null;
     if (file === "qualities.json") {
       const result = await directVideoStreaming.getDirectQualities(userId, videoId, signal);
-      if (result.kind === "qualities") return context.json({ qualities: result.qualities });
+      if (result.kind === "qualities") return context.json({ qualities: result.qualities, audioTracks: result.audioTracks });
       return context.json({ error: "direct stream unavailable" }, 502);
     }
     const choice = context.req.query("q") ?? null;

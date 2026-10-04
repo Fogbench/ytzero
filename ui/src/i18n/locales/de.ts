@@ -342,6 +342,7 @@ export const de: Locale = {
     playerSpeed: "Wiedergabegeschwindigkeit",
     playerSleepTimer: "Einschlaftimer",
     playerSleepMinutes: "{count} Min.",
+    playerAudioTrack: "Tonspur",
     playerStableVolume: "Gleichmäßige Lautstärke",
     playerVoiceBoost: "Sprachverstärkung",
     playerSleepEndOfVideo: "Am Ende des Videos",

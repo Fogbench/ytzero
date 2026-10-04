@@ -9,6 +9,16 @@ export interface DirectQuality {
   hdr: boolean;
 }
 
+/** One audio track (language) the server can stream, from `qualities.json`. */
+export interface DirectAudioTrack {
+  /** Language code, sent back as `~<id>` in `?q=`. */
+  id: string;
+  label: string;
+  original: boolean;
+  /** The track a video starts with. */
+  default: boolean;
+}
+
 export type QualityCodec = DirectQuality["codec"];
 
 /** What the viewer picked: a height (or "auto" = tallest) and the codec to use where there is a choice. */

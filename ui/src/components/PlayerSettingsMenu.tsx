@@ -6,7 +6,7 @@ import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
 import {
   codecName, heightLabel, qualityRows,
-  type DirectQuality, type QualityChoice, type QualityCodec,
+  type DirectAudioTrack, type DirectQuality, type QualityChoice, type QualityCodec,
 } from "../playerQuality";
 import { subtitleLanguageLabel } from "../subtitleLanguages";
 import { SubtitleMenuBody } from "./SubtitlePicker";
@@ -34,6 +34,8 @@ interface PlayerSettingsMenuProps {
   autoplay?: { enabled: boolean; onToggle: (enabled: boolean) => void };
   /** SponsorBlock switch; leave out when the video has no segments. */
   sponsorBlock?: { active: boolean; onToggle: (active: boolean) => void };
+  /** Audio track (language) choice; leave out when the video has only one. */
+  audioTracks?: { tracks: DirectAudioTrack[]; selected: string; onSelect: (id: string) => void };
   /** Stable volume and Voice boost switches; leave out when the sound cannot be processed. */
   audioEnhance?: { mode: AudioEnhanceMode; onChange: (patch: Partial<AudioEnhanceMode>) => void };
   /** Sleep timer: minutes left (null = off) and how to set it. */
@@ -59,10 +61,10 @@ interface PlayerSettingsMenuProps {
 const SUBTITLE_COLORS = ["#ffffff", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000", "#000000"] as const;
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
-export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, audioEnhance, sleep, onStylePreview }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, audioTracks, audioEnhance, sleep, onStylePreview }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle" | "sleep">("main");
+  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle" | "sleep" | "audio">("main");
   // While the slider is being dragged we show its own value; null means "use the saved speed".
   const [speedDraft, setSpeedDraft] = useState<number | null>(null);
   const commitSpeed = () => {
@@ -140,6 +142,14 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
             >
               {t("playerSleepTimer")}
             </MenuItem>
+            {audioTracks && (
+              <MenuItem
+                onClick={() => setPanel("audio")}
+                suffix={<span className="lp-settings-value">{audioTracks.tracks.find((track) => track.id === audioTracks.selected)?.label ?? ""}<ChevronRight size={15} /></span>}
+              >
+                {t("playerAudioTrack")}
+              </MenuItem>
+            )}
             {onSpeedChange && (
               <MenuItem
                 onClick={() => setPanel("speed")}
@@ -212,6 +222,19 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
               onSelect={(language) => { changeOpen(false); subtitles.onSelect(language); }}
               onToggle={() => { changeOpen(false); subtitles.onToggle(); }}
             />
+          </>
+        ) : panel === "audio" && audioTracks ? (
+          <>
+            <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("playerAudioTrack")}</MenuHeader>
+            <ScrollArea className="lp-sub-menu-list-wrap" viewportClassName="lp-sub-menu-list">
+              <Menu>
+                {audioTracks.tracks.map((track) => (
+                  <MenuItem key={track.id} selected={track.id === audioTracks.selected} onClick={() => { audioTracks.onSelect(track.id); changeOpen(false); }}>
+                    {track.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </ScrollArea>
           </>
         ) : panel === "speed" ? (
           <>

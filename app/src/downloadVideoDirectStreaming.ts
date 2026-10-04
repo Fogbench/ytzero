@@ -48,6 +48,8 @@ interface YtdlpFormat {
   filesize_approx?: unknown;
   audio_channels?: unknown;
   dynamic_range?: unknown;
+  language?: unknown;
+  format_note?: unknown;
   http_headers?: unknown;
 }
 
@@ -71,6 +73,10 @@ export interface DirectVideoMediaSource {
   channels: number | null;
   hdr: boolean;
   httpHeaders: YtdlpHttpHeaders;
+  /** Audio only: language code and a readable name, when YouTube lists the audio track. */
+  language?: string | null;
+  languageName?: string | null;
+  originalLanguage?: boolean;
 }
 
 interface DirectVideoSources {
@@ -80,6 +86,8 @@ interface DirectVideoSources {
   expiresAt: number;
   /** Every video format the player could be offered, best first. */
   alternatives: DirectVideoMediaSource[];
+  /** One audio format per language (the best), original language first. */
+  audioAlternatives: DirectVideoMediaSource[];
 }
 
 /** One entry of the player's quality menu. */
@@ -93,7 +101,18 @@ export interface DirectVideoQuality {
   hdr: boolean;
 }
 
-export const DIRECT_QUALITY_PATTERN = /^(\d{3,4})-(avc1|av01)$/;
+/** `q` is a quality (`1440-av01`), an audio language (`~de`), or both (`1080-avc1~de`). */
+export const DIRECT_QUALITY_PATTERN = /^(?:(\d{3,4})-(avc1|av01))?(?:~([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?))?$/;
+
+/** One entry of the player's audio track menu. */
+export interface DirectAudioTrack {
+  /** The language code the player sends back after `~`. */
+  id: string;
+  label: string;
+  original: boolean;
+  /** The track playback starts with. */
+  default: boolean;
+}
 
 type SourceResolutionResult =
   | { kind: "sources"; sources: DirectVideoSources }
@@ -176,6 +195,13 @@ function signedUrlExpiry(url: string, now: number): number {
   return now + 3 * 60 * 60_000;
 }
 
+/** "English (US) original (default), medium" -> "English (US) original". */
+function audioLanguageName(note: unknown): string | null {
+  if (typeof note !== "string") return null;
+  const name = note.replace(/,\s*[a-z ]+$/i, "").replace(/\s*\(default\)/i, "").trim();
+  return name || null;
+}
+
 function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: number, fallbackHeaders: unknown): DirectVideoMediaSource | null {
   const formatId = typeof format.format_id === "string" ? format.format_id : "";
   const url = typeof format.url === "string" ? safeGoogleVideoUrl(format.url) : null;
@@ -203,6 +229,9 @@ function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: numbe
     channels: numberOrNull(format.audio_channels),
     hdr: typeof format.dynamic_range === "string" && format.dynamic_range !== "SDR",
     httpHeaders,
+    language: typeof format.language === "string" ? format.language : null,
+    languageName: kind === "audio" ? audioLanguageName(format.format_note) : null,
+    originalLanguage: typeof format.format_note === "string" && /original/i.test(format.format_note),
   };
   if (kind === "video" && (result.width == null || result.width <= 0 || result.height == null || result.height <= 0
     || result.fps == null || result.fps <= 0 || result.bitrate == null || result.bitrate <= 0)) return null;
@@ -241,7 +270,34 @@ function parseSelection(stdout: string, now: number): DirectVideoSources | null 
     video, audio, durationSeconds,
     expiresAt: Math.min(video.expiresAt, audio.expiresAt),
     alternatives: alternativeVideos(selection, now),
+    audioAlternatives: alternativeAudios(selection, now),
   };
+}
+
+/** The best AAC format of each audio language, original language first. */
+function alternativeAudios(selection: YtdlpSelection, now: number): DirectVideoMediaSource[] {
+  const formats = Array.isArray(selection.formats) ? selection.formats as YtdlpFormat[] : [];
+  const best = new Map<string, DirectVideoMediaSource>();
+  for (const format of formats) {
+    if (typeof format.acodec !== "string" || format.acodec === "none") continue;
+    if (typeof format.vcodec === "string" && format.vcodec !== "none") continue;
+    const source = selectedSource(format, "audio", now, selection.http_headers);
+    if (!source?.language || !DIRECT_QUALITY_PATTERN.test(`~${source.language}`)) continue;
+    const current = best.get(source.language);
+    if (!current || source.bitrate! > current.bitrate!) best.set(source.language, source);
+  }
+  return [...best.values()].sort((left, right) => Number(right.originalLanguage) - Number(left.originalLanguage));
+}
+
+/** The audio menu; empty when the video has fewer than two languages. */
+export function directAudioTracks(sources: DirectVideoSources): DirectAudioTrack[] {
+  if (sources.audioAlternatives.length < 2) return [];
+  return sources.audioAlternatives.map((source) => ({
+    id: source.language!,
+    label: source.languageName ?? source.language!,
+    original: source.originalLanguage === true,
+    default: source.language === sources.audio.language,
+  }));
 }
 
 /** Every H.264 or AV1 MP4 video format yt-dlp listed, best first. */
@@ -280,9 +336,11 @@ export function directVideoQualities(sources: DirectVideoSources): DirectVideoQu
 /** The sources for what the player asked for, or null when that format is gone. */
 function sourcesForChoice(sources: DirectVideoSources, choice: string | null): DirectVideoSources | null {
   if (!choice) return sources;
-  const video = sources.alternatives.find((source) => qualityId(source) === choice);
-  if (!video) return null;
-  return { ...sources, video, expiresAt: Math.min(video.expiresAt, sources.audio.expiresAt) };
+  const [quality, language] = choice.split("~");
+  const video = quality ? sources.alternatives.find((source) => qualityId(source) === quality) : sources.video;
+  const audio = language ? sources.audioAlternatives.find((source) => source.language === language) : sources.audio;
+  if (!video || !audio) return null;
+  return { ...sources, video, audio, expiresAt: Math.min(video.expiresAt, audio.expiresAt) };
 }
 
 function redactDiagnostic(value: string): string {
@@ -831,11 +889,11 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     userId: number,
     videoId: string,
     signal?: AbortSignal,
-  ): Promise<{ kind: "qualities"; qualities: DirectVideoQuality[] } | { kind: "failed" }> {
+  ): Promise<{ kind: "qualities"; qualities: DirectVideoQuality[]; audioTracks: DirectAudioTrack[] } | { kind: "failed" }> {
     if (!await videoAvailable(videoId)) return { kind: "failed" };
     const resolution = await resolveSources(userId, videoId, signal);
     if (resolution.kind !== "sources") return { kind: "failed" };
-    return { kind: "qualities", qualities: directVideoQualities(resolution.sources) };
+    return { kind: "qualities", qualities: directVideoQualities(resolution.sources), audioTracks: directAudioTracks(resolution.sources) };
   }
 
   function requestedRange(value: string | null): { start: number; end: number } | null {

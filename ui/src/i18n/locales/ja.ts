@@ -433,6 +433,7 @@ export const ja: Locale = {
     "playerSpeed": "再生速度",
     "playerSleepTimer": "スリープタイマー",
     "playerSleepMinutes": "{count}分",
+    "playerAudioTrack": "音声トラック",
     "playerStableVolume": "音量を安定させる",
     "playerVoiceBoost": "音声ブースト",
     "playerSleepEndOfVideo": "動画の終了時",

@@ -340,6 +340,7 @@ export const hu: Locale = {
     playerSpeed: "Lejátszási sebesség",
     playerSleepTimer: "Elalvásidőzítő",
     playerSleepMinutes: "{count} perc",
+    playerAudioTrack: "Hangsáv",
     playerStableVolume: "Állandó hangerő",
     playerVoiceBoost: "Beszédkiemelés",
     playerSleepEndOfVideo: "A videó végén",

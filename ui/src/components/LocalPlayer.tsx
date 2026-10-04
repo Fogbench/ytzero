@@ -9,7 +9,7 @@ import SubtitlePicker from "./SubtitlePicker";
 import PlayerSettingsMenu from "./PlayerSettingsMenu";
 import {
   qualityContentType, readQualityChoice, resolveQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
-  type DirectQuality, type QualityChoice,
+  type DirectAudioTrack, type DirectQuality, type QualityChoice,
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
@@ -441,13 +441,19 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const [playable, setPlayable] = useState<DirectQuality[] | null>(directQualities ? null : []);
   const switchRef = useRef<{ position: number; playing: boolean } | null>(null);
   const [switchStart, setSwitchStart] = useState<number | null>(null);
+  // Audio languages the video offers (empty = just one), and the one picked (null = the video's own).
+  const [audioTracks, setAudioTracks] = useState<DirectAudioTrack[]>([]);
+  const [audioChoice, setAudioChoice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!directQualities || !videoId) { setPlayable([]); return; }
     let cancelled = false;
     setPlayable(null);
+    setAudioTracks([]);
+    setAudioChoice(null);
     void api.directQualities(videoId)
-      .then(async ({ qualities }) => {
+      .then(async ({ qualities, audioTracks: tracks }) => {
+        if (!cancelled) setAudioTracks(tracks ?? []);
         const checks = await Promise.all(qualities.map((quality) => canDecodeQuality(quality)));
         return qualities.filter((_, index) => checks[index]);
       })
@@ -460,7 +466,9 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   // When the chosen quality fails for good, retry once on the server's default
   // stream before the page gives up on the direct player altogether.
   const [qualityFailed, setQualityFailed] = useState(false);
-  const hlsSrc = activeQuality && !qualityFailed ? `${src}?q=${activeQuality.id}` : src;
+  // `?q=` carries the quality and the audio language: "1080-avc1", "~de", or "1080-avc1~de".
+  const streamChoice = `${activeQuality && !qualityFailed ? activeQuality.id : ""}${audioChoice ? `~${audioChoice}` : ""}`;
+  const hlsSrc = streamChoice ? `${src}?q=${streamChoice}` : src;
   const onStreamFatal = useCallback(() => {
     const video = videoRef.current;
     if (activeQuality && !qualityFailed && video) {
@@ -485,6 +493,15 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       setSwitchStart(video.currentTime);
     }
     setQualityChoice(choice);
+  };
+  const changeAudioChoice = (id: string) => {
+    const video = videoRef.current;
+    if (video) {
+      // Same as a quality switch: the new stream starts where we were.
+      switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
+      setSwitchStart(video.currentTime);
+    }
+    setAudioChoice(id);
   };
   const onStreamReady = useCallback(() => {
     const resume = switchRef.current;
@@ -1053,6 +1070,11 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
               onSpeedPreview={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; }}
               autoplay={autoplaySwitch}
               sponsorBlock={sponsorBlock}
+              audioTracks={audioTracks.length > 1 ? {
+                tracks: audioTracks,
+                selected: audioChoice ?? audioTracks.find((track) => track.default)?.id ?? audioTracks[0].id,
+                onSelect: changeAudioChoice,
+              } : undefined}
               audioEnhance={directQualities ? { mode: audioEnhance, onChange: changeAudioEnhance } : undefined}
               sleep={{ minutesLeft: sleepTimer.minutesLeft, atEnd: sleepTimer.atEnd, onSet: sleepTimer.set }}
               onSpeedChange={transportLocked ? undefined : onSpeedChange}
