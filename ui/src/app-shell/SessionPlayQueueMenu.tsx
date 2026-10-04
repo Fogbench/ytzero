@@ -1,6 +1,6 @@
 import { BookmarkPlus, ListVideo, Play, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { api } from "../api";
 import { emit, emitToast } from "../events";
 import { useI18n } from "../i18n";

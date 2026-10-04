@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { markYouTubeUrl } from "../../youtubeUrl";
 
 /** Render plain text with URLs turned into clickable links. */

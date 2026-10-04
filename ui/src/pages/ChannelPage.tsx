@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./ChannelPage.css";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { Bell, CalendarClock, Captions, ExternalLink, FileClock, Gauge, ListRestart, ListVideo, MessageSquareText, Plus, Radio, RefreshCw, Search, Star, UserMinus, UserPlus, Video as VideoIcon, X, Zap } from "lucide-react";
 import { api, type ChannelAbout, type ChannelManualStatus, type ChannelShortsFeedVisibility, type MembersOnlyVisibility, type PlaylistInfo, type Tag, type Video } from "../api";
 import { resolvePlaybackSpeeds } from "../../../shared/playbackSpeeds";

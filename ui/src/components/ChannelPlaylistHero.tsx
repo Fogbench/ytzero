@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ChevronRight, ListVideo } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { FollowedPlaylist } from "../api";
 import { img } from "../img";
 import { formatPlaylistVideoCount, useI18n } from "../i18n";

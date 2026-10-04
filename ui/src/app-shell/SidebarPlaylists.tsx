@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router";
 import { Plus } from "lucide-react";
 import { api, type UserPlaylist } from "../api";
 import { subscribe } from "../events";

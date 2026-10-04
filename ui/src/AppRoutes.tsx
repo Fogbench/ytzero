@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router";
 import { api, type ChildStatus, type ProfilePermissions, type Video } from "./api";
 import type { ToastVariant } from "./events";
 import type { PlaybackQueueContext } from "./playbackQueue";

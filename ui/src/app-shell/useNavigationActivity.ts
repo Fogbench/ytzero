@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { api, type DownloadSummary } from "../api";
 import { getNewCompletedDownloads, observeDownloadSummary } from "../downloadActivity";
 import { subscribeServerEvent } from "../serverEvents";

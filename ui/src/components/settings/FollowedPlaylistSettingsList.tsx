@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ListMinus, ListMusic, RefreshCw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type FollowedPlaylist } from "../../api";
 import { img } from "../../img";
 import { formatVideoCount, useI18n } from "../../i18n";

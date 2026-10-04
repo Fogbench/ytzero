@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Heart, MessageCircle, Play, RefreshCw } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { api } from "../api";
 import type { ChannelPost } from "../channelPostTypes";
 import { handleVideoThumbnailError, img, videoThumbnail } from "../img";

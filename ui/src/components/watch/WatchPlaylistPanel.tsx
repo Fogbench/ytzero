@@ -1,6 +1,6 @@
 import { Play } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { PlaylistVideo } from "../../api";
 import { useI18n } from "../../i18n";
 import { img } from "../../img";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { AlertTriangle, Check, ChevronDown, Download } from "lucide-react";
 import type { DownloadSummary } from "../api";
 import type { NavItem } from "../nav";

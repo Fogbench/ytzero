@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router";
 import { ChevronRight, Users } from "lucide-react";
 import { api } from "../api";
 import { subscribe } from "../events";

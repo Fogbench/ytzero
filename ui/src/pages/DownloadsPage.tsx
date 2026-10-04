@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./DownloadsPage.css";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { AlertTriangle, Check, ChevronDown, Download, Folder, HardDrive, LoaderCircle, Pin, PinOff, RotateCw, Settings2, Sparkles, Square, Trash2 } from "lucide-react";
 import { api, type DownloadsResponse, type DownloadItem } from "../api";
 import { formatTimeAgo, useI18n, type I18nKey } from "../i18n";

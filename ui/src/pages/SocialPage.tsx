@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft, Edit3, LoaderCircle, MessageCircle, MoreHorizontal, Plus, Send, ThumbsUp, Trash2, UsersRound } from "lucide-react";
 import {
   api,

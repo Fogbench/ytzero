@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { type Video } from "../api";
 import AppRoutes from "../AppRoutes";
 import ChildLockScreen from "../components/ChildLockScreen";

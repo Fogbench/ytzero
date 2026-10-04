@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./SearchPage.css";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { Search, ShieldBan } from "lucide-react";
 import { api, type Channel, type ChannelSearchResult, type SearchResult, type Video } from "../api";
 import { useI18n } from "../i18n";

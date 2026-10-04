@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { AlertTriangle, ArrowDownToLine, Bell, Hash, ListVideo, MessageCircle, Sparkles, UsersRound } from "lucide-react";
 import { api, type AppNotification } from "../api";
 import { subscribe } from "../events";

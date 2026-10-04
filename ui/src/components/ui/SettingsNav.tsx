@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { Button } from "./Button";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "./Menu";
 import { Popover } from "./Popover";

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { ArrowRight, Check, CheckCircle2, Pencil, Play, ShieldCheck, Tv, UserRound } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import type { DevicePairingVerification } from "../devicePairingApi";
 import { Alert, Badge, Button, Field, FormActions, Input, PageHeader, SettingRow, SettingsSection, Stack } from "../components/ui";

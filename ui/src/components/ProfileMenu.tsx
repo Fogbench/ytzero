@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./ProfileMenu.css";
 import { createPortal } from "react-dom";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { Check, ChevronRight, Eraser, EyeOff, Lock, LogOut, Puzzle, Settings, SlidersHorizontal, X } from "lucide-react";
 import { api, type AppSettings, type AuthStatus, type Profile, type ProfilePermissions } from "../api";
 import { emit, subscribe } from "../events";

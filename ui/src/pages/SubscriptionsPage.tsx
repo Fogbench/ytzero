@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./SubscriptionsPage.css";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { AlertTriangle, Clock3, LoaderCircle, Plus, RefreshCw, Search, Users, XCircle } from "lucide-react";
 import { api, type Channel, type ChannelSyncJob, type ChannelSyncJobChannel, type Tag } from "../api";
 import { img } from "../img";

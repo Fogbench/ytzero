@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clapperboard, ListVideo, LoaderCircle, Play } from "lucide-react";
-import { Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Route, Routes, useNavigate, useParams } from "react-router";
 import type { PlaylistVideo, PublicShareData, VideoCreator } from "../api";
 import LocalPlayer, { type LocalPlayerHandle, type LocalPlayerShortcut } from "../components/LocalPlayer";
 import VideoCreators from "../components/VideoCreators";

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./WatchlistPage.css";
 import { Coffee, Sun, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type Bucket, type Video } from "../api";
 import { emit } from "../events";
 import { useI18n, type I18nKey } from "../i18n";

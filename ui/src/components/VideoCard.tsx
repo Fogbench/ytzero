@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from "react";
 import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { useDrag } from "@use-gesture/react";
 import { api, type Video } from "../api";
 import { emit } from "../events";

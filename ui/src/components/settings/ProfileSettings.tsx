@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./ProfileSettings.css";
 import { AlertTriangle, Camera, Check, CheckCircle2, Info, KeyRound, LoaderCircle, Pencil, SlidersHorizontal, Trash2, UserPlus, UsersRound, X } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { api, type AuthMethod, type ChildConfig, type Profile } from "../../api";
 import { emit } from "../../events";
 import { useI18n } from "../../i18n";

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./ShortsPlayer.css";
 import { ChevronDown, ChevronUp, Heart, Share2, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { img } from "../img";

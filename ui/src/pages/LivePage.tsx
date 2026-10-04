@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./LivePage.css";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";

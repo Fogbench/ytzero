@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { MouseEvent } from "react";
 import { Archive, Check, Eye, EyeOff, Heart, Lock, Star } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type Video } from "../api";
 import { formatTimeAgo, formatViewsCount, useI18n } from "../i18n";
 import { handleVideoThumbnailError, img, videoThumbnail } from "../img";

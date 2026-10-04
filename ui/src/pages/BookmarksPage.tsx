@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bookmark, LoaderCircle, Trash2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { api, type BookmarkVideo } from "../api";
 import { formatBookmarkTime } from "../bookmarkTime";
 import Popconfirm from "../components/Popconfirm";

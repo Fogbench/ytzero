@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import { Menu, Play, RefreshCw, Search } from "lucide-react";
 import type { ProfilePermissions } from "../api";
 import { emit, subscribe } from "../events";

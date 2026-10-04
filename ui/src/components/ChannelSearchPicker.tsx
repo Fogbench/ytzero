@@ -1,6 +1,6 @@
 import { Check, Pencil, Search, UserPlus, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type ChannelSearchResult } from "../api";
 import { emit } from "../events";
 import { img } from "../img";

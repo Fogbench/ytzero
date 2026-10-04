@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import "./InsightsPage.css";
 import { Activity, CalendarDays, CheckCircle2, Clock3, Compass, FastForward, Film, Flame, Play, Repeat2, Tags, TrendingDown, TrendingUp, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, SB_CATEGORIES, type HouseholdInsights, type InsightProfileRef } from "../api";
 import { img } from "../img";
 import { useI18n } from "../i18n";

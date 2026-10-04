@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   CheckCircle2, Clock, FileArchive, FileText, FolderUp, History, ListMusic,
   LoaderCircle, Plus, ScanSearch, Tv, X,

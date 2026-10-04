@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "./UserPlaylistPage.css";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Download, Edit3, Gauge, ListFilter, MoreHorizontal, Save, Trash2, X } from "lucide-react";
 import { api, type DownloadQuality, type UserPlaylist, type Video } from "../api";
 import VideoCard from "../components/VideoCard";

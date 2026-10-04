@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./ChildNowWatching.css";
 import { ChevronDown, Clock3, Play, ShieldBan } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type ChildNowWatching as Watching, type Profile } from "../api";
 import { img } from "../img";
 import { useI18n } from "../i18n";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowDownToLine, Check, LoaderCircle, Sparkles, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { ChildDownloadRequest } from "../api";
 import type { ChildDownloadResolveOutcome } from "../useChildDownloadRequests";
 import { formatAppDate, parseAppTimestamp } from "../dateTime";

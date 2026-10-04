@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { api, type AppSettings, type ProfilePermissions } from "../api";
 import { emit, subscribe } from "../events";
 import { parseNavConfig, type NavConfigEntry } from "../nav";

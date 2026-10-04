@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { NavigateFunction } from "react-router-dom";
+import type { NavigateFunction } from "react-router";
 import { api, type Video } from "../api";
 import type { PlaybackQueueContext } from "../playbackQueue";
 import { sessionPlayQueueItems } from "../sessionPlayQueue";

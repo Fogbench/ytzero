@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import "./ChannelPlaylistPage.css";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Bell, Download, FileClock, Gauge, ListFilter, ListMinus, ListPlus, MoreHorizontal, RefreshCw } from "lucide-react";
 import { api, type DownloadQuality, type FollowedPlaylist, type Video } from "../api";
 import VideoCard from "../components/VideoCard";

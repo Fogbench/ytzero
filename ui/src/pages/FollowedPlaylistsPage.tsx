@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import "./FollowedPlaylistsPage.css";
 import "./WatchlistPage.css";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { api, type FollowedPlaylistUpdates } from "../api";
 import { img } from "../img";
 import { formatTimeAgo, useI18n } from "../i18n";
