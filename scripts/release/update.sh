@@ -57,7 +57,7 @@ main() {
   fi
 
   local tmp name base
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+  tmp="$(mktemp -d)"; trap "rm -rf '$tmp'" EXIT
   name="ytzero-$latest"
   base="$DOWNLOAD/$REPO/releases/download/$latest"
   echo "==> downloading $name.tar.gz"
