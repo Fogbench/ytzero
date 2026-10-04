@@ -55,10 +55,20 @@ describe("player quality menu", () => {
     expect(resolveQuality({ height: 2160, codec: "av01" }, list, smooth)?.id).toBe("2160-av01");
     expect(resolveQuality({ height: 1080, codec: "av01" }, list, smooth)?.id).toBe("1080-av01");
     expect(qualityRows("av01", list).map((e) => e.id)).toEqual(["2160-av01", "1440-av01", "1080-av01", "720-av01"]); // menu unchanged
-    // Nothing smooth: auto takes the lowest height rather than the tallest.
-    expect(resolveQuality({ height: "auto", codec: "av01" }, list, new Set())?.id).toBe("720-av01");
+    // Nothing smooth: covered by its own test below.
     // All smooth (or the browser could not tell): same as before.
     const all = new Set(list.map((entry) => entry.id));
     expect(resolveQuality({ height: "auto", codec: "av01" }, list, all)?.id).toBe("2160-av01");
+  });
+
+  test("nothing smooth: auto picks no quality (server default), a picked height still plays", () => {
+    const none = new Set<string>();
+    // null means "no ?q=", so the player asks for the server's default stream.
+    expect(resolveQuality({ height: "auto", codec: "av01" }, list, none)).toBe(null);
+    expect(resolveQuality({ height: "auto", codec: "avc1" }, list, none)).toBe(null);
+    expect(resolveQuality({ height: 2160, codec: "av01" }, list, none)?.id).toBe("2160-av01");
+    expect(resolveQuality({ height: 720, codec: "avc1" }, list, none)?.id).toBe("720-avc1");
+    // Without smoothIds (no verdicts at all) auto still picks the tallest.
+    expect(resolveQuality({ height: "auto", codec: "av01" }, list)?.id).toBe("2160-av01");
   });
 });
