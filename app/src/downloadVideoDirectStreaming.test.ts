@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { createDownloadVideoDirectStreaming } from "./downloadVideoDirectStreaming";
+import { createDownloadVideoDirectStreaming, parseSelection } from "./downloadVideoDirectStreaming";
 import { createDownloadVideoStreaming } from "./downloadVideoStreaming";
 
 function concat(...parts: Uint8Array<ArrayBufferLike>[]): Uint8Array<ArrayBuffer> {
@@ -525,5 +525,14 @@ describe("direct no-transcode video HLS", () => {
     expect(await streaming.getHlsPlaylist(1, "format-unavailable")).toContain("seg00000.ts");
     expect(transcodeProbes).toBe(2);
     streaming.resetHlsScratch();
+  });
+});
+
+describe("parseSelection", () => {
+  test("yt-dlp output that is not a JSON object yields no sources instead of throwing", () => {
+    // Real quirk: for an age-restricted video yt-dlp printed the bare text `null`.
+    expect(parseSelection("null\n", Date.now())).toBeNull();
+    expect(parseSelection("", Date.now())).toBeNull();
+    expect(parseSelection("42", Date.now())).toBeNull();
   });
 });

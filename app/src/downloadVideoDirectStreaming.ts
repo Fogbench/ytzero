@@ -239,7 +239,7 @@ function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: numbe
   return result;
 }
 
-function parseSelection(stdout: string, now: number): DirectVideoSources | null {
+export function parseSelection(stdout: string, now: number): DirectVideoSources | null {
   const line = stdout.trim();
   if (!line) return null;
   let selection: YtdlpSelection;
@@ -248,6 +248,8 @@ function parseSelection(stdout: string, now: number): DirectVideoSources | null 
   } catch {
     return null;
   }
+  // yt-dlp can print the bare JSON value `null` when it has nothing to report.
+  if (!selection || typeof selection !== "object") return null;
   const requestedFormats = Array.isArray(selection.requested_formats)
     ? selection.requested_formats as YtdlpFormat[]
     : [];
