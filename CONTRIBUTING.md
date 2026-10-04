@@ -83,16 +83,7 @@ If you carry the project on, changes go through a pull request:
 
 ## Release versioning
 
-Upstream's product releases use calendar versions in the form `YYYY.MM.N`, and
-the Git tag is the version itself without a `v` prefix. The month is always
-zero-padded (`01` through `12`), while `N` is a positive, non-padded release
-counter that starts at `1` each month. For example, the first two releases in
-August 2026 are `2026.08.1` and `2026.08.2`; the first September release is
-`2026.09.1`.
-
-This fork currently publishes no releases, container images or automated release builds. The private `app/package.json` and `ui/package.json` versions
-are package-manager metadata and are intentionally independent from the
-product release tag.
+This fork has no releases.
 
 ## Coding style
 

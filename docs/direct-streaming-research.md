@@ -27,6 +27,8 @@ a development-server fix. In this fork `bun run setup` downloads both. For YouTu
 describes token-provider support; the existing cookie/provider configuration
 continues to apply.
 
+> The tvOS app and the browser extension are upstream-only and are not part of this fork.
+
 A later tvOS failure for `As4DowYZPOQ` traced to the running development
 server's PATH: `~/.deno/bin/deno` was 1.46.3, while the interactive terminal
 found Homebrew's 2.9.6. yt-dlp returned "This video is not available" for the

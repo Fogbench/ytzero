@@ -427,6 +427,7 @@ archive with no such capability restores with public sharing denied.
   remain supported: a missing value preserves an existing preference during merge
   and defaults to `oldest` for new or replaced follows. An archive excluding this
   section contains no playlist sort preferences and leaves them unchanged.
+- Note: the tvOS app and the browser extension mentioned below are upstream-only and not part of this fork.
 - A profile's assigned access-control group and explicit allow/deny overrides
   are portable configuration in `profile.access-control`. Merge updates only
   selected mapped profiles; replace clears just their overrides and assignment.

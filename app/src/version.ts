@@ -1,19 +1,16 @@
-// The pipeline stamps app/src/build-version.txt and app/src/build-commit.txt before the build
-// starts, so both labels travel with the sources into the release
-// tarball and the native install without a build arg. YTZERO_VERSION and
-// YTZERO_COMMIT stay the fallback for unstamped builds (an env file or a
-// plain checkout), and the commit is still
-// resolved from git after that so dev logs carry it too.
+// The build label comes from app/src/build-version.txt / build-commit.txt when present,
+// then from YTZERO_VERSION / YTZERO_COMMIT, and the commit is finally
+// resolved from git so dev logs carry it too.
 import { readFileSync } from "node:fs";
 
 const COMMIT_HASH = /^[0-9a-f]{7,40}$/;
 
-/** Reads a stamp the pipeline wrote next to these sources, if it is there. */
+/** Reads a stamp a build step wrote next to these sources, if it is there. */
 function readStamp(name: string): string | null {
   try {
     return readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
   } catch {
-    return null; // Unstamped build — the env var decides.
+    return null; // No stamp file: the env var decides.
   }
 }
 
@@ -37,7 +34,7 @@ function gitHead(): string | null {
     const proc = Bun.spawnSync(["git", "rev-parse", "HEAD"], { cwd: import.meta.dir });
     return proc.success ? proc.stdout.toString() : null;
   } catch {
-    return null; // git absent (e.g. release tarball).
+    return null; // git absent.
   }
 }
 
