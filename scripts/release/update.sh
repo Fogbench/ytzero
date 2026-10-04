@@ -22,7 +22,7 @@ msg() { printf '==> %s\n' "$*"; }   # tools-lib.sh calls msg and die too
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
 
 # State the exit trap needs to know about.
-TMP=""            # temp dir with the download, removed at exit
+TMP=""            # temp dir with the download, removed at exit (it lives in ./.tmp, see main)
 LOCKED=0          # 1 while this run owns ./.update.lock
 TOUCHED=0         # 1 from the moment the folder is changed until the update has finished
 STAGE="$ROOT_DIR/.update-stage"   # new files wait here; replaced folders are parked here
@@ -101,7 +101,7 @@ cleanup() {
     echo "The update did not finish. Your data is safe. Run: bash update.sh again" >&2
   fi
   if [ "$LOCKED" = 1 ]; then rm -rf -- "$LOCK"; fi
-  case "$TMP" in ""|/|.) ;; *) rm -rf -- "$TMP" ;; esac
+  case "$TMP" in ""|/|.) ;; *) rm -rf -- "$TMP"; rmdir "$ROOT_DIR/.tmp" 2>/dev/null || true ;; esac
   exit "$rc"
 }
 
@@ -185,7 +185,13 @@ main() {
   fi
 
   local tmp name base got want
-  tmp="$(mktemp -d)"; TMP="$tmp"
+  # The download is unpacked in a temporary folder INSIDE this folder (./.tmp), not in /tmp.
+  # So the new files and tools are on the same disk as the folder: moving them into place
+  # later is a quick rename, which cannot fail halfway because the disk is full.
+  mkdir -p "$ROOT_DIR/.tmp" || die "cannot write to $ROOT_DIR (is it read-only?)."
+  tmp="$(mktemp -d "$ROOT_DIR/.tmp/update.XXXXXX")" || die "cannot create a temporary folder in $ROOT_DIR/.tmp."
+  TMP="$tmp"
+  export TMPDIR="$tmp"   # the test runs of the new tools leave nothing in /tmp either
   name="ytzero-$latest"
   base="$DOWNLOAD/$REPO/releases/download/$latest"
   echo "==> downloading $name.tar.gz"
@@ -271,7 +277,7 @@ main() {
   mkdir -p "$ROOT_DIR/bin"
   for tool in ${changed[@]+"${changed[@]}"}; do
     for f in $(tl_files "$tool"); do
-      cp "$fetched/$f" "$STAGE/newbin/$f" || die "could not copy the new $tool (is the disk full?), nothing was changed."
+      mv "$fetched/$f" "$STAGE/newbin/$f" || die "could not stage the new $tool, nothing was changed."   # same disk: a rename
     done
   done
 
