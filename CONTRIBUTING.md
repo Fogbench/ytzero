@@ -1,21 +1,10 @@
 # Contributing to YT Zero
 
-Thanks for your interest in improving ytzero! This is a community fork of
-[Pelski/ytzero](https://github.com/Pelski/ytzero). This is a personal, self-hosted
-project, so contributions are welcome but kept lightweight. Please read this
-guide before opening an issue or pull request.
-
-## Ways to contribute
-
-- **Report bugs** — open an [issue](../../issues) with steps to reproduce, what
-  you expected, and what happened.
-- **Suggest features** — open an issue describing the use case and why it would
-  be useful.
-- **Submit code** — fix a bug or implement an agreed-upon feature via a pull
-  request (see below).
-
-For anything non-trivial, please open an issue first so we can agree on the
-approach before you spend time on a PR.
+This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero),
+shared as is. Nobody maintains it as a project: issues and pull requests may
+never be read, and nothing is promised (no support, review, merging or
+releases). You are free to fork it and carry it on yourself. This guide is
+kept for anyone doing that, and for the fork's own development.
 
 ## Project layout
 
@@ -85,7 +74,7 @@ include migration paths for both supported database engines.
 
 ## Pull request workflow
 
-All changes go through a pull request:
+If you carry the project on, changes go through a pull request:
 
 1. Branch off `main` (e.g. `fix/live-detection`, `feat/playlist-import`).
 2. Make your change and keep commits focused.
@@ -94,15 +83,14 @@ All changes go through a pull request:
 
 ## Release versioning
 
-YT Zero product releases use calendar versions in the form `YYYY.MM.N`, and
+Upstream's product releases use calendar versions in the form `YYYY.MM.N`, and
 the Git tag is the version itself without a `v` prefix. The month is always
 zero-padded (`01` through `12`), while `N` is a positive, non-padded release
 counter that starts at `1` each month. For example, the first two releases in
 August 2026 are `2026.08.1` and `2026.08.2`; the first September release is
 `2026.09.1`.
 
-Release tags are cut by hand; the fork has no container images or automated
-release builds. The private `app/package.json` and `ui/package.json` versions
+This fork publishes no releases, container images or automated release builds. The private `app/package.json` and `ui/package.json` versions
 are package-manager metadata and are intentionally independent from the
 product release tag.
 

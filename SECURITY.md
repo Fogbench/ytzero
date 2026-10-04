@@ -1,28 +1,17 @@
 # Security Policy
 
-YT Zero is a personal, self-hosted project maintained in spare time.
-Security reports are taken seriously, but please set expectations accordingly:
-there is no SLA, and fixes ship on a best-effort basis.
+This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero).
+Nobody maintains it as a project: there is no support, no SLA, and no promise
+to read reports or fix anything. It is shared as is, under the AGPL.
 
-## Supported versions
+## Reporting
 
-Only the latest code on `main` is supported. There are no backports to older tags — please update to
-the latest version before reporting an issue.
-
-## Reporting a vulnerability
-
-**Please do not open a public issue for security problems.**
-
-Report privately through GitHub's
-[private vulnerability reporting](https://github.com/Fogbench/ytzero/security/advisories/new):
-
-1. Go to the repository's **Security** tab → **Report a vulnerability**.
-2. Describe the issue, the impact, and clear steps to reproduce.
-3. Include affected version/commit and any relevant configuration.
-
-You can expect an initial acknowledgement within a reasonable time. Once a fix
-is available, the advisory will be published and credit given to the reporter
-unless you prefer to stay anonymous.
+- Problems that also exist upstream: see [Pelski/ytzero](https://github.com/Pelski/ytzero).
+- Problems in this fork: **please do not open a public issue for security
+  problems.** You may use GitHub's
+  [private vulnerability reporting](https://github.com/Fogbench/ytzero/security/advisories/new)
+  on this repository, with the issue, its impact, steps to reproduce and the
+  affected commit. It is best effort only; there may be no reply or fix.
 
 ## Scope and threat model
 
@@ -31,13 +20,11 @@ login) or be exposed more broadly using one of the built-in authentication
 methods — see [Authentication](https://github.com/Pelski/ytzero/wiki/Authentication).
 Some things are intentional and **not** considered vulnerabilities:
 
-- **No authentication by default outside one-click cloud templates.** With the
-  default **None** method, the app
+- **No authentication by default.** With the default **None** method, the app
   has no login and assumes anyone who can reach it is the owner. If you expose
   the app beyond your LAN, activate one of the supported authentication
   methods first (shared login, per-profile login, OIDC, or a trusted
-  reverse-proxy header). One-click cloud templates instead force shared login
-  and require `YTZERO_AUTH_PASSWORD` in the deployment environment.
+  reverse-proxy header).
 - **Trusting the reverse-proxy header method.** The **Proxy header** auth
   method trusts whatever value your reverse proxy sends — it is your
   responsibility to run it behind a proxy that always sets that header and
@@ -66,5 +53,3 @@ Things that **are** in scope and worth reporting:
   handling and OIDC token/issuer validation.
 - Privilege escalation between profiles (e.g. a non-admin profile gaining
   admin powers) or between OIDC-mapped identities.
-
-When in doubt, report it privately and let's discuss.
