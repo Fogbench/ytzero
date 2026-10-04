@@ -204,9 +204,9 @@ update.sh  (update to the latest release)
     ./bin/.installed. Only a tool whose pinned version differs is replaced:
     the new one is downloaded and checked against its sha256 first, and the
     old one is kept until the new one works (and put back if anything
-    fails). Tools with the same pinned version are not touched, and a tool
-    found elsewhere on your PATH is left alone. Nothing is ever fetched as
-    "latest".
+    fails). Tools with the same pinned version are not touched. A tool on
+    your PATH is ignored: the pinned tools always live in ./bin. Nothing is
+    ever fetched as "latest".
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
   - Only one update can run at a time. While it runs, it keeps a folder
