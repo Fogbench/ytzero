@@ -159,12 +159,14 @@ start.sh  (run every time)
   Setting that up is not covered here.
 
   To change the port for good, run bash install-linux.sh again or edit the
-  number in ./port. For a single run:
+  number in ./port. For a single run, give PORT on the command line:
 
       PORT=8080 bash start.sh
 
-  If the port file holds anything but a number from 1 to 65535, start.sh
-  says so and uses 3001.
+  The port is the first of these that is set: PORT on the command line,
+  then PORT in ytzero.env (see below), then the file ./port, then 3001. If
+  that value is not a number from 1 to 65535, start.sh says so and uses
+  3001.
 
   Other settings are environment variables, listed on the upstream
   Configuration page:
@@ -172,19 +174,27 @@ start.sh  (run every time)
 
   Your own settings: ytzero.env. If a file named ytzero.env exists in this
   folder, start.sh reads it before it starts the server, and every setting
-  in it becomes an environment variable of the server. It can also set PORT,
-  and then it wins over the file ./port and over PORT=... on the command
-  line. You create it yourself with a text editor; the release does not
-  contain one. It is read like a shell script: one NAME=value per line, with
-  quotes around a value that contains spaces. For example:
+  in it becomes an environment variable of the server. It can also set PORT.
+  You create it with a text editor; the release does not contain one. It is
+  read like a shell script: one NAME=value per line, with quotes around a
+  value that contains spaces. For example:
 
       PORT=8080
 
+  The order is the same for every setting: a value given on the command
+  line wins, then ytzero.env, then (for the port only) ./port, then 3001.
+  So "PORT=9090 bash start.sh" uses 9090 even if ytzero.env says
+  PORT=8080. A value that is set but empty on the command line counts as
+  given, and the file does not fill it in. The same goes for any variable
+  that is already set where you run start.sh (PATH and HOME, for example):
+  the file cannot change those. Settings that are only in the file reach
+  the server as usual.
+
   Four settings are the exception: TMPDIR, XDG_CACHE_HOME, DENO_DIR and
   BUN_INSTALL_CACHE_DIR. start.sh sets them after it reads ytzero.env, so
-  whatever the file says for them is ignored. They always point inside this
-  folder (see PORTABLE above). A file saved on Windows (line ends in CRLF)
-  works too.
+  neither the file nor the command line can change them. They always point
+  inside this folder (see PORTABLE above). A file saved on Windows (line
+  ends in CRLF) works too.
 
   update.sh never changes or deletes ytzero.env, and neither does
   uninstall.sh, so your settings survive updates. Do not put them in
