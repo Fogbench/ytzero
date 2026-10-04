@@ -21,10 +21,10 @@ export default function WatchPlaylistPanel({
   videos,
   footer,
 }: {
-  activeItemRef?: RefObject<HTMLAnchorElement>;
+  activeItemRef?: RefObject<HTMLAnchorElement | null>;
   currentVideoId?: string;
   footer?: ReactNode;
-  itemsRef?: RefObject<HTMLDivElement>;
+  itemsRef?: RefObject<HTMLDivElement | null>;
   playlistId?: string;
   playlistIndex: number;
   sort?: PlaylistSort;
