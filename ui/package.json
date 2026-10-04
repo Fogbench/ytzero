@@ -18,10 +18,10 @@
     "@simplewebauthn/browser": "^13.3.0",
     "@use-gesture/react": "^10.3.1",
     "canvas-confetti": "^1.9.4",
-    "emoji-picker-react": "^4.19.1",
-    "hls.js": "^1.6.16",
+    "emoji-picker-react": "^4.22.3",
+    "hls.js": "^1.7.3",
     "html2canvas": "^1.4.1",
-    "lucide-react": "^1.18.0",
+    "lucide-react": "^1.51.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router": "^7.18.0"
