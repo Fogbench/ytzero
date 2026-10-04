@@ -671,8 +671,36 @@ printf 'TMPDIR=/ytz-bogus/tmp\nXDG_CACHE_HOME=/ytz-bogus/xdg\nDENO_DIR=/ytz-bogu
 checkx "R2-9 TMPDIR, XDG_CACHE_HOME, DENO_DIR and BUN_INSTALL_CACHE_DIR set in ytzero.env stay overridden by start.sh" \
   '[ $STUB_RC -eq 0 ] && grep -q "TMPDIR=$STUB/.cache/tmp " "$T/stub.out" && grep -qx "STUB2 XDG=$STUB/.cache DENO=$STUB/.cache/deno BUNCACHE=$STUB/.bun-cache" "$T/stub.out"'
 rm -f "$STUB/ytzero.env"
+# R2-C: order of the settings = command line, then ytzero.env, then ./port, then 3001
+echo 4242 > "$STUB/port"; STUB_ENV=""
+printf 'PORT=6060\n' > "$STUB/ytzero.env"; stub_run
+check "R2-C ytzero.env PORT (6060) beats ./port (4242)" [ "$STUB_PORT" = 6060 ]
+STUB_ENV="PORT=5555"; stub_run
+checkx "R2-C PORT=5555 on the command line beats ytzero.env PORT=6060 and ./port, and the banner shows it" \
+  '[ $STUB_RC -eq 0 ] && [ "$STUB_PORT" = 5555 ] && grep -q "http://localhost:5555\$" "$T/stub.out"'
+printf 'PORT=6060\nYTZERO_TEST_VAR=only-in-file\n' > "$STUB/ytzero.env"; stub_run
+checkx "R2-C with PORT on the command line, a setting that is only in ytzero.env still reaches the server" \
+  '[ "$STUB_PORT" = 5555 ] && grep -q "VAR=only-in-file$" "$T/stub.out"'
+printf 'YTZERO_TEST_VAR=from-file\n' > "$STUB/ytzero.env"; STUB_ENV="YTZERO_TEST_VAR=from-cmdline"; stub_run
+check "R2-C any setting (not only PORT): the command line value beats ytzero.env" grep -q "VAR=from-cmdline$" "$T/stub.out"
+STUB_ENV="YTZERO_TEST_VAR="; stub_run   # set but empty on the command line: counts as set
+checkx "R2-C an empty value on the command line stays empty (ytzero.env does not fill it in)" \
+  '[ $STUB_RC -eq 0 ] && grep -q "VAR=$" "$T/stub.out"'
+printf 'BASE=7070\nPORT=$BASE\nYTZERO_TEST_VAR="$BASE-x y"\n' > "$STUB/ytzero.env"; STUB_ENV=""; stub_run
+checkx "R2-C a line in ytzero.env can use a variable set earlier in the same file" \
+  '[ "$STUB_PORT" = 7070 ] && grep -q "VAR=7070-x y$" "$T/stub.out"'
+printf "PORT='6363'\nYTZERO_TEST_VAR=\"quoted value\"\n" > "$STUB/ytzero.env"; stub_run
+checkx "R2-C quoted values in ytzero.env still work" '[ "$STUB_PORT" = 6363 ] && grep -q "VAR=quoted value$" "$T/stub.out"'
+printf 'PATH=/ytz-bogus\n' > "$STUB/ytzero.env"; stub_run   # PATH is always in the environment, so the file cannot change it
+checkx "R2-C PATH in ytzero.env does not break start.sh (the command line PATH stays)" \
+  '[ $STUB_RC -eq 0 ] && grep -q "^STUB PORT=" "$T/stub.out" && clean_of_noise "$T/stub.err"'
+rm -f "$STUB/ytzero.env"
+STUB_ENV="TMPDIR=/ytz-cl/tmp XDG_CACHE_HOME=/ytz-cl/xdg DENO_DIR=/ytz-cl/deno BUN_INSTALL_CACHE_DIR=/ytz-cl/bun"; stub_run
+checkx "R2-C the four cache variables given on the command line are overridden by start.sh too" \
+  '[ $STUB_RC -eq 0 ] && grep -q "TMPDIR=$STUB/.cache/tmp " "$T/stub.out" && grep -qx "STUB2 XDG=$STUB/.cache DENO=$STUB/.cache/deno BUNCACHE=$STUB/.bun-cache" "$T/stub.out"'
+STUB_ENV=""
 
-echo "== case S: start.sh boots the real server (started through a symlink, PORT in the environment), GET /api/health"
+echo "== case S:start.sh boots the real server (started through a symlink, PORT in the environment), GET /api/health"
 restore; rm -rf "$INST/data"
 SERVER_PORT="$(free_port)"
 printf 'YTZERO_TEST_VAR="from ytzero.env"\n' > "$INST/ytzero.env"   # also proves ytzero.env is read by the real start.sh
