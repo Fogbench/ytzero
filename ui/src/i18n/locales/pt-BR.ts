@@ -591,6 +591,7 @@ export const ptBR: Locale = {
     "checkingUpdates": "A verificar...",
     "updateAvailable": "Uma nova versão está disponível",
     "upToDate": "Nenhuma versão mais nova está disponível",
+    "noReleasesPublished": "Nenhuma versão publicada para este fork",
     "noNewerVersionHint": "A versão {version} está atualizada.",
     "developmentVersion": "Uma compilação de testes está em execução",
     "developmentVersionHint": "Esta compilação não tem número de lançamento, então não pode ser comparada diretamente.",

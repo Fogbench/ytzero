@@ -591,6 +591,7 @@ export const ja: Locale = {
     "checkingUpdates": "チェックイン",
     "updateAvailable": "新しいバージョンが利用可能",
     "upToDate": "新規バージョンは使用できません。",
+    "noReleasesPublished": "このフォークにはリリースが公開されていません",
     "noNewerVersionHint": "バージョン{version}は最新です。",
     "developmentVersion": "テストビルドが実行されている",
     "developmentVersionHint": "リリース番号がないので直接比較できません。",

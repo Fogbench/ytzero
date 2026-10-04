@@ -595,6 +595,7 @@ export const es: Locale = {
     checkingUpdates: "Comprobando…",
     updateAvailable: "Hay una nueva versión disponible",
     upToDate: "No hay una versión más reciente disponible",
+    noReleasesPublished: "No hay versiones publicadas para este fork",
     noNewerVersionHint: "La versión {version} está actualizada.",
     developmentVersion: "Se está ejecutando una compilación de prueba",
     developmentVersionHint: "Esta compilación no tiene número de versión, por lo que no se puede comparar directamente.",

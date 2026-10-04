@@ -31,7 +31,7 @@ import { FollowedPlaylistSettingsList } from "../components/settings/FollowedPla
 import { scheduleSettingWrite } from "../settingsWriteQueue";
 import ProfilesSettings, { ProfilePasswordSettings } from "../components/settings/ProfileSettings";
 import { ChannelOwnership, FilterRuleGroups, PlaylistSettingsItem, PluginMultiselect, RuleRow, SidebarNavEditor, TagRow } from "../components/settings/SettingsEditors";
-import { ChangelogNote, LogLine, SettingsLoadingState } from "../components/settings/SettingsSupport";
+import { LogLine, SettingsLoadingState } from "../components/settings/SettingsSupport";
 import { SettingsSearch } from "../components/settings/SettingsSearch";
 import ChannelSettingsDialog, { hasCustomChannelSettings } from "../components/settings/ChannelSettingsDialog";
 import { filterPlaylistsByName } from "../playlistSearch";
@@ -1271,9 +1271,9 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
               {updateCheck && (
                 <Alert
                   className="settings-update-status"
-                  variant={updateCheck.updateAvailable === true ? "warning" : updateCheck.updateAvailable === false ? "success" : "info"}
-                  icon={updateCheck.updateAvailable === true ? <Sparkles /> : updateCheck.updateAvailable === false ? <CheckCircle2 /> : <Info />}
-                  title={updateCheck.updateAvailable === true ? t("updateAvailable") : updateCheck.updateAvailable === false ? t("upToDate") : t("developmentVersion")}
+                  variant={updateCheck.latestVersion === null ? "info" : updateCheck.updateAvailable === true ? "warning" : updateCheck.updateAvailable === false ? "success" : "info"}
+                  icon={updateCheck.latestVersion === null ? <Info /> : updateCheck.updateAvailable === true ? <Sparkles /> : updateCheck.updateAvailable === false ? <CheckCircle2 /> : <Info />}
+                  title={updateCheck.latestVersion === null ? t("noReleasesPublished") : updateCheck.updateAvailable === true ? t("updateAvailable") : updateCheck.updateAvailable === false ? t("upToDate") : t("developmentVersion")}
                 >
                   {updateCheck.updateAvailable === true && (
                     <div className="settings-version-comparison" aria-label={`${updateCheck.currentVersion} → ${updateCheck.latestVersion ?? "—"}`}>
@@ -1282,8 +1282,8 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
                       <code>{updateCheck.latestVersion ?? "—"}</code>
                     </div>
                   )}
-                  {updateCheck.updateAvailable === false && <span>{t("noNewerVersionHint", { version: updateCheck.currentVersion })}</span>}
-                  {updateCheck.updateAvailable === null && (
+                  {updateCheck.latestVersion !== null && updateCheck.updateAvailable === false && <span>{t("noNewerVersionHint", { version: updateCheck.currentVersion })}</span>}
+                  {updateCheck.latestVersion !== null && updateCheck.updateAvailable === null && (
                     <span>{t("developmentVersionHint")} {t("latestVersion")}: <strong>{updateCheck.latestVersion ?? "—"}</strong></span>
                   )}
                   {updateCheck.latestVersion && (
@@ -1329,7 +1329,7 @@ export default function SettingsPage({ showToast }: { showToast: (m: string) => 
                             </div>
                           </header>
                           {release.notes.length > 0 && (
-                            <ul>{release.notes.map((note, noteIndex) => <li key={`${release.version}-${noteIndex}`}><ChangelogNote>{note}</ChangelogNote></li>)}</ul>
+                            <ul>{release.notes.map((note, noteIndex) => <li key={`${release.version}-${noteIndex}`}>{note}</li>)}</ul>
                           )}
                         </article>)}
                       </div>

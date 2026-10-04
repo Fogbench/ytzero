@@ -498,6 +498,7 @@ export const hu: Locale = {
     checkingUpdates: "Ellenőrzés...",
     updateAvailable: "Elérhető egy új verzió",
     upToDate: "Nincs elérhető újabb verzió",
+    noReleasesPublished: "Ehhez a forkhoz nem jelent meg kiadás",
     noNewerVersionHint: "A(z) {version} verzió naprakész.",
     developmentVersion: "Egy tesztbuild fut",
     developmentVersionHint: "Ehhez a buildhez nem tartozik kiadási szám, ezért nem lehet közvetlenül összehasonlítani.",

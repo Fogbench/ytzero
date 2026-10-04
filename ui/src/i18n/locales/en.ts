@@ -500,6 +500,7 @@ export const en = {
     checkingUpdates: "Checking...",
     updateAvailable: "A new version is available",
     upToDate: "No newer version is available",
+    noReleasesPublished: "No releases published for this fork",
     noNewerVersionHint: "Version {version} is up to date.",
     developmentVersion: "A test build is running",
     developmentVersionHint: "This build has no release number, so it cannot be compared directly.",

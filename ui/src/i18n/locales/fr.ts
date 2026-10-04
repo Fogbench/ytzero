@@ -591,6 +591,7 @@ export const fr: Locale = {
     "checkingUpdates": "Vérification...",
     "updateAvailable": "Une nouvelle version est disponible",
     "upToDate": "Aucune version plus récente n'est disponible",
+    "noReleasesPublished": "Aucune version publiée pour ce fork",
     "noNewerVersionHint": "La version {version} est à jour.",
     "developmentVersion": "Une version de test est en cours d'exécution",
     "developmentVersionHint": "Cette version n'a pas de numéro de publication, elle ne peut donc pas être comparée directement.",

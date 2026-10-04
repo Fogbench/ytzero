@@ -500,6 +500,7 @@ export const pl: Locale = {
     checkingUpdates: "Sprawdzam...",
     updateAvailable: "Dostępna jest nowa wersja",
     upToDate: "Nie ma nowszej wersji",
+    noReleasesPublished: "Dla tego forka nie opublikowano żadnych wydań",
     noNewerVersionHint: "Wersja {version} jest aktualna.",
     developmentVersion: "Uruchomiona jest wersja testowa",
     developmentVersionHint: "Ta kompilacja nie ma numeru wydania, dlatego nie można jej bezpośrednio porównać.",

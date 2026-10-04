@@ -591,6 +591,7 @@ export const ru: Locale = {
     "checkingUpdates": "Проверить...",
     "updateAvailable": "Доступна новая версия",
     "upToDate": "Новая версия не доступна",
+    "noReleasesPublished": "Для этого форка не опубликовано ни одного релиза",
     "noNewerVersionHint": "Версия {version} актуальна.",
     "developmentVersion": "Испытательная сборка запущена",
     "developmentVersionHint": "Эта сборка не имеет номера выпуска, поэтому ее нельзя сравнивать напрямую.",
