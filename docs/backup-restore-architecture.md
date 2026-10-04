@@ -656,6 +656,19 @@ archive with no such capability restores with public sharing denied.
   remains local to that browser and origin, is not written to profile settings,
   and is never included in a portable or exact server-side backup.
 
+- Four more player choices are stored in browser `localStorage` under fixed
+  keys: `ytzero.player.qualityHeight` (a height such as `1080`, or `auto`),
+  `ytzero.player.qualityCodec` (`av01` or `avc1`), `ytzero.player.stableVolume`
+  and `ytzero.player.voiceBoost` (`1` or `0`). All four are machine-bound
+  playback conveniences, not portable configuration: the right quality, codec
+  and audio processing depend on what that browser and device can decode and
+  play. They are not written to profile settings and are never included in a
+  portable or exact server-side backup; restoring an archive leaves them alone.
+  Unlike the audio-only choice above, these keys are not namespaced by profile.
+  Current behaviour: every profile in the same browser and origin shares one
+  value for each of the four. Making them per profile would be a separate
+  change to the key names and the player code.
+
 - passwords and PIN hashes
 - environment-owned authentication overrides and the `YTZERO_AUTH_PASSWORD`
   secret; they are machine-bound runtime configuration and are never persisted,
