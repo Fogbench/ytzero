@@ -7,7 +7,7 @@
   </p>
 </div>
 
-This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream). No support or releases are promised for now; that may change. For everything this README does not cover (features, settings, authentication, TubeArchivist, public sharing, child profiles and more), see upstream and its [wiki](https://github.com/Pelski/ytzero/wiki) (upstream). This fork has upgraded every dependency to its latest major version (React 19, react-router 8, vite 8, TypeScript 7 and more); see [Security and upgrades](#security-and-upgrades). All credit for YT Zero itself goes to Pelski and the contributors listed under [Thanks](#thanks).
+This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream). A first release exists (see [Releases](https://github.com/Fogbench/ytzero/releases)); no support or further releases are promised for now, and that may change. For everything this README does not cover (features, settings, authentication, TubeArchivist, public sharing, child profiles and more), see upstream and its [wiki](https://github.com/Pelski/ytzero/wiki) (upstream). This fork has upgraded every dependency to its latest major version (React 19, react-router 8, vite 8, TypeScript 7 and more); see [Security and upgrades](#security-and-upgrades). All credit for YT Zero itself goes to Pelski and the contributors listed at https://github.com/Pelski/ytzero/
 
 ## What this fork adds
 
@@ -19,7 +19,7 @@ This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (up
 
 ### Direct player
 
-The direct player is the default. It streams the video from YouTube through your own server with yt-dlp, saves nothing to disk, and plays it in YT Zero's own controls. The YouTube embed stays available (**Downloads > Configuration > Default player**) and is used when yt-dlp is not installed.
+The direct player is the default. It streams the video from YouTube through your own server with yt-dlp, saves nothing to disk, and plays it in YT Zero's own controls. The YouTube embed stays available (**Downloads > Configuration > Default player**) for those who prefer it.
 
 The gear menu holds:
 
@@ -30,9 +30,9 @@ The gear menu holds:
 - **Sleep timer** from 5 to 60 minutes, or at the end of the video.
 - **Playback speed** slider from 0.25x to 2x in 0.05 steps.
 - **Subtitles**, with language and style (size, colour, background, live sample). The CC button only switches captions on and off.
-- **Quality** up to 4K. Pick a height or Auto, and choose AV1 or H.264. The list only offers what your browser can decode.
+- **Quality** up to 4K. Pick a height or Auto, and choose AV1 or H.264. The list only offers what your browser can decode. Auto picks AV1 only when your browser can play it smoothly; when no quality plays smoothly, Auto uses the server's default stream.
 
-If direct playback fails, the player never falls back to the embed silently. You get an explanation, a YouTube link and a button to use the embed.
+If direct playback fails, the player never falls back to the embed silently. You get an explanation, a YouTube link and a button to use the embed if you want.
 
 ### Settings
 
@@ -42,9 +42,28 @@ If direct playback fails, the player never falls back to the embed silently. You
 
 All of these are shown by default and can be switched off per profile. Every new string is translated into the nine UI languages.
 
-## Quick start
+## Install from the release (Linux)
 
-Run it natively with [Bun](https://bun.sh). On Linux (x86_64, aarch64), `bun run setup` installs the dependencies and downloads yt-dlp, Deno and ffmpeg into `./bin` when they are not already on your `PATH` (needs `curl`, `xz` and `unzip` or `python3`). On macOS, install them yourself, for example with Homebrew. Without yt-dlp the app still runs and uses the YouTube embed.
+Each release has a ready-to-run package, `ytzero-<version>.tar.gz`, with its `.sha256` file, on the [Releases page](https://github.com/Fogbench/ytzero/releases). Nothing needs compiling. Versions are named by date, `YYYY.MM.N` (for example `2026.10.1`).
+
+```bash
+sha256sum -c ytzero-<version>.tar.gz.sha256    # must print OK
+tar -xzf ytzero-<version>.tar.gz && cd ytzero-<version>
+bash install-linux.sh    # once; asks which port to use (default 3001)
+bash start.sh            # prints the address to open
+```
+
+- Self contained, everything stays inside that folder: nothing is written to your home directory or the rest of the system. Your data is in `./data`; keep it backed up.
+- The app starts empty; add channels from **Settings > Channels**.
+- `bash update.sh` moves to the newest release (`--check` only looks). It backs up your data to `./backups` first.
+- `bash uninstall.sh` removes what the installer added and keeps your data unless you pass `--remove-data`.
+- The package installs pinned versions of Bun, yt-dlp, Deno and ffmpeg into `./bin` and ignores copies on your `PATH`.
+- Needs `curl`, `xz` and `unzip` or `python3`. Without yt-dlp the app still runs and uses the YouTube embed.
+- Tested on Linux x86_64 only. ARM (aarch64) and macOS are untested. macOS has no installer; `README.txt` inside the package lists the manual steps.
+
+## Run from source
+
+For development, or if you do not want the package. Run it natively with [Bun](https://bun.sh). On Linux (x86_64, aarch64), `bun run setup` installs the dependencies and downloads yt-dlp, Deno and ffmpeg into `./bin` when they are not already on your `PATH` (needs `curl`, `xz` and `unzip` or `python3`). On macOS, install them yourself, for example with Homebrew. Without yt-dlp the app still runs and uses the YouTube embed.
 
 ```bash
 git clone https://github.com/Fogbench/ytzero && cd ytzero
@@ -68,6 +87,7 @@ The app starts empty; add channels from **Settings > Channels**. Keep `./data` b
   | Safari | Plays up to 1080p (H.264 only, no AV1, no HDR). Stable volume and Voice boost have no effect. |
 
   Safari plays HLS with its built-in player, which does not let the page change the audio. The M1 has no AV1 decoder, and YouTube's H.264 stops at 1080p. VP9 is not supported by the direct player.
+- The release package's install, start, update and uninstall scripts passed an automated test on Linux x86_64 (2026-10-04). They are untested on ARM and macOS.
 - Upstream's tvOS app and browser extension are not part of this fork.
 
 ## Documentation
