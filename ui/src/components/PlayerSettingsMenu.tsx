@@ -1,5 +1,5 @@
 import { ChevronRight, LoaderCircle, Settings } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AudioEnhanceMode } from "../playerAudioEnhance";
 import { SLEEP_TIMER_MINUTES } from "../playerSleepTimer";
 import type { AvailableSubtitle } from "../api";
@@ -78,6 +78,13 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
   }, [open, panel, onStylePreview]);
   const { qualities = [], loading = false, choice = { height: "auto", codec: "av01" } as QualityChoice, active = null, onChoiceChange = () => {} } = quality ?? {};
 
+  // Keyboard users: put focus on the first control whenever the menu or a sub-panel appears
+  // (the callback changes with `panel`, so React calls it again on each switch).
+  const focusFirstControl = useCallback((element: HTMLElement | null) => {
+    // One frame later: the popover is still hidden while it is being positioned, and hidden elements cannot take focus.
+    if (element) requestAnimationFrame(() => element.querySelector<HTMLElement>('button:not([disabled]), input, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true }));
+  }, [panel]);
+
   const changeOpen = (next: boolean) => {
     setOpen(next);
     if (!next) { commitSpeed(); setPanel("main"); }
@@ -110,6 +117,7 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
           </button>
         }
       >
+        <div style={{ display: "contents" }} ref={focusFirstControl}>
         {panel === "main" ? (
           <Menu>
             {autoplay && (
@@ -290,6 +298,7 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
             </ScrollArea>
           </>
         )}
+        </div>
       </FloatingPopover>
     </div>
   );

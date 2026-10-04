@@ -56,7 +56,12 @@ export function FloatingPopover({ trigger, children, open, onOpenChange, align =
     const close = (event: MouseEvent) => {
       if (!triggerRef.current?.contains(event.target as Node) && !contentRef.current?.contains(event.target as Node) && !isInPopoverBranch(event.target, popoverId)) onOpenChange(false);
     };
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onOpenChange(false); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      // Focus inside the menu would be lost when it closes; hand it back to the button that opened it.
+      if (contentRef.current?.contains(document.activeElement)) triggerRef.current?.querySelector<HTMLElement>("button, a, input, [tabindex]")?.focus();
+      onOpenChange(false);
+    };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", onKey);
     window.addEventListener("resize", position);
