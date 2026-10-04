@@ -24,7 +24,7 @@
     "lucide-react": "^1.51.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router": "^7.18.0"
+    "react-router": "^8.4.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
