@@ -446,7 +446,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   });
   // null while the list is loading; [] when it failed, which plays the server default.
   const [playable, setPlayable] = useState<DirectQuality[] | null>(directQualities ? null : []);
-  // Which of those decode smoothly. "auto" picks only from these; a quality the viewer picks by hand may be outside it.
+  // Which of those decode smoothly. "auto" picks only from these (none smooth: no quality, so the server default plays); a quality the viewer picks by hand may be outside it.
   const [smoothIds, setSmoothIds] = useState<ReadonlySet<string>>(() => new Set());
   const switchRef = useRef<{ position: number; playing: boolean } | null>(null);
   const [switchStart, setSwitchStart] = useState<number | null>(null);
@@ -502,7 +502,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     setQualityFailed(false);
     const next = resolveQuality(choice, playable ?? [], smoothIds);
     const video = videoRef.current;
-    if (next && next.id !== activeQuality?.id && video) {
+    // next may be null (auto with nothing smooth = server default); that is a stream change too.
+    if (video && (next?.id ?? null) !== (activeQuality?.id ?? null)) {
       // Remember where we were; the new stream starts there, playing only if we were.
       switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
       setSwitchStart(video.currentTime);
