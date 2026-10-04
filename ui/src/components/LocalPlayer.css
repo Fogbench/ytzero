@@ -332,6 +332,6 @@
   .lp-time { display: none; }
 }
 
-/* CC button: dim when subtitles are off, lit with an underline when on. */
+/* CC button: dim when subtitles are off, lit with a white underline when on. */
 .lp-btn.lp-cc { opacity: 0.6; }
-.lp-btn.lp-cc.active { opacity: 1; box-shadow: inset 0 -3px 0 var(--accent, #f2293a); }
+.lp-btn.lp-cc.active { opacity: 1; box-shadow: inset 0 -3px 0 #fff; }
