@@ -7,7 +7,7 @@
 #   1. It exports the repo with `git archive HEAD`, puts your working-tree release scripts on top,
 #      turns the export into a throwaway git repo (so package-release.sh takes its real
 #      `git archive` path, not the "no .git" fallback) and builds v2.0.0 with package-release.sh.
-#   2. It makes faux releases v2.0.1 .. v2.0.4 by editing copies of that tarball (a changed yt-dlp pin,
+#   2. It makes faux releases v2.0.1 .. v2.0.6 by editing copies of that tarball (a changed yt-dlp pin,
 #      a bad checksum, three ffmpeg mirrors, ...). The faux tools.lock points at files served
 #      from 127.0.0.1, so no override variable is needed.
 #   3. It installs v2.0.0 for real into a temp folder, with a fake HOME and a cut-down PATH
@@ -15,6 +15,8 @@
 #      the result.
 # Every check prints PASS: or FAIL:. The last line is "== N passed, M failed in Ns"; the exit code is
 # non-zero when anything failed.
+# Programs it needs: bash, git, curl, tar, xz, python3, sha256sum and the usual coreutils. It does NOT
+# need ss/lsof: servers it starts are stopped by the pid it remembered, and ports are looked up in /proc.
 # Env: KEEP_TMP=1 keeps the temp dir; TEST_TMPDIR=<dir> is the parent for it (default $TMPDIR or /tmp).
 # Option: --scripts-ref <git ref>  takes scripts/release/* and scripts/package-release.sh from that commit
 #   instead of the working tree. This is how to check that a test really catches a bug: run the
@@ -32,19 +34,75 @@ PASS=0; FAIL=0
 PORT=""   # the fake GitHub's port, set below
 
 # ---------- helpers ----------
-# The pid of the process that listens on a TCP port (ss -ltnp). Servers are always stopped by
-# this, never with pkill -f, so no unrelated process can be hit. A pid is only used when its
-# working folder is inside the temp dir, i.e. when it is one of ours.
-port_pid() { ss -ltnpH "sport = :$1" 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | head -n 1; }
+# Which process listens on a TCP port. Three ways, tried in this order, so the test also works on a
+# machine without `ss` (the iproute2 package):
+#   1. ss -ltnp
+#   2. /proc/net/tcp (the kernel's list of sockets) gives the socket number of the listener; then
+#      /proc/<pid>/fd/* shows which process holds that socket. Needs no extra program.
+#   3. lsof, when it is installed.
+# It prints nothing when nothing listens on the port (or when none of the ways can tell).
+port_pid_proc() {
+  local port="$1" hex inode="" st lport f p
+  hex="$(printf '%04X' "$port")"
+  while read -r _ lport _ st _ _ _ _ _ inode _; do
+    if [ "$st" = 0A ] && [ "${lport##*:}" = "$hex" ]; then break; fi   # state 0A = LISTEN
+    inode=""
+  done < <(cat /proc/net/tcp /proc/net/tcp6 2>/dev/null)
+  if [ -z "$inode" ] || [ "$inode" = 0 ]; then return 0; fi
+  for f in /proc/[0-9]*/fd/*; do
+    [ "$(readlink "$f" 2>/dev/null)" = "socket:[$inode]" ] || continue
+    p="${f#/proc/}"; echo "${p%%/*}"; return 0
+  done
+}
+port_pid() {
+  local out=""
+  if command -v ss >/dev/null 2>&1; then out="$(ss -ltnpH "sport = :$1" 2>/dev/null | sed -n 's/.*pid=\([0-9][0-9]*\).*/\1/p' | head -n 1)"; fi
+  [ -n "$out" ] || out="$(port_pid_proc "$1")"
+  if [ -z "$out" ] && command -v lsof >/dev/null 2>&1; then out="$(lsof -nP -t -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -n 1)"; fi
+  echo "$out"
+}
+# Try to connect to the port (bash's own /dev/tcp, no program needed): success means something listens.
+port_open() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+# The process is gone (or is only a finished "zombie" that nobody has collected yet).
+proc_gone() {
+  local st
+  [ -r "/proc/$1/stat" ] || return 0
+  st="$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null)"
+  case "${st%% *}" in Z|X|"") return 0 ;; esac
+  return 1
+}
+# Is this process one of ours? Only if its working folder is inside the temp dir. A process outside
+# the test folders is never stopped.
+T_REAL="$(cd "$T" && pwd -P)"
+own_proc() {
+  local w; w="$(readlink "/proc/$1/cwd" 2>/dev/null || true)"
+  case "$w" in "$T"|"$T"/*|"$T_REAL"|"$T_REAL"/*) return 0 ;; *) return 1 ;; esac
+}
+# stop_pid <pid>: stop a background process THIS test started. The pid was remembered from $! when
+# it was started, so no port lookup is needed. Asks nicely, waits up to 5 s, then kill -9.
+stop_pid() {
+  local p="${1:-}" i
+  [ -n "$p" ] && [ -d "/proc/$p" ] || return 0
+  proc_gone "$p" || own_proc "$p" || return 0
+  proc_gone "$p" || kill "$p" 2>/dev/null || true
+  for i in $(seq 50); do proc_gone "$p" && break; sleep 0.1; done
+  proc_gone "$p" || { kill -9 "$p" 2>/dev/null || true; sleep 0.2; }
+  wait "$p" 2>/dev/null || true   # collect it, so it does not stay behind as a zombie
+}
+# Fallback for a server whose pid we do not know: the port tells the pid. Never pkill -f.
 kill_port() {
-  local p w i; p="$(port_pid "$1")"; [ -n "$p" ] || return 0
-  w="$(readlink "/proc/$p/cwd" 2>/dev/null || true)"
-  case "$w" in "$T"|"$T"/*) kill "$p" 2>/dev/null || true ;; *) return 0 ;; esac
-  for i in $(seq 50); do [ -z "$(port_pid "$1")" ] && return 0; sleep 0.1; done
+  local p; p="$(port_pid "$1")"; [ -n "$p" ] || return 0
+  stop_pid "$p"
 }
 SERVER_PORT=""   # port of the YT Zero server a case started, if any
+SERVER_PID=""    # its pid. start.sh ends in "exec bun", so the pid of the background job IS the server
+GITHUB_PID=""    # pid of the fake GitHub
+LOOKUP_OK=0      # 1 when port_pid works on this machine (tested when the fake GitHub starts)
+SKIPPED=0
 cleanup() {
-  [ -n "$DUMMY_PID" ] && kill "$DUMMY_PID" 2>/dev/null
+  stop_pid "$DUMMY_PID"
+  stop_pid "$SERVER_PID"
+  stop_pid "$GITHUB_PID"
   [ -n "$SERVER_PORT" ] && kill_port "$SERVER_PORT"
   [ -n "$PORT" ] && kill_port "$PORT"
   if [ "${KEEP_TMP:-0}" = 1 ]; then echo "kept temp dir: $T"; else rm -rf "$T"; fi
@@ -54,6 +112,9 @@ trap 'exit 130' INT TERM
 
 pass() { PASS=$((PASS+1)); echo "PASS: $*"; }
 fail() { FAIL=$((FAIL+1)); echo "FAIL: $*"; }
+# skip "name": a check that cannot be judged on this machine. Loud, counted, repeated at the end.
+# It is never counted as a pass.
+skip() { SKIPPED=$((SKIPPED+1)); echo "SKIPPED: $*"; }
 # check "name" <command...>: PASS when the command succeeds.
 check() { local name="$1"; shift; if "$@"; then pass "$name"; else fail "$name"; fi; }
 # checkx "name" '<shell condition>': like check, but for a condition with && in it. Writing
@@ -118,17 +179,27 @@ PORT="$(free_port)"
 mkdir -p "$WWW/art"
 printf '#!/bin/sh\necho 9999.01.01\n' > "$WWW/art/yt-dlp"
 FAKE_SHA="$(sha256sum "$WWW/art/yt-dlp" | cut -d' ' -f1)"
-# ffmpeg for the mirror test: the real file from the first tools.lock line of this CPU, served locally.
+# ffmpeg for the mirror test (case 10). It is a small FAKE ffmpeg archive made right here and served
+# locally, so the case does not depend on any real download host (johnvansickle.com may be
+# unreachable from some networks). The mirror logic is the same: 404 -> wrong sha256 -> good file.
+# The archive looks like the real one: a folder holding the two programs "ffmpeg" and "ffprobe".
 case "$(uname -m)" in aarch64|arm64) ARCH_KEY=aarch64 ;; *) ARCH_KEY=x86_64 ;; esac
-read -r _ FF_VER _ FF_URL FF_SHA < <(grep -m1 "^ffmpeg .* $ARCH_KEY " "$T/build/src/scripts/release/tools.lock")
-FF_LOCAL=0
-curl -fsSL --retry 2 "$FF_URL" -o "$WWW/art/ffmpeg.tar.xz" && [ "$(sha256sum "$WWW/art/ffmpeg.tar.xz" | cut -d' ' -f1)" = "$FF_SHA" ] && FF_LOCAL=1
+FF_VER="$(grep -m1 "^ffmpeg .* $ARCH_KEY " "$T/build/src/scripts/release/tools.lock" | cut -d' ' -f2)"
+[ -n "$FF_VER" ] || die "tools.lock has no ffmpeg line for $ARCH_KEY"
+mkdir -p "$T/ffsrc/ffmpeg-fake-static"
+for t in ffmpeg ffprobe; do
+  printf '#!/bin/sh\necho "%s version fake-from-the-third-mirror"\n' "$t" > "$T/ffsrc/ffmpeg-fake-static/$t"
+  chmod 755 "$T/ffsrc/ffmpeg-fake-static/$t"
+done
+tar -C "$T/ffsrc" -cJf "$WWW/art/ffmpeg.tar.xz" ffmpeg-fake-static || die "could not make the fake ffmpeg archive (is xz installed?)"
+FF_SHA="$(sha256sum "$WWW/art/ffmpeg.tar.xz" | cut -d' ' -f1)"
 echo "not an ffmpeg archive" > "$WWW/art/corrupt.tar.xz"
-# build_faux <version> <good|same|badsha|ffmirror>
+# build_faux <version> <good|same|badsha|ffmirror|ship>
 #   good:     yt-dlp pin changed to the fake artifact (correct sha256), a top-level file and a folder added
 #   same:     tools.lock identical to v2.0.0 (the extra file and folder of "good" are gone again)
 #   badsha:   yt-dlp pin changed, but with a wrong sha256
-#   ffmirror: ffmpeg pin changed, three mirrors: a 404, a file with the wrong sha256, then the real file
+#   ffmirror: ffmpeg pin changed, three mirrors: a 404, a file with the wrong sha256, then a good (fake) archive
+#   ship:     same pins as v2.0.0, but the release also ships the user-owned names port, ytzero.env and .tmp
 build_faux() {
   local v="$1" mode="$2" F="$T/faux/ytzero-$1" sha arch
   mkdir -p "$T/faux/x-$v" && tar -xzf "$REL/ytzero-v2.0.0.tar.gz" -C "$T/faux/x-$v" && mv "$T/faux/x-$v/ytzero-v2.0.0" "$F" || die "faux extract failed"
@@ -152,24 +223,32 @@ build_faux() {
         echo "ffmpeg ${FF_VER}b $arch http://127.0.0.1:$PORT/art/ffmpeg.tar.xz $FF_SHA" >> "$F/tools.lock.new"
       done
       mv "$F/tools.lock.new" "$F/tools.lock" ;;
+    ship)
+      echo 7777 > "$F/port"; echo "SHIPPED=1" > "$F/ytzero.env"
+      mkdir "$F/.tmp"; echo "shipped by the release" > "$F/.tmp/shipped.txt" ;;
   esac
   tar -C "$T/faux" -czf "$T/faux/ytzero-$v.tar.gz" "ytzero-$v"
   (cd "$T/faux" && sha256sum "ytzero-$v.tar.gz" > "ytzero-$v.tar.gz.sha256")
 }
-echo "== building faux v2.0.1 (changed pin), v2.0.2 (same pins), v2.0.3 (bad sha256), v2.0.4 (ffmpeg mirrors)"
-build_faux v2.0.1 good; build_faux v2.0.2 same; build_faux v2.0.3 badsha; build_faux v2.0.4 ffmirror
+echo "== building faux v2.0.1 (changed pin), v2.0.2 (same pins), v2.0.3 (bad sha256), v2.0.4 (ffmpeg mirrors), v2.0.6 (ships port, ytzero.env and .tmp)"
+build_faux v2.0.1 good; build_faux v2.0.2 same; build_faux v2.0.3 badsha; build_faux v2.0.4 ffmirror; build_faux v2.0.6 ship
 
 # ---------- 3. fake GitHub ----------
 D="$WWW/dl/Fogbench/ytzero/releases/download"
-mkdir -p "$D/v2.0.0" "$D/v2.0.1" "$D/v2.0.2" "$D/v2.0.3" "$D/v2.0.4" "$WWW/api/repos/Fogbench/ytzero/releases"
+mkdir -p "$D/v2.0.0" "$D/v2.0.1" "$D/v2.0.2" "$D/v2.0.3" "$D/v2.0.4" "$D/v2.0.6" "$WWW/api/repos/Fogbench/ytzero/releases"
 cp "$REL"/ytzero-v2.0.0.tar.gz* "$D/v2.0.0/"
-for v in v2.0.1 v2.0.2 v2.0.3 v2.0.4; do cp "$T/faux"/ytzero-$v.tar.gz* "$D/$v/"; done
+for v in v2.0.1 v2.0.2 v2.0.3 v2.0.4 v2.0.6; do cp "$T/faux"/ytzero-$v.tar.gz* "$D/$v/"; done
 set_latest() { printf '{"tag_name":"%s"}\n' "$1" > "$WWW/api/repos/Fogbench/ytzero/releases/latest"; }
 set_latest v2.0.0
 (cd "$WWW" && exec python3 -m http.server "$PORT" --bind 127.0.0.1 >"$T/server.log" 2>&1) &
+GITHUB_PID=$!   # remembered, so cleanup stops exactly this process (exec keeps the pid: it is the python server)
 for _ in $(seq 50); do curl -fs "http://127.0.0.1:$PORT/api/repos/Fogbench/ytzero/releases/latest" >/dev/null 2>&1 && break; sleep 0.1; done
 curl -fs "http://127.0.0.1:$PORT/api/repos/Fogbench/ytzero/releases/latest" >/dev/null || die "fake GitHub did not start"
-echo "== fake GitHub on 127.0.0.1:$PORT"
+echo "== fake GitHub on 127.0.0.1:$PORT (pid $GITHUB_PID)"
+# Does the port -> pid lookup work here? The fake GitHub is the test: the lookup must find the pid we started.
+if [ "$(port_pid "$PORT")" = "$GITHUB_PID" ]; then LOOKUP_OK=1
+else echo "note: this machine cannot tell which process listens on a port (no ss, and /proc/net/tcp, /proc/*/fd and lsof gave no answer). Servers are still stopped by their remembered pid; the checks that need the lookup are reported as SKIPPED."; fi
+command -v ss >/dev/null 2>&1 || echo "note: ss (iproute2) is not installed; ports are looked up in /proc/net/tcp instead"
 
 # ---------- 4. real install of 2.0.0 ----------
 echo "== installing 2.0.0 with install-linux.sh (slow: downloads tools)"
@@ -211,7 +290,7 @@ data_sum() { (cd "$INST/data" && find . -type f -print0 | sort -z | xargs -0 sha
 ver() { tr -d '[:space:]' < "$INST/VERSION"; }
 tsum() { sha256sum "$INST/bin/$1" | cut -d' ' -f1; }
 # stop the YT Zero server a case started
-stop_server() { [ -n "$SERVER_PORT" ] && kill_port "$SERVER_PORT"; }
+stop_server() { stop_pid "$SERVER_PID"; SERVER_PID=""; [ -n "$SERVER_PORT" ] && kill_port "$SERVER_PORT"; return 0; }
 
 # ---------- 5. cases ----------
 echo "== case 1: already on latest"
@@ -243,6 +322,7 @@ bk="$(ls -d "$INST"/backups/pre-update-v2.0.0-* 2>/dev/null | head -n 1)"
 checkx "3 database backup in ./backups" '[ -n "$bk" ] && [ -f "$bk/db/ytzero.sqlite" ]'
 check "3 backup db readable (100 rows)" [ "$(python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from t").fetchone()[0])' "${bk:-/nonexistent}/db/ytzero.sqlite" 2>/dev/null)" = 100 ]
 checkx "D5 backup includes data/database-state.json" '[ -n "$bk" ] && [ "$(cat "$bk/database-state.json" 2>/dev/null)" = "{\"state\":\"kept\"}" ]'
+check "R2-5 the backup message names both things it copied (data/db and data/database-state.json)" grep -qE "^==> copied data/db and data/database-state.json to backups/pre-update-v2.0.0-[0-9]{8}-[0-9]{6}$" <<<"$out"
 checkx "D5 only the newest 5 pre-update backups stay (the new one + the 4 newest old ones)" \
   '[ "$(ls -d "$INST"/backups/pre-update-* | wc -l)" = 5 ] && [ -d "$INST/backups/pre-update-v1.0.0-20250107-000000" ] && [ -d "$INST/backups/pre-update-v1.0.0-20250104-000000" ] && [ ! -e "$INST/backups/pre-update-v1.0.0-20250103-000000" ] && [ ! -e "$INST/backups/pre-update-v1.0.0-20250101-000000" ]'
 check "D5 a folder in backups/ that is not an update backup is kept" [ -d "$INST/backups/my-own-backup" ]
@@ -367,21 +447,17 @@ checkx "T2 install-linux.sh works (stages in ./.tmp) and installs the tool" '[ $
 check "T the folders ./.tmp are cleaned up again" [ ! -e "$INST/.tmp" ]
 check "T the nonexistent TMPDIR was never created" [ ! -e "$NO_TMP" ]
 
-echo "== case 10: ffmpeg mirrors: 404, then a wrong sha256, then the good one"
-if [ "$FF_LOCAL" = 1 ]; then
-  restore; set_latest v2.0.4
-  bun_s="$(tsum bun)"; ytd="$(tsum yt-dlp)"
-  out="$(run_in update.sh --yes 2>"$T/err10")"; rc=$?
-  echo "$out" | sed 's/^/   | /' | tail -8
-  check "10 exit 0" [ $rc -eq 0 ]
-  check "10 warned about the 404 mirror" grep -q "could not download http://127.0.0.1:$PORT/art/missing.tar.xz" "$T/err10"
-  check "10 warned about the mirror with the wrong checksum" grep -q "checksum mismatch for http://127.0.0.1:$PORT/art/corrupt.tar.xz" "$T/err10"
-  checkx "10 ffmpeg and ffprobe installed from the third mirror and recorded" '"$INST/bin/ffmpeg" -version >/dev/null 2>&1 && "$INST/bin/ffprobe" -version >/dev/null 2>&1 && grep -qx "ffmpeg ${FF_VER}b" "$INST/bin/.installed" && [ "$(ver)" = v2.0.4 ]'
-  checkx "10 bun and yt-dlp untouched" '[ "$(tsum bun)" = "$bun_s" ] && [ "$(tsum yt-dlp)" = "$ytd" ]'
-  check "10 stderr has no shell errors" clean_of_noise "$T/err10"
-else
-  fail "10 could not download the ffmpeg file the mirror test needs from $FF_URL"
-fi
+echo "== case 10: ffmpeg mirrors: 404, then a wrong sha256, then the good one (all three served locally)"
+restore; set_latest v2.0.4
+bun_s="$(tsum bun)"; ytd="$(tsum yt-dlp)"
+out="$(run_in update.sh --yes 2>"$T/err10")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -8
+check "10 exit 0" [ $rc -eq 0 ]
+check "10 warned about the 404 mirror" grep -q "could not download http://127.0.0.1:$PORT/art/missing.tar.xz" "$T/err10"
+check "10 warned about the mirror with the wrong checksum" grep -q "checksum mismatch for http://127.0.0.1:$PORT/art/corrupt.tar.xz" "$T/err10"
+checkx "10 ffmpeg and ffprobe installed from the third mirror and recorded" '[ "$("$INST/bin/ffmpeg" -version 2>&1)" = "ffmpeg version fake-from-the-third-mirror" ] && [ "$("$INST/bin/ffprobe" -version 2>&1)" = "ffprobe version fake-from-the-third-mirror" ] && grep -qx "ffmpeg ${FF_VER}b" "$INST/bin/.installed" && [ "$(ver)" = v2.0.4 ]'
+checkx "10 bun and yt-dlp untouched" '[ "$(tsum bun)" = "$bun_s" ] && [ "$(tsum yt-dlp)" = "$ytd" ]'
+check "10 stderr has no shell errors" clean_of_noise "$T/err10"
 
 echo "== case M4: downgrades are refused unless --allow-downgrade"
 restore; set_latest v2.0.0
@@ -473,11 +549,81 @@ checkx "L4 installer finished (exit 0, a short log, no endless prompts)" '[ $rc 
 check "L4 installer says ./port is not a port number" grep -q "does not hold a port number" "$T/l4.log"
 check "L4 installer fell back to 3001 and saved it" [ "$(cat "$INST/port")" = 3001 ]
 
+# dead_pid: prints a process number that is not in use (a short job that has already ended)
+dead_pid() { local p; ( : ) & p=$!; wait "$p" 2>/dev/null; echo "$p"; }
+
+echo "== case R2-1: update.sh on macOS (a stand-in uname says Darwin/arm64): program files update, tools stay"
+restore; set_latest v2.0.1   # v2.0.1 pins a NEW yt-dlp: on Linux it would be downloaded from the fake GitHub (/art/yt-dlp)
+mkdir -p "$T/darwin"
+cat > "$T/darwin/uname" <<'EOF'
+#!/bin/sh
+# Stands in for macOS: "uname -s" says Darwin, "uname -m" says arm64. Any other use is the real uname.
+case "${1:-}" in -s) echo Darwin ;; -m) echo arm64 ;; *) exec /usr/bin/uname "$@" ;; esac
+EOF
+chmod 755 "$T/darwin/uname"
+binsum="$(tree_sum "$INST/bin")"; art_before="$(grep -c 'GET /art/' "$T/server.log")"
+out="$(EXTRA_PATH="$T/darwin" run_in update.sh --yes 2>"$T/errr21")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -5
+check "R2-1 exit 0" [ $rc -eq 0 ]
+checkx "R2-1 VERSION moved to v2.0.1 and the new program files are in" '[ "$(ver)" = v2.0.1 ] && [ -f "$INST/app/src/UPDATE-MARKER.txt" ]'
+check "R2-1 says the tools are not touched on Darwin" grep -q "tools: not touched on Darwin" <<<"$out"
+check "R2-1 ./bin is exactly as before (no tool replaced, no .installed change)" [ "$(tree_sum "$INST/bin")" = "$binsum" ]
+check "R2-1 nothing was downloaded from the tool server (/art/ in the fake GitHub's log)" [ "$(grep -c 'GET /art/' "$T/server.log")" = "$art_before" ]
+check "R2-1 stderr has no shell errors" clean_of_noise "$T/errr21"
+
+echo "== case R2-lock: a live .update.lock stops update.sh"
+restore; set_latest v2.0.2
+mkdir "$INST/.update.lock"; echo "$$" > "$INST/.update.lock/pid"   # this test's own pid: certainly alive
+before="$(tree_sum "$INST")"
+out="$(run_in update.sh --yes 2>&1)"; rc=$?
+checkx "LOCK live pid: exit non-zero, says another update.sh is running, nothing changed" '[ $rc -ne 0 ] && grep -q "another update.sh is already running (pid $$)" <<<"$out" && [ "$(tree_sum "$INST")" = "$before" ]'
+
+echo "== case R2-2/R2-3: update after a killed run (dead-pid lock, stale ./.tmp folder, backups dated in the future)"
+restore; set_latest v2.0.2
+# five backups named with dates far in the FUTURE (a clock that was wrong): by name they sort newer than the new backup
+for i in 1 2 3 4 5; do mkdir -p "$INST/backups/pre-update-v9.0.0-2099010$i-000000/db"; done
+# what a run killed with kill -9 leaves behind: its lock (pid no longer alive) and its download folder
+mkdir "$INST/.update.lock"; echo "$(dead_pid)" > "$INST/.update.lock/pid"
+mkdir -p "$INST/.tmp/update.AbCdEf" "$INST/.tmp/update.abc" "$INST/.tmp/my-stuff"; echo junk > "$INST/.tmp/update.AbCdEf/old-download.tar.gz"
+out="$(run_in update.sh --yes 2>"$T/errr2")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -4
+checkx "LOCK dead pid: the lock is taken over, the update finishes (exit 0, v2.0.2, lock gone)" '[ $rc -eq 0 ] && [ "$(ver)" = v2.0.2 ] && [ ! -e "$INST/.update.lock" ]'
+bk="$(ls -d "$INST"/backups/pre-update-v2.0.0-* 2>/dev/null | head -n 1)"
+checkx "R2-2 the new backup survives although future-dated backups sort above it" '[ -n "$bk" ] && [ "$(cat "$bk/database-state.json" 2>/dev/null)" = "{\"state\":\"kept\"}" ]'
+checkx "R2-2 exactly 5 pre-update backups remain: the new one and the 4 newest of the future-dated" \
+  '[ "$(ls -d "$INST"/backups/pre-update-* | wc -l)" = 5 ] && [ -d "$INST/backups/pre-update-v9.0.0-20990105-000000" ] && [ -d "$INST/backups/pre-update-v9.0.0-20990102-000000" ] && [ ! -e "$INST/backups/pre-update-v9.0.0-20990101-000000" ]'
+check "R2-2 a folder in backups/ that is not an update backup is kept" [ -d "$INST/backups/my-own-backup" ]
+check "R2-3 the stale ./.tmp/update.AbCdEf of the killed run is removed" [ ! -e "$INST/.tmp/update.AbCdEf" ]
+checkx "R2-3 other folders in ./.tmp stay (one that is not update.*, one with a wrong-length name)" '[ -d "$INST/.tmp/my-stuff" ] && [ -d "$INST/.tmp/update.abc" ] && [ "$(ls -A "$INST/.tmp" | wc -l)" = 2 ]'
+check "R2-2/R2-3 stderr has no shell errors" clean_of_noise "$T/errr2"
+
+echo "== case R2-5: the backup message names what was copied (only data/database-state.json exists)"
+restore; set_latest v2.0.2
+rm -rf "$INST/data/db"
+out="$(run_in update.sh --yes 2>&1)"; rc=$?
+bk="$(ls -d "$INST"/backups/pre-update-v2.0.0-* 2>/dev/null | head -n 1)"
+check "R2-5 exit 0" [ $rc -eq 0 ]
+check "R2-5 message says: copied data/database-state.json to backups/pre-update-v2.0.0-..." grep -qE "^==> copied data/database-state.json to backups/pre-update-v2.0.0-[0-9]{8}-[0-9]{6}$" <<<"$out"
+check "R2-5 message does not claim a database (data/db) was copied" bash -c '! grep -q "data/db" <<<"$1"' _ "$out"
+checkx "R2-5 the backup holds database-state.json and no db folder" '[ -n "$bk" ] && [ -f "$bk/database-state.json" ] && [ ! -e "$bk/db" ]'
+
+echo "== case R2-12: a release that ships port, ytzero.env and .tmp must not overwrite the user's files"
+restore; set_latest v2.0.6
+echo 4242 > "$INST/port"; echo "FOO=mine" > "$INST/ytzero.env"
+out="$(run_in update.sh --yes 2>"$T/errr12")"; rc=$?
+echo "$out" | sed 's/^/   | /' | tail -4
+checkx "R2-12 update finishes (exit 0, VERSION v2.0.6)" '[ $rc -eq 0 ] && [ "$(ver)" = v2.0.6 ]'
+check "R2-12 the user's ./port is still 4242 (the release's 7777 is ignored)" [ "$(cat "$INST/port")" = 4242 ]
+check "R2-12 the user's ytzero.env is unchanged (the release's SHIPPED=1 is ignored)" [ "$(cat "$INST/ytzero.env")" = "FOO=mine" ]
+check "R2-12 the release's .tmp content was not copied in" [ ! -e "$INST/.tmp/shipped.txt" ]
+check "R2-12 stderr has no shell errors" clean_of_noise "$T/errr12"
+
 echo "== start.sh with a stand-in bun (what port, what environment the server would get)"
 STUB="$T/stub"; mkdir -p "$STUB/bin" "$STUB/app"; cp "$INST/start.sh" "$STUB/start.sh"; echo v9.9.9 > "$STUB/VERSION"
 cat > "$STUB/bin/bun" <<'EOF'
 #!/bin/sh
 echo "STUB PORT=$PORT TMPDIR=$TMPDIR HOME=$HOME VAR=${YTZERO_TEST_VAR-unset}"
+echo "STUB2 XDG=${XDG_CACHE_HOME-unset} DENO=${DENO_DIR-unset} BUNCACHE=${BUN_INSTALL_CACHE_DIR-unset}"
 EOF
 chmod 755 "$STUB/bin/bun"
 # stub_run: run start.sh in the stub folder; STUB_PORT gets the port the "server" would see
@@ -514,6 +660,17 @@ check "M2 without ytzero.env the setting is not there" grep -q "VAR=unset" "$T/s
 checkx "PORTABLE start.sh points TMPDIR into the folder (and makes it), leaves HOME alone" \
   'grep -q "TMPDIR=$STUB/.cache/tmp " "$T/stub.out" && [ -d "$STUB/.cache/tmp" ] && grep -q "HOME=$HOME_FAKE " "$T/stub.out"'
 check "stderr start.sh prints no shell errors" clean_of_noise "$T/stub.err"
+# R2-9: ytzero.env edge cases
+printf 'PORT=6161\r\nYTZERO_TEST_VAR=crlf-value\r\n' > "$STUB/ytzero.env"; stub_run   # a file saved on Windows: every line ends in CR LF
+checkx "R2-9 ytzero.env with CRLF line endings: the server gets PORT 6161 and a value without a stray CR" \
+  '[ $STUB_RC -eq 0 ] && [ "$STUB_PORT" = 6161 ] && grep -qx "STUB PORT=6161 .* VAR=crlf-value" "$T/stub.out"'
+printf 'A=$UNSET\nPORT=6262\n' > "$STUB/ytzero.env"; stub_run   # A=$UNSET reads a variable that does not exist
+checkx "R2-9 a line A=\$UNSET does not stop start.sh (empty value), the next line still works" '[ $STUB_RC -eq 0 ] && [ "$STUB_PORT" = 6262 ]'
+check "R2-9 A=\$UNSET prints no shell error ('unbound variable')" clean_of_noise "$T/stub.err"
+printf 'TMPDIR=/ytz-bogus/tmp\nXDG_CACHE_HOME=/ytz-bogus/xdg\nDENO_DIR=/ytz-bogus/deno\nBUN_INSTALL_CACHE_DIR=/ytz-bogus/bun\n' > "$STUB/ytzero.env"; stub_run
+checkx "R2-9 TMPDIR, XDG_CACHE_HOME, DENO_DIR and BUN_INSTALL_CACHE_DIR set in ytzero.env stay overridden by start.sh" \
+  '[ $STUB_RC -eq 0 ] && grep -q "TMPDIR=$STUB/.cache/tmp " "$T/stub.out" && grep -qx "STUB2 XDG=$STUB/.cache DENO=$STUB/.cache/deno BUNCACHE=$STUB/.bun-cache" "$T/stub.out"'
+rm -f "$STUB/ytzero.env"
 
 echo "== case S: start.sh boots the real server (started through a symlink, PORT in the environment), GET /api/health"
 restore; rm -rf "$INST/data"
@@ -522,6 +679,7 @@ printf 'YTZERO_TEST_VAR="from ytzero.env"\n' > "$INST/ytzero.env"   # also prove
 echo 3001 > "$INST/port"
 ln -s "$INST" "$LINK"
 (cd "$LINK" && exec env -i HOME="$HOME_FAKE" PATH="$FAKE_BASE_PATH" PORT="$SERVER_PORT" bash "$LINK/start.sh" >"$T/start.log" 2>&1 </dev/null) &
+SERVER_PID=$!   # remembered: this is the pid we stop at the end (exec keeps it through env -> bash -> bun)
 health=""
 for _ in $(seq 120); do health="$(curl -fs "http://127.0.0.1:$SERVER_PORT/api/health" 2>/dev/null)" && break; health=""; sleep 0.5; done
 echo "   | $health"
@@ -529,7 +687,12 @@ check "S GET /api/health answers with status ok" grep -q '"status":"ok"' <<<"$he
 check "S /api/health reports the release version v2.0.0" grep -q '"version":"v2.0.0"' <<<"$health"
 check "S /api/health reports the commit the tarball was built from (the app shows its first 7 characters)" grep -q "\"commit\":\"${BUILD_COMMIT:0:7}\"" <<<"$health"
 check "S the banner shows the port" grep -q "http://localhost:$SERVER_PORT\$" "$T/start.log"
-spid="$(port_pid "$SERVER_PORT")"
+spid="$SERVER_PID"
+if [ "$LOOKUP_OK" = 1 ]; then
+  check "S the process that listens on the port is the server we started (pid $spid)" [ "$(port_pid "$SERVER_PORT")" = "$spid" ]
+else
+  skip "S the process that listens on the port is the server we started (no way to look up a port's pid here)"
+fi
 checkx "S the server runs with its working folder in the real app/ folder" '[ -n "$spid" ] && [ "$(readlink "/proc/$spid/cwd")" = "$INST/app" ]'
 checkx "S the server got ytzero.env settings and a TMPDIR inside the folder" \
   '[ -n "$spid" ] && tr "\0" "\n" < "/proc/$spid/environ" | grep -qx "YTZERO_TEST_VAR=from ytzero.env" && tr "\0" "\n" < "/proc/$spid/environ" | grep -qx "TMPDIR=$INST/.cache/tmp"'
@@ -544,8 +707,12 @@ out="$(run_dir "$LINK" update.sh --yes 2>&1)"; rc=$?
 checkx "M3 update.sh started through the symlinked path refuses too" '[ $rc -ne 0 ] && grep -q "still running" <<<"$out" && [ "$(ver)" = v2.0.0 ]'
 out="$(run_dir "$LINK" uninstall.sh --dry-run 2>&1)"; rc=$?
 checkx "M3 uninstall.sh --dry-run through the symlinked path refuses too" '[ $rc -ne 0 ] && grep -q "still running" <<<"$out"'
-sport="$SERVER_PORT"; stop_server; SERVER_PORT=""
-check "S the server stopped (its port is free again)" [ -z "$(port_pid "$sport")" ]
+sport="$SERVER_PORT"; spid_run="$SERVER_PID"; stop_server; SERVER_PORT=""
+# "Stopped" is judged without ss: the pid we started is gone AND a connection to the port is refused.
+# (When the port lookup works, it must also find no listener.)
+checkx "S the server stopped (the pid we started is gone and its port refuses connections)" 'proc_gone "$spid_run" && [ ! -d "/proc/$spid_run" ] && ! port_open "$sport"'
+if [ "$LOOKUP_OK" = 1 ]; then check "S the server stopped (no process listens on its port any more)" [ -z "$(port_pid "$sport")" ]
+else skip "S no process listens on the server's port any more (no way to look up a port's pid here)"; fi
 rm -f "$LINK"
 check "S the server created its data under the folder (./data)" [ -d "$INST/data" ]
 
@@ -569,11 +736,25 @@ check "PORTABLE uninstall.sh left the fake HOME empty" home_empty
 out="$(run_in uninstall.sh --remove-data --yes 2>&1)"; rc=$?
 checkx "U --remove-data --yes deletes ./data" '[ $rc -eq 0 ] && [ ! -e "$INST/data" ]'
 
+echo "== case R2-11: uninstall.sh and a running update.sh (the .update.lock folder)"
+restore; mkdir "$INST/.update.lock"; echo "$$" > "$INST/.update.lock/pid"   # this test's own pid: certainly alive
+before="$(tree_sum "$INST")"
+out="$(run_in uninstall.sh --yes 2>&1)"; rc=$?
+checkx "R2-11 uninstall.sh --yes refuses while the lock holds a live pid (nothing removed)" '[ $rc -ne 0 ] && grep -q "update.sh is running in this folder (pid $$)" <<<"$out" && [ "$(tree_sum "$INST")" = "$before" ]'
+out="$(run_in uninstall.sh --dry-run 2>&1)"; rc=$?
+checkx "R2-11 uninstall.sh --dry-run refuses too" '[ $rc -ne 0 ] && grep -q "update.sh is running in this folder" <<<"$out"'
+echo "$(dead_pid)" > "$INST/.update.lock/pid"   # a leftover of a killed update.sh
+out="$(run_in uninstall.sh --dry-run 2>&1)"; rc=$?
+checkx "R2-11 a lock with a dead pid does not block (--dry-run lists the files, exit 0)" '[ $rc -eq 0 ] && grep -q "dry run" <<<"$out" && ! grep -q "update.sh is running" <<<"$out"'
+out="$(run_in uninstall.sh --yes 2>&1)"; rc=$?
+checkx "R2-11 a lock with a dead pid does not block a real uninstall either" '[ $rc -eq 0 ] && [ ! -e "$INST/app/node_modules" ]'
+
 echo "== end: nothing leaked outside the test folders"
 check "PORTABLE no script put anything in TMPDIR" bash -c '[ -z "$(ls -A "$1")" ]' _ "$HOSTTMP"
 check "PORTABLE the nonexistent TMPDIR was never created" [ ! -e "$NO_TMP" ]
 check "PORTABLE the fake HOME is still empty" home_empty
 
 echo
+[ "$SKIPPED" -eq 0 ] || echo "!! $SKIPPED check(s) were SKIPPED (not counted as passed): see the SKIPPED: lines above"
 echo "== $PASS passed, $FAIL failed in $((SECONDS-START))s"
 [ "$FAIL" -eq 0 ]
