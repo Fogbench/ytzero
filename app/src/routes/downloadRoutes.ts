@@ -454,7 +454,7 @@ api.get("/videos/:id/subtitles", async (c) => {
   if (!validYouTubeVideoId(videoId) || !await videoExistsStmt.get(videoId)) return c.json({ error: "not found" }, 404);
   const tubeArchivist = await tubeArchivistSubtitleList(videoId) ?? [];
   const local = await getDownload(uid, videoId) ? await subtitleList(videoId) : [];
-  const subtitles = new Map<string, { lang: string; url: string; label?: string }>();
+  const subtitles = new Map<string, { lang: string; url: string; label?: string; auto?: boolean }>();
   for (const subtitle of tubeArchivist) subtitles.set(subtitle.lang, subtitle);
   for (const subtitle of local) if (!subtitles.has(subtitle.lang)) subtitles.set(subtitle.lang, subtitle);
   if (!childLocalOnly(uid)) try {
@@ -463,6 +463,7 @@ api.get("/videos/:id/subtitles", async (c) => {
       if (!subtitles.has(subtitle.lang)) subtitles.set(subtitle.lang, {
         lang: subtitle.lang,
         label: subtitle.label,
+        auto: subtitle.auto,
         url: `/api/videos/${encodeURIComponent(videoId)}/subtitles/${encodeURIComponent(subtitle.lang)}`,
       });
     }
@@ -470,7 +471,7 @@ api.get("/videos/:id/subtitles", async (c) => {
     // Local and TubeArchivist tracks remain usable when yt-dlp metadata fails.
   }
   const list = [...subtitles.values()].sort((a, b) => (a.label ?? subtitleLanguageLabel(a.lang)).localeCompare(b.label ?? subtitleLanguageLabel(b.lang)));
-  return c.json({ subtitles: list, available: list.map(({ lang, label }) => ({ lang, label: label ?? subtitleLanguageLabel(lang) })) });
+  return c.json({ subtitles: list, available: list.map(({ lang, label, auto }) => ({ lang, label: label ?? subtitleLanguageLabel(lang), auto: auto === true })) });
 });
 
 api.get("/videos/:id/subtitles/:lang", async (c) => {

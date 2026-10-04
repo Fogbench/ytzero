@@ -27,9 +27,9 @@ describe("subtitle availability", () => {
     );
 
     expect(available).toEqual(expect.arrayContaining([
-      { lang: "en", label: "English", tracks: ["en", "en-nP7-2PuUl7o"] },
-      { lang: "pt-BR", label: "Português (Brasil)", tracks: ["pt-BR"] },
-      { lang: "fr", label: "Français", tracks: ["fr"] },
+      { lang: "en", label: "English", auto: false, tracks: ["en", "en-nP7-2PuUl7o"] },
+      { lang: "pt-BR", label: "Português (Brasil)", auto: false, tracks: ["pt-BR"] },
+      { lang: "fr", label: "Français", auto: true, tracks: ["fr"] },
     ]));
     expect(available.some((subtitle) => subtitle.lang === "de")).toBe(false);
   });
@@ -53,6 +53,7 @@ describe("subtitle availability", () => {
     const available = buildSubtitleAvailability({}, { "en-orig": vtt("English (Original)"), en: vtt("English"), de: vtt("German") }, ["pl"], true);
     expect(available.map((s) => s.lang)).toEqual(["en"]);
     expect(available[0].tracks).toEqual(["en-orig"]);
+    expect(available[0].auto).toBe(true);
   });
 
   test("offers only direct WebVTT and excludes HLS manifests", () => {
@@ -65,7 +66,7 @@ describe("subtitle availability", () => {
       {},
       [],
     );
-    expect(available).toEqual([{ lang: "pl", label: "Polski", tracks: ["pl"] }]);
+    expect(available).toEqual([{ lang: "pl", label: "Polski", auto: false, tracks: ["pl"] }]);
   });
 });
 

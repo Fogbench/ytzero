@@ -479,6 +479,8 @@ export interface VideoSubtitle {
 export interface AvailableSubtitle {
   lang: string;
   label: string;
+  /** Only auto-generated captions exist in this language. */
+  auto?: boolean;
 }
 
 export type DownloadStatus = "queued" | "downloading" | "done" | "error";

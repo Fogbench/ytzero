@@ -11,6 +11,8 @@ const MAX_METADATA_BYTES = 1_024 * 1_024;
 export interface AvailableSubtitle {
   lang: string;
   label: string;
+  /** True when every track is auto-generated (no uploader subtitles in this language). */
+  auto: boolean;
   /** Real yt-dlp language identifiers, ordered by preference. */
   tracks: string[];
 }
@@ -75,8 +77,8 @@ export function buildSubtitleAvailability(
   automaticOnlyAsFallback = false,
 ): AvailableSubtitle[] {
   const automatic = new Set([...automaticLanguages].filter(validLanguageCode).map(normalizeSubtitleLanguage));
-  const groups = new Map<string, { label: string; tracks: string[] }>();
-  const add = (source: Record<string, unknown>, include: (lang: string, track: string) => boolean) => {
+  const groups = new Map<string, { label: string; tracks: string[]; auto: boolean }>();
+  const add = (source: Record<string, unknown>, isAuto: boolean, include: (lang: string, track: string) => boolean) => {
     for (const [track, formats] of Object.entries(source)) {
       if (!validLanguageCode(track)) continue;
       if (!directVttUrl(formats)) continue;
@@ -88,20 +90,20 @@ export function buildSubtitleAvailability(
         if (!current.tracks.includes(track)) current.tracks.push(track);
         continue;
       }
-      groups.set(lang, { label: subtitleLanguageLabel(lang) === lang ? trackLabel(formats) ?? lang : subtitleLanguageLabel(lang), tracks: [track] });
+      groups.set(lang, { label: subtitleLanguageLabel(lang) === lang ? trackLabel(formats) ?? lang : subtitleLanguageLabel(lang), tracks: [track], auto: isAuto });
     }
   };
 
   // Author tracks always belong in the menu. Auto captions supplement them,
   // but never replace their order or label.
-  add(subtitles, () => true);
+  add(subtitles, false, () => true);
   // With no author tracks at all, also offer the video's own language, even if it is not one of the preferred ones.
   const noAuthorTracks = groups.size === 0;
   if (!(automaticOnlyAsFallback && !noAuthorTracks)) {
-    add(automaticCaptions, (lang, track) => automatic.has(lang) || (noAuthorTracks && track.endsWith("-orig")));
+    add(automaticCaptions, true, (lang, track) => automatic.has(lang) || (noAuthorTracks && track.endsWith("-orig")));
   }
   return [...groups.entries()]
-    .map(([lang, value]) => ({ lang, label: value.label, tracks: value.tracks }))
+    .map(([lang, value]) => ({ lang, label: value.label, auto: value.auto, tracks: value.tracks }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
