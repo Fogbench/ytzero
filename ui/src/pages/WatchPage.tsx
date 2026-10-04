@@ -219,6 +219,7 @@ export default function WatchPage() {
     subtitleSize,
     t,
     toggleFeedAutoplay,
+    setAutoplay,
     toggleDownloadPinned,
     toggleLiked,
     togglePlaylist,
@@ -393,7 +394,7 @@ export default function WatchPage() {
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
                   onSubtitleStyleChange={changeSubtitleStyle}
-                  autoplaySwitch={hasNextQueueVideo ? { enabled: settings?.feed_autoplay_behavior !== "prompt", onToggle: toggleFeedAutoplay } : undefined}
+                  autoplaySwitch={hasNextQueueVideo ? { enabled: settings?.feed_autoplay_enabled === "1" && settings?.feed_autoplay_behavior !== "prompt", onToggle: setAutoplay } : undefined}
                   sponsorBlock={sbSegments.length > 0 ? { active: !sbPaused, onToggle: (active) => setSbPaused(!active) } : undefined}
                   onError={playerKind === "direct" ? exitDirectStream : undefined}
                   showScreenshotButton={settings?.player_show_screenshot !== "0"}

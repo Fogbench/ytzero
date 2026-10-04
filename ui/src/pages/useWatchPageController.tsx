@@ -766,6 +766,15 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     setSettings((s) => s ? { ...s, feed_autoplay_behavior: behavior } : s);
     api.updateSettings({ feed_autoplay_behavior: behavior }).catch(() => {});
   }, []);
+  // The gear's Autoplay switch. Moving on at the end needs both settings:
+  // "continue through lists" on, and the behaviour set to play (not prompt).
+  const setAutoplay = useCallback((next: boolean) => {
+    const patch = next
+      ? { feed_autoplay_enabled: "1", feed_autoplay_behavior: "autoplay" }
+      : { feed_autoplay_behavior: "prompt" };
+    setSettings((s) => s ? { ...s, ...patch } : s);
+    api.updateSettings(patch).catch(() => {});
+  }, []);
   const handleEndedRef = useRef(handleEnded);
   useEffect(() => { handleEndedRef.current = handleEnded; }, [handleEnded]);
   useEffect(() => {
@@ -1610,6 +1619,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     subtitleSize,
     t,
     toggleFeedAutoplay,
+    setAutoplay,
     toggleDownloadPinned,
     toggleLiked,
     togglePlaylist,
