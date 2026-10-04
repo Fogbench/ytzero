@@ -101,8 +101,8 @@ export interface DirectVideoQuality {
   hdr: boolean;
 }
 
-/** `q` is a quality (`1440-av01`), an audio language (`~de`), or both (`1080-avc1~de`). */
-export const DIRECT_QUALITY_PATTERN = /^(?:(\d{3,4})-(avc1|av01))?(?:~([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?))?$/;
+/** `q` is a quality (`1440-av01`), an audio language (`~de`), or both (`1080-avc1~de`). `(?=.)` rejects an empty `q=`. */
+export const DIRECT_QUALITY_PATTERN = /^(?=.)(?:(\d{3,4})-(avc1|av01))?(?:~([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?))?$/;
 
 /** One entry of the player's audio track menu. */
 export interface DirectAudioTrack {

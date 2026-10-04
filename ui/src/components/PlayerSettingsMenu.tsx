@@ -128,8 +128,8 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
             )}
             {sponsorBlock && (
               <div className="lp-sub-toggle">
-                <span>{t("sponsorblockEnabled")}</span>
-                <Switch checked={sponsorBlock.active} onCheckedChange={sponsorBlock.onToggle} ariaLabel={t("sponsorblockEnabled")} />
+                <span>{t("playerSponsorBlock")}</span>
+                <Switch checked={sponsorBlock.active} onCheckedChange={sponsorBlock.onToggle} ariaLabel={t("playerSponsorBlock")} />
               </div>
             )}
             {audioEnhance && (

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
-import { createDownloadVideoDirectStreaming, parseSelection } from "./downloadVideoDirectStreaming";
+import { createDownloadVideoDirectStreaming, DIRECT_QUALITY_PATTERN, parseSelection } from "./downloadVideoDirectStreaming";
 import { createDownloadVideoStreaming } from "./downloadVideoStreaming";
 
 function concat(...parts: Uint8Array<ArrayBufferLike>[]): Uint8Array<ArrayBuffer> {
@@ -534,5 +534,19 @@ describe("parseSelection", () => {
     expect(parseSelection("null\n", Date.now())).toBeNull();
     expect(parseSelection("", Date.now())).toBeNull();
     expect(parseSelection("42", Date.now())).toBeNull();
+  });
+});
+
+describe("DIRECT_QUALITY_PATTERN", () => {
+  test("accepts a quality, an audio language, or both", () => {
+    for (const value of ["1440-av01", "720-avc1", "~de", "~pt-BR", "1080-avc1~de"]) {
+      expect(DIRECT_QUALITY_PATTERN.test(value)).toBe(true);
+    }
+  });
+
+  test("rejects an empty q and malformed values", () => {
+    for (const value of ["", "~", "1440", "1440-vp9", "av01", "1080-avc1~", "../x"]) {
+      expect(DIRECT_QUALITY_PATTERN.test(value)).toBe(false);
+    }
   });
 });
