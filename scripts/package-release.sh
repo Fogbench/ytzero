@@ -26,7 +26,7 @@ cp -r ui/dist "$OUT/$NAME/ui/dist"
 cp -r shared "$OUT/$NAME/shared"
 cp scripts/install-deps.sh "$OUT/$NAME/scripts/"
 cp scripts/release/install.sh scripts/release/start.sh scripts/release/uninstall.sh "$OUT/$NAME/"
-cp LICENSE README.md "$OUT/$NAME/"
+cp LICENSE "$OUT/$NAME/"; cp scripts/release/README.md "$OUT/$NAME/README.md"
 echo "$VERSION" > "$OUT/$NAME/VERSION"
 
 tar -C "$OUT" -czf "$OUT/$NAME.tar.gz" "$NAME"
