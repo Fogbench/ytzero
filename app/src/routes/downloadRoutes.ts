@@ -419,7 +419,16 @@ async function subtitleList(videoId: string) {
   return [...grouped.values()].map(({ raw: _raw, ...subtitle }) => subtitle);
 }
 
-async function subtitlePreferences(userId: number, videoId: string): Promise<string[]> {
+/** Languages from the browser's Accept-Language header, e.g. "en-US,en;q=0.9" -> en-US, en. */
+function browserLanguages(header: string | undefined): string[] {
+  return (header ?? "").split(",")
+    .map((part) => part.split(";")[0].trim())
+    .filter((code) => /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/.test(code))
+    .flatMap((code) => [code, code.split("-")[0]])
+    .slice(0, 8);
+}
+
+async function subtitlePreferences(userId: number, videoId: string, browser: string[] = []): Promise<string[]> {
   const settings = await dlSettings(userId);
   const row = await database.prepare(`
     SELECT uc.caption_mode, uc.caption_language
@@ -429,6 +438,8 @@ async function subtitlePreferences(userId: number, videoId: string): Promise<str
   return [...new Set([
     getUserSetting(userId, "player_cc_lang"),
     getUserSetting(userId, "player_hl"),
+    getUserSetting(userId, "language"),
+    ...browser,
     ...String(settings.sub_langs ?? "").split(",").map((language) => language.trim()),
     row?.caption_mode === "language" ? row.caption_language : null,
   ].filter((language): language is string => typeof language === "string" && language.length > 0))];
@@ -447,7 +458,7 @@ api.get("/videos/:id/subtitles", async (c) => {
   for (const subtitle of tubeArchivist) subtitles.set(subtitle.lang, subtitle);
   for (const subtitle of local) if (!subtitles.has(subtitle.lang)) subtitles.set(subtitle.lang, subtitle);
   if (!childLocalOnly(uid)) try {
-    const available = await availableSubtitlesForVideo(uid, videoId, await subtitlePreferences(uid, videoId), autoCaptionsFallbackOnly(uid));
+    const available = await availableSubtitlesForVideo(uid, videoId, await subtitlePreferences(uid, videoId, browserLanguages(c.req.header("accept-language"))), autoCaptionsFallbackOnly(uid));
     for (const subtitle of available) {
       if (!subtitles.has(subtitle.lang)) subtitles.set(subtitle.lang, {
         lang: subtitle.lang,
@@ -481,7 +492,7 @@ api.get("/videos/:id/subtitles/:lang", async (c) => {
   }
   if (childLocalOnly(uid)) return c.json({ error: "not found" }, 404);
   try {
-    const url = await subtitleStreamForVideo(uid, videoId, language, await subtitlePreferences(uid, videoId), autoCaptionsFallbackOnly(uid));
+    const url = await subtitleStreamForVideo(uid, videoId, language, await subtitlePreferences(uid, videoId, browserLanguages(c.req.header("accept-language"))), autoCaptionsFallbackOnly(uid));
     if (!url) return c.json({ error: "not found" }, 404);
     const upstream = await fetchSubtitleUpstream(fetch, url, { signal: c.req.raw.signal });
     const proxied = upstream && proxySubtitleResponse(upstream);
