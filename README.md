@@ -14,40 +14,32 @@
   </p>
 </div>
 
-> [!IMPORTANT]
-> After a lot of thought, I’ve decided to step away from maintaining YT Zero.
+> [!NOTE]
+> **This is a community fork of [Pelski/ytzero](https://github.com/Pelski/ytzero).** The original author has stepped away from the project and welcomed anyone who wants to carry it on; all credit for YT Zero itself goes to them and to the contributors named in the upstream README. This fork keeps the app as it was and adds a much more complete **direct player**, described below. Everything added is optional: removals are settings that are shown by default, and every new string is translated into all nine UI languages.
 >
-> The main reason is uncertainty around the legal side of how some of the underlying software and integrations are being used. I don’t want to continue developing and publicly distributing the project while I’m not fully comfortable with that uncertainty.
+> ### Direct player vs. the embedded YouTube player
 >
-> The current release will therefore be the second-to-last public release maintained by me. I plan to make 2026.09.10 the final one. For that release, I’ll try to address as many existing issues and fixes as reasonably possible, so the project is left in a solid and usable state rather than abandoned mid-way through ongoing work. I’ll also try to bring the tvOS app to a usable state, so that whoever takes over the project has a working foundation to continue from instead of having to start that part from scratch.
+> The default player is YouTube's embed. The direct player instead streams the video from YouTube through your own server (via yt-dlp), without saving anything to disk, and plays it in YT Zero's own controls. Turn it on under **Settings > Downloads > Default player > Direct** (needs the yt-dlp integration). In practice:
 >
-> That said, I don’t want YT Zero to disappear. If someone from the community would like to take responsibility for the project and continue its development, you have my full blessing to do so. I'm glad that the project will live on under a new maintainer.
+> - **Faster to start and to seek**, no embed iframe to load, and no YouTube page chrome, end cards or suggestions on top of the video.
+> - **Everything in one gear menu**, laid out like YouTube's: Autoplay, SponsorBlock, Stable volume, Voice boost, Audio track, Sleep timer, Playback speed, Subtitles and Quality. Menus also work in fullscreen.
+> - **Quality up to 4K**: pick a height, or Auto for the tallest. Choose AV1 or H.264 (MP4) per your hardware; the current quality is checkmarked and the list only offers what your browser can decode.
+> - **Audio track**: videos with dubbed audio let you switch language without leaving the player. Playback continues from the same position.
+> - **Subtitles**: the CC button only switches captions on and off. Language and style (size, colour, background, with a live sample) are in the gear. Auto-generated captions are labelled "(auto-generated)", can be limited to a fallback when the uploader made none, or hidden entirely.
+> - **Stable volume and Voice boost**: evens out loud and quiet parts, and lifts the speech range, using your browser's audio engine (nothing is re-encoded).
+> - **Sleep timer**: 5 to 60 minutes, or **End of video** (the video is still marked watched, but autoplay does not move on).
+> - **Playback speed slider** from 0.25x to 2x in 0.05 steps, previewed live and saved on release.
+> - **SponsorBlock** switch in the gear; a segment you deliberately seek into is no longer skipped.
+> - **Autoplay that works**: the gear switch turns on continuing through lists, and with no queue or playlist, up next falls back to "More like this", including a banner that shows in fullscreen.
+> - **Never silently falls back to the embed.** If direct playback fails you get an explanation, a YouTube link and a button to use the embed.
 >
-> There is also a chance that I may revisit the idea in the future using only clearly supported and official paths, such as RSS and the official YouTube API. At the moment, however, I have no plans to do so. That would also mean changing some of the original assumptions behind YT Zero, and it would no longer be quite the same project I originally wanted to build.
+> Other additions, as settings (all shown by default, switch them off in your profile):
 >
-> If that ever changes or you want to know what else I'll be releasing in the future, you can follow me here on [GitHub/pelski](https://github.com/Pelski) or [X.com/@m_pelski](https://x.com/m_pelski).
+> - **Hide "Continue watching"** (Settings > Experience > Navigation).
+> - **Hide the player's Download, Screenshot and Picture-in-picture buttons** (Settings > Experience > Playback).
+> - **Auto-generated captions** mode (Settings > Experience > Subtitles).
 >
-> Thank you to everyone who contributed code, testing, translations, research, bug reports, ideas, discussions, and feedback. The project became much better than anything I could have built alone. Thank you and I am incredibly grateful to each and every one of you ❤️ 
->
-> Special thanks to:
->
-> - @Taruvi
-> - @baldemar-wuda
-> - @xtrandom
-> - @famousbart
-> - @DennaGherlyn
-> - @techtareffic-cloud
-> - @shinji257
-> - @Zan1456
-> - @cerede2000
-> - @Green-Kite
-> - An anonymous person I corresponded with over email, with whom I had many interesting conversations not only about the project
->
-> Your work, testing, ideas and time genuinely shaped YT Zero. And thank you to everyone who used it, opened an issue, submitted a contribution, recommended it to someone else, or simply followed the project.
->
-> It has been a genuinely interesting project to build, and I’m glad it found a community around it.
->
-> Take care of it, and thanks for watching.
+> Known limits: the direct player proxies H.264/AAC and AV1 streams from YouTube, so it depends on yt-dlp keeping up with YouTube, and two tabs playing the same video at different qualities replace each other's stream. Stable volume and Voice boost only work in the direct player. It has been tested mostly in Firefox and Chrome.
 
 > **Fix embedded player and get more!** 
 > 
