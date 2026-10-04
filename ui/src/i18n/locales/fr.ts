@@ -495,6 +495,7 @@ export const fr: Locale = {
     "subtitleSizeLarge": "Grandes",
     "subtitleColor": "Couleur du texte",
     "subtitleBackground": "Opacité de fond",
+    "subtitlePreview": "Voici à quoi ressembleront vos sous-titres",
     "subtitlePreviewLine": "Voilà à quoi ressembleront vos sous-titres",
     "shortsPlayAll": "Lire",
     "shortsShuffle": "Aléatoire",

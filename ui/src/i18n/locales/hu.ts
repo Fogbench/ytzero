@@ -402,6 +402,7 @@ export const hu: Locale = {
     subtitleSizeLarge: "Nagy",
     subtitleColor: "Szöveg színe",
     subtitleBackground: "Háttér áttetszősége",
+    subtitlePreview: "Így fognak kinézni a feliratok",
     subtitlePreviewLine: "Így fognak kinézni a felirataid",
     shortsPlayAll: "Lejátszás",
     shortsShuffle: "Keverés",

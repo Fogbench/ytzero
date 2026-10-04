@@ -233,6 +233,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const [subLoading, setSubLoading] = useState<string | null>(null);
   const [subError, setSubError] = useState<string | null>(null);
   const [cueLines, setCueLines] = useState<string[]>([]);
+  // True while the gear's subtitle style panel is open: show a sample line so changes are visible.
+  const [stylePreview, setStylePreview] = useState(false);
 
   // The server returns local, archive, or proxied WebVTT tracks ready for use.
   useEffect(() => {
@@ -915,13 +917,13 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
         )}
       </video>
 
-      {subLang && cueLines.length > 0 && (
+      {((subLang && cueLines.length > 0) || stylePreview) && (
         <div
-          className={`lp-subtitles${controlsVisible || !playing ? " raised" : ""}`}
+          className={`lp-subtitles${controlsVisible || !playing || stylePreview ? " raised" : ""}`}
           style={{ color: subStyle.color, fontSize: `${subStyle.size * (isFullscreen ? 1.5 : 1)}px`, "--lp-sub-bg": subBg } as CSSProperties}
           aria-live="off"
         >
-          {cueLines.map((line, i) => <span key={i}>{line}</span>)}
+          {(subLang && cueLines.length > 0 ? cueLines : [t("subtitlePreview")]).map((line, i) => <span key={i}>{line}</span>)}
         </div>
       )}
 
@@ -1028,6 +1030,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
                 onChoiceChange: changeQualityChoice,
               } : undefined}
               speed={playbackRate}
+              onStylePreview={setStylePreview}
               onSpeedPreview={(rate) => { if (videoRef.current) videoRef.current.playbackRate = rate; }}
               autoplay={autoplaySwitch}
               sponsorBlock={sponsorBlock}

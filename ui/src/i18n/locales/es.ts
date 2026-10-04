@@ -499,6 +499,7 @@ export const es: Locale = {
     subtitleSizeLarge: "Grande",
     subtitleColor: "Color del texto",
     subtitleBackground: "Opacidad del fondo",
+    subtitlePreview: "Así se verán tus subtítulos",
     subtitlePreviewLine: "Así se verán tus subtítulos",
     shortsPlayAll: "Reproducir",
     shortsShuffle: "Aleatorio",

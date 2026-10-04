@@ -404,6 +404,7 @@ export const pl: Locale = {
     subtitleSizeLarge: "Duże",
     subtitleColor: "Kolor tekstu",
     subtitleBackground: "Krycie tła",
+    subtitlePreview: "Tak będą wyglądać twoje napisy",
     subtitlePreviewLine: "Tak będą wyglądać Twoje napisy",
     shortsPlayAll: "Odtwarzaj",
     shortsShuffle: "Losuj",

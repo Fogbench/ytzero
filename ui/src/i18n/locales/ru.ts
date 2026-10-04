@@ -495,6 +495,7 @@ export const ru: Locale = {
     "subtitleSizeLarge": "Большой",
     "subtitleColor": "Цвет текста",
     "subtitleBackground": "Прозрачность фона",
+    "subtitlePreview": "Так будут выглядеть ваши субтитры",
     "subtitlePreviewLine": "Так будут выглядеть ваши субтитры",
     "shortsPlayAll": "Воспроизвести",
     "shortsShuffle": "Перемешать",

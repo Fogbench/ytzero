@@ -495,6 +495,7 @@ export const ja: Locale = {
     "subtitleSizeLarge": "大きいサイズ",
     "subtitleColor": "テキストカラー",
     "subtitleBackground": "背景の不透明度",
+    "subtitlePreview": "字幕はこのように表示されます",
     "subtitlePreviewLine": "これは、あなたの字幕がどのように見えるかです",
     "shortsPlayAll": "プレイ",
     "shortsShuffle": "シャッフル",

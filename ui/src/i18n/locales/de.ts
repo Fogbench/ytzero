@@ -404,6 +404,7 @@ export const de: Locale = {
     subtitleSizeLarge: "Groß",
     subtitleColor: "Textfarbe",
     subtitleBackground: "Hintergrund-Deckkraft",
+    subtitlePreview: "So sehen deine Untertitel aus",
     subtitlePreviewLine: "So werden deine Untertitel aussehen",
     shortsPlayAll: "Abspielen",
     shortsShuffle: "Zufällig",

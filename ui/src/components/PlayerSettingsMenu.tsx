@@ -1,5 +1,5 @@
 import { ChevronRight, LoaderCircle, Settings } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SLEEP_TIMER_MINUTES } from "../playerSleepTimer";
 import type { AvailableSubtitle } from "../api";
 import { useI18n } from "../i18n";
@@ -35,6 +35,8 @@ interface PlayerSettingsMenuProps {
   sponsorBlock?: { active: boolean; onToggle: (active: boolean) => void };
   /** Sleep timer: minutes left (null = off) and how to set it. */
   sleep: { minutesLeft: number | null; onSet: (minutes: number | null) => void };
+  /** Tells the player when the subtitle style panel is open, so it can show a sample line. */
+  onStylePreview?: (showing: boolean) => void;
   /** Subtitles row; same data the CC button uses. Leave out when there is no video id. */
   subtitles?: {
     available: AvailableSubtitle[];
@@ -54,7 +56,7 @@ interface PlayerSettingsMenuProps {
 const SUBTITLE_COLORS = ["#ffffff", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000", "#000000"] as const;
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
-export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, sleep }: PlayerSettingsMenuProps) {
+export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onSpeedChange, subtitles, autoplay, sponsorBlock, sleep, onStylePreview }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle" | "sleep">("main");
@@ -65,6 +67,10 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
     onSpeedChange?.(speedDraft);
     setSpeedDraft(null);
   };
+  useEffect(() => {
+    onStylePreview?.(open && panel === "subtitleStyle");
+    return () => onStylePreview?.(false);
+  }, [open, panel, onStylePreview]);
   const { qualities = [], loading = false, choice = { height: "auto", codec: "av01" } as QualityChoice, active = null, onChoiceChange = () => {} } = quality ?? {};
 
   const changeOpen = (next: boolean) => {
@@ -159,14 +165,14 @@ export default function PlayerSettingsMenu({ quality, speed, onSpeedPreview, onS
           <>
             <MenuHeader onBack={() => setPanel("subtitles")} backLabel={t("subtitles")}>{t("subtitleStyleTitle")}</MenuHeader>
             <div className="lp-sub-toggle">
+              <span>{t("subtitleColor")}</span>
+              <ColorPicker label={t("subtitleColor")} variant="swatch" colors={SUBTITLE_COLORS} value={subtitles.style.color} onChange={(color) => subtitles.onStyleChange?.({ color })} />
+            </div>
+            <div className="lp-sub-toggle">
               <span>{t("subtitleSize")} ({subtitles.style.size}px)</span>
             </div>
             <div className="lp-settings-slider">
               <Slider min={12} max={48} step={1} value={subtitles.style.size} aria-label={t("subtitleSize")} onChange={(size) => subtitles.onStyleChange?.({ size })} />
-            </div>
-            <div className="lp-sub-toggle">
-              <span>{t("subtitleColor")}</span>
-              <ColorPicker label={t("subtitleColor")} variant="swatch" colors={SUBTITLE_COLORS} value={subtitles.style.color} onChange={(color) => subtitles.onStyleChange?.({ color })} />
             </div>
             <div className="lp-sub-toggle">
               <span>{t("subtitleBackground")} ({subtitles.style.bg}%)</span>

@@ -404,6 +404,7 @@ export const en = {
     subtitleSizeLarge: "Large",
     subtitleColor: "Text color",
     subtitleBackground: "Background opacity",
+    subtitlePreview: "This is how your subtitles will look",
     subtitlePreviewLine: "This is how your subtitles will look",
     shortsPlayAll: "Play",
     shortsShuffle: "Shuffle",

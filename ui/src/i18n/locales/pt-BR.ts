@@ -495,6 +495,7 @@ export const ptBR: Locale = {
     "subtitleSizeLarge": "Grande",
     "subtitleColor": "Cor do texto",
     "subtitleBackground": "Opacidade de fundo",
+    "subtitlePreview": "É assim que suas legendas vão aparecer",
     "subtitlePreviewLine": "É assim que as suas legendas vão parecer",
     "shortsPlayAll": "Reproduzir",
     "shortsShuffle": "Embaralhar",
