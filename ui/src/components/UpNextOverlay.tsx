@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LoaderCircle, Play, SkipForward, X } from "lucide-react";
 import "./UpNextOverlay.css";
 import type { QueueDisplayVideo } from "../pages/useUpNextQueue";
@@ -43,7 +44,16 @@ export default function UpNextOverlay({ video, autoplayEnabled, loadingNext, onT
 
   const progress = 1 - Math.max(0, remaining) / COUNTDOWN_SECONDS;
 
-  return (
+  // In fullscreen only the player's own element is visible, so the banner has
+  // to be drawn inside it.
+  const [fullscreenElement, setFullscreenElement] = useState<Element | null>(() => document.fullscreenElement);
+  useEffect(() => {
+    const update = () => setFullscreenElement(document.fullscreenElement);
+    document.addEventListener("fullscreenchange", update);
+    return () => document.removeEventListener("fullscreenchange", update);
+  }, []);
+
+  const overlay = (
     <div className={`up-next-overlay${loadingNext ? " is-skipping" : ""}`}>
       <div key={`bg-${video.video_id}`} className="up-next-bg" style={{ backgroundImage: `url(${videoThumbnail(video.thumbnail)})` }} aria-hidden="true" />
       <div className="up-next-scrim" aria-hidden="true" />
@@ -89,4 +99,5 @@ export default function UpNextOverlay({ video, autoplayEnabled, loadingNext, onT
       </div>
     </div>
   );
+  return fullscreenElement ? createPortal(overlay, fullscreenElement) : overlay;
 }

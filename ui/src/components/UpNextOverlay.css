@@ -1,7 +1,7 @@
 .up-next-overlay {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,31 +15,25 @@
   to { opacity: 1; }
 }
 
+/* A still, pre-blurred background: an animated, scaled image under a live
+   backdrop blur made the top and bottom edges flicker. */
 .up-next-bg {
   position: absolute;
-  inset: -20px;
+  inset: -40px;
   background-size: cover;
   background-position: center;
-  filter: saturate(1.15) brightness(0.55);
-  transform: scale(1.15);
-  animation: up-next-bg-enter 0.55s ease-out, up-next-bg-drift 9s ease-in-out 0.55s infinite alternate;
+  filter: blur(28px) saturate(1.15) brightness(0.55);
+  animation: up-next-bg-enter 0.55s ease-out;
 }
 
 @keyframes up-next-bg-enter {
-  from { opacity: 0; filter: saturate(1.35) brightness(0.4); }
-  to { opacity: 1; filter: saturate(1.15) brightness(0.55); }
-}
-
-@keyframes up-next-bg-drift {
-  from { transform: scale(1.15) translate3d(-0.7%, -0.4%, 0); }
-  to { transform: scale(1.2) translate3d(0.8%, 0.6%, 0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .up-next-scrim {
   position: absolute;
-  inset: -28px;
-  -webkit-backdrop-filter: blur(36px);
-  backdrop-filter: blur(36px);
+  inset: 0;
   background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.78) 100%);
 }
 
