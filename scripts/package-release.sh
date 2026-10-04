@@ -58,6 +58,14 @@ echo "$VERSION" > "$STAGE/$NAME/VERSION"
 # Unit tests are not used at runtime (nothing in app/src or shared imports them).
 find "$STAGE/$NAME/app/src" "$STAGE/$NAME/shared" -name '*.test.ts' -delete
 
+# MANIFEST: the top-level entries of this release, one per line, in fixed (C locale)
+# order, MANIFEST itself included. update.sh compares the installed release's list with
+# the new one's and removes what the new release no longer ships. It is made from the
+# finished layout, so it cannot drift from what is really in the tarball.
+find "$STAGE/$NAME" -mindepth 1 -maxdepth 1 -printf '%f\n' > "$TMP/manifest.list"
+echo MANIFEST >> "$TMP/manifest.list"
+LC_ALL=C sort -u "$TMP/manifest.list" > "$STAGE/$NAME/MANIFEST"
+
 # Same input, same bytes: fixed order, time, owner and permission bits, and no
 # name or time inside the gzip header (gzip -n).
 mkdir -p "$OUT"
