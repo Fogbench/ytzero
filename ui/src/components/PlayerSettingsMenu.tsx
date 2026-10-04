@@ -8,7 +8,8 @@ import {
 } from "../playerQuality";
 import { subtitleLanguageLabel } from "../subtitleLanguages";
 import { SubtitleMenuBody } from "./SubtitlePicker";
-import { FloatingPopover, Menu, MenuHeader, MenuItem, ScrollArea, Switch } from "./ui";
+import { ColorPicker, FloatingPopover, Menu, MenuHeader, MenuItem, ScrollArea, Slider, Switch } from "./ui";
+import type { SubtitleStyle } from "./LocalPlayer";
 
 interface PlayerSettingsMenuProps {
   /** Quality is only offered for the direct HLS player; leave out for others. */
@@ -35,14 +36,20 @@ interface PlayerSettingsMenuProps {
     errorLanguage: string | null;
     onSelect: (language: string) => void;
     onToggle: () => void;
+    /** Current look of the subtitles, and how to change it (no function: hide the options). */
+    style: SubtitleStyle;
+    onStyleChange?: (style: Partial<SubtitleStyle>) => void;
   };
 }
+
+// The colors YouTube offers for subtitle text.
+const SUBTITLE_COLORS = ["#ffffff", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000", "#000000"] as const;
 
 /** The gear next to CC: a list of rows (Playback speed, Quality), each opening its own panel. */
 export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpeedChange, subtitles }: PlayerSettingsMenuProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles">("main");
+  const [panel, setPanel] = useState<"main" | "quality" | "speed" | "subtitles" | "subtitleStyle">("main");
   const { qualities = [], loading = false, choice = { height: "auto", codec: "av01" } as QualityChoice, active = null, onChoiceChange = () => {} } = quality ?? {};
 
   const changeOpen = (next: boolean) => {
@@ -103,9 +110,36 @@ export default function PlayerSettingsMenu({ quality, speed, speedOptions, onSpe
               {t("playerQuality")}
             </MenuItem>}
           </Menu>
+        ) : panel === "subtitleStyle" && subtitles?.onStyleChange ? (
+          <>
+            <MenuHeader onBack={() => setPanel("subtitles")} backLabel={t("subtitles")}>{t("subtitleStyleTitle")}</MenuHeader>
+            <div className="lp-sub-toggle">
+              <span>{t("subtitleSize")} ({subtitles.style.size}px)</span>
+            </div>
+            <div className="lp-settings-slider">
+              <Slider min={12} max={48} step={1} value={subtitles.style.size} aria-label={t("subtitleSize")} onChange={(size) => subtitles.onStyleChange?.({ size })} />
+            </div>
+            <div className="lp-sub-toggle">
+              <span>{t("subtitleColor")}</span>
+              <ColorPicker label={t("subtitleColor")} variant="swatch" colors={SUBTITLE_COLORS} value={subtitles.style.color} onChange={(color) => subtitles.onStyleChange?.({ color })} />
+            </div>
+            <div className="lp-sub-toggle">
+              <span>{t("subtitleBackground")} ({subtitles.style.bg}%)</span>
+            </div>
+            <div className="lp-settings-slider">
+              <Slider min={0} max={100} step={5} value={subtitles.style.bg} aria-label={t("subtitleBackground")} onChange={(bg) => subtitles.onStyleChange?.({ bg })} />
+            </div>
+          </>
         ) : panel === "subtitles" && subtitles ? (
           <>
             <MenuHeader onBack={() => setPanel("main")} backLabel={t("playerSettings")}>{t("subtitles")}</MenuHeader>
+            {subtitles.onStyleChange && (
+              <Menu>
+                <MenuItem onClick={() => setPanel("subtitleStyle")} suffix={<span className="lp-settings-value"><ChevronRight size={15} /></span>}>
+                  {t("subtitleStyleTitle")}
+                </MenuItem>
+              </Menu>
+            )}
             <SubtitleMenuBody
               {...subtitles}
               onSelect={(language) => { changeOpen(false); subtitles.onSelect(language); }}

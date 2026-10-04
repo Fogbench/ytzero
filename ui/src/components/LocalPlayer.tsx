@@ -127,6 +127,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   preferredSubtitleLanguages?: string[];
   subtitleStyle?: SubtitleStyle;
   onSubtitleSizeChange?: (size: number) => void;
+  /** Gear menu: change size, color or background opacity of the subtitles. */
+  onSubtitleStyleChange?: (style: Partial<SubtitleStyle>) => void;
   // Experimental play-while-downloading source. The known total length keeps
   // controls stable while the HLS master and its renditions are attaching.
   live?: boolean;
@@ -177,6 +179,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   preferredSubtitleLanguages = [],
   subtitleStyle,
   onSubtitleSizeChange,
+  onSubtitleStyleChange,
   live = false,
   hls = live,
   liveLabel,
@@ -1029,6 +1032,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
                 errorLanguage: subError,
                 onSelect: pickSubLang,
                 onToggle: toggleSubtitles,
+                style: subStyle,
+                onStyleChange: onSubtitleStyleChange,
               } : undefined}
             />
           )}

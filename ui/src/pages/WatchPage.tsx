@@ -116,6 +116,7 @@ export default function WatchPage() {
     capturePlaybackPosition,
     changeSpeed,
     changeSubtitleSize,
+    changeSubtitleStyle,
     chapters,
     childCanRequestDownload,
     childDownloadRequest,
@@ -333,6 +334,7 @@ export default function WatchPage() {
                     bg: Number(settings?.player_sub_bg ?? 75),
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
+                  onSubtitleStyleChange={changeSubtitleStyle}
                   showScreenshotButton={settings?.player_show_screenshot !== "0"}
                   showPipButton={settings?.player_show_pip !== "0"}
                 />
@@ -390,6 +392,7 @@ export default function WatchPage() {
                     bg: Number(settings?.player_sub_bg ?? 75),
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
+                  onSubtitleStyleChange={changeSubtitleStyle}
                   onError={playerKind === "direct" ? exitDirectStream : undefined}
                   showScreenshotButton={settings?.player_show_screenshot !== "0"}
                   showPipButton={settings?.player_show_pip !== "0"}

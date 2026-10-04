@@ -414,14 +414,22 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     return () => document.removeEventListener(ENHANCE_BRIDGE_EVENTS.screenshotResult, onScreenshotResult);
   }, [showShortcutFeedback]);
 
-  const changeSubtitleSize = useCallback((size: number) => {
-    const value = String(size);
-    setSettings((current) => current ? { ...current, player_sub_size: value } : current);
-    scheduleSettingWrite("player_sub_size", { player_sub_size: value }, {
-      onSaved: () => emit("player-settings-changed"),
-      onError: console.error,
-    });
+  // Save any of the three subtitle style settings. The page's copy changes at
+  // once (live preview); the write to the server is debounced per setting.
+  const changeSubtitleStyle = useCallback((style: { size?: number; color?: string; bg?: number }) => {
+    const patch: Partial<AppSettings> = {};
+    if (style.size != null) patch.player_sub_size = String(style.size);
+    if (style.color != null) patch.player_sub_color = style.color;
+    if (style.bg != null) patch.player_sub_bg = String(style.bg);
+    setSettings((current) => current ? { ...current, ...patch } : current);
+    for (const key of Object.keys(patch) as (keyof AppSettings)[]) {
+      scheduleSettingWrite(key, { [key]: patch[key] }, {
+        onSaved: () => emit("player-settings-changed"),
+        onError: console.error,
+      });
+    }
   }, []);
+  const changeSubtitleSize = useCallback((size: number) => changeSubtitleStyle({ size }), [changeSubtitleStyle]);
 
   const requestYouTubePlayback = useCallback(() => {
     setYoutubeAutoplayBlocked(false);
@@ -1497,6 +1505,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     capturePlaybackPosition,
     changeSpeed,
     changeSubtitleSize,
+    changeSubtitleStyle,
     chapters,
     childCanRequestDownload,
     childDownloadRequest,

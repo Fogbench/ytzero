@@ -152,6 +152,8 @@
 .lp-sub-menu-list button:disabled { opacity: 0.55; cursor: default; }
 .lp-settings-menu { min-height: 0; }
 .lp-settings-value { display: inline-flex; align-items: center; gap: 2px; color: var(--text-2); font-size: 12px; }
+.lp-settings-slider { padding: 0 12px 8px; }
+.lp-settings-slider .ui-slider { width: 100%; }
 .lp-settings-menu .ui-menu__header { padding: 2px 4px 8px; }
 .lp-sub-error { font-size: 11px; color: #ff7d7d; }
 .lp-sub-option-status { display: inline-flex; align-items: center; justify-content: flex-end; min-width: 14px; }
