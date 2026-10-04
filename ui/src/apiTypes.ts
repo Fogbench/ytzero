@@ -285,6 +285,7 @@ export interface AppSettings {
   player_show_download?: string;
   player_show_screenshot?: string;
   player_show_pip?: string;
+  player_auto_captions?: string;
   grid_size: string;
   video_card_actions: string; video_card_action_buttons: string; video_card_swipe_devices: string; video_card_preview: string;
   child_watching_monitor_enabled: string;

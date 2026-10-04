@@ -1006,6 +1006,8 @@ export const en = {
     playerShowScreenshotHint: "Shows a camera button on the player's control bar. The S shortcut still works.",
     playerShowPip: "Picture in picture button on the player",
     playerShowPipHint: "Shows a picture-in-picture button on the player's control bar.",
+    playerAutoCaptions: "Show auto-generated captions",
+    playerAutoCaptionsHint: "Lists YouTube's automatic captions in the subtitle menu. Turn off to see only captions made by the uploader.",
     watchChoiceTitle: "How do you want to watch?",
     watchChoiceYouTube: "Watch on YouTube",
     watchChoiceWait: "Download and watch locally",

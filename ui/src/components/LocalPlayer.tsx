@@ -292,9 +292,21 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       // Auto-generated captions repeat the previous line in the next cue.
       setCueLines([...new Set(lines)]);
     };
+    // The track can finish loading before React's onLoad is attached (seen in
+    // Firefox), which left the CC button spinning forever. Check the state
+    // directly and listen here too.
+    const finished = () => {
+      setSubLoading((loading) => loading === subLang ? null : loading);
+      if (trackEl.readyState === 3) setSubError(subLang);
+    };
+    if (trackEl.readyState >= 2) finished();
+    trackEl.addEventListener("load", finished);
+    trackEl.addEventListener("error", finished);
     track.addEventListener("cuechange", onCue);
     onCue();
     return () => {
+      trackEl.removeEventListener("load", finished);
+      trackEl.removeEventListener("error", finished);
       track.removeEventListener("cuechange", onCue);
       track.mode = "disabled";
       setCueLines([]);

@@ -1006,6 +1006,8 @@ export const de: Locale = {
     playerShowScreenshotHint: "Zeigt in der Steuerleiste des Players eine Kamera-Schaltfläche. Das Kürzel S funktioniert weiterhin.",
     playerShowPip: "Bild-in-Bild-Schaltfläche im Player",
     playerShowPipHint: "Zeigt in der Steuerleiste des Players eine Bild-in-Bild-Schaltfläche.",
+    playerAutoCaptions: "Automatisch erstellte Untertitel anzeigen",
+    playerAutoCaptionsHint: "Zeigt die automatischen Untertitel von YouTube im Untertitelmenü. Ausschalten, um nur Untertitel des Uploaders zu sehen.",
     watchChoiceTitle: "Wie möchtest du schauen?",
     watchChoiceYouTube: "Auf YouTube ansehen",
     watchChoiceWait: "Herunterladen und lokal ansehen",

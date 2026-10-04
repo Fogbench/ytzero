@@ -1098,6 +1098,8 @@ export const ja: Locale = {
     "playerShowScreenshotHint": "プレーヤーのコントロールバーにカメラボタンを表示します。ショートカットのSは引き続き使えます。",
     "playerShowPip": "プレーヤーのピクチャーインピクチャーボタン",
     "playerShowPipHint": "プレーヤーのコントロールバーにピクチャーインピクチャーのボタンを表示します。",
+    "playerAutoCaptions": "自動生成字幕を表示",
+    "playerAutoCaptionsHint": "字幕メニューにYouTubeの自動生成字幕を表示します。オフにすると投稿者が作成した字幕のみ表示されます。",
     "watchChoiceTitle": "どうやって見たいですか?",
     "watchChoiceYouTube": "YouTubeで見る",
     "watchChoiceWait": "ローカルでダウンロードして視聴",

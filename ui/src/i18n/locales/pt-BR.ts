@@ -1098,6 +1098,8 @@ export const ptBR: Locale = {
     "playerShowScreenshotHint": "Mostra um botão de câmera na barra de controle do player. O atalho S continua funcionando.",
     "playerShowPip": "Botão de imagem em imagem no player",
     "playerShowPipHint": "Mostra um botão de imagem em imagem na barra de controle do player.",
+    "playerAutoCaptions": "Mostrar legendas geradas automaticamente",
+    "playerAutoCaptionsHint": "Lista as legendas automáticas do YouTube no menu de legendas. Desative para ver apenas as feitas pelo autor.",
     "watchChoiceTitle": "Como queres ver?",
     "watchChoiceYouTube": "Assista no YouTube",
     "watchChoiceWait": "Baixe e assista localmente",

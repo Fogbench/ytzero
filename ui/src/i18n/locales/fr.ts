@@ -1098,6 +1098,8 @@ export const fr: Locale = {
     "playerShowScreenshotHint": "Affiche un bouton appareil photo dans la barre de contrôle du lecteur. Le raccourci S continue de fonctionner.",
     "playerShowPip": "Bouton image dans l'image dans le lecteur",
     "playerShowPipHint": "Affiche un bouton image dans l'image dans la barre de contrôle du lecteur.",
+    "playerAutoCaptions": "Afficher les sous-titres générés automatiquement",
+    "playerAutoCaptionsHint": "Affiche les sous-titres automatiques de YouTube dans le menu des sous-titres. Désactivez pour ne voir que ceux créés par l'auteur.",
     "watchChoiceTitle": "Comment voulez-vous regarder ?",
     "watchChoiceYouTube": "Regarder sur YouTube",
     "watchChoiceWait": "Télécharger et regarder localement",

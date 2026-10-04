@@ -312,6 +312,9 @@ archive with no such capability restores with public sharing denied.
   hide optional buttons on the built-in player; the actions and shortcuts stay.
   They travel in `profile.settings`; older archives without them keep the
   target value on merge and use the shown default on replace.
+  `player_auto_captions` is portable per-profile playback configuration
+  (default `1`): `0` hides YouTube's auto-generated captions from the subtitle
+  list. Same restore behaviour as the button settings above.
   `channel_open_sync` is portable per-profile configuration for what opening a
   channel page does on its own: `off` (the historical passive behaviour),
   `recent` (a quick pass over the channel's latest uploads), or `full` (the same

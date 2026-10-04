@@ -1003,6 +1003,8 @@ export const hu: Locale = {
     playerShowScreenshotHint: "Kamera gombot jelenít meg a lejátszó vezérlősávján. Az S gyorsbillentyű továbbra is működik.",
     playerShowPip: "Kép a képben gomb a lejátszón",
     playerShowPipHint: "Kép a képben gombot jelenít meg a lejátszó vezérlősávján.",
+    playerAutoCaptions: "Automatikusan generált feliratok megjelenítése",
+    playerAutoCaptionsHint: "Megjeleníti a YouTube automatikus feliratait a feliratmenüben. Kikapcsolva csak a feltöltő által készített feliratok látszanak.",
     watchChoiceTitle: "Hogyan szeretnéd megnézni?",
     watchChoiceYouTube: "Megnézés a YouTube-on",
     watchChoiceWait: "Letöltés és helyi megtekintés",

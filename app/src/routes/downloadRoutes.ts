@@ -420,6 +420,8 @@ async function subtitleList(videoId: string) {
 }
 
 async function subtitlePreferences(userId: number, videoId: string): Promise<string[]> {
+  // These languages are the ones that may use auto-generated captions; none means only creator-made tracks.
+  if (getUserSetting(userId, "player_auto_captions") === "0") return [];
   const settings = await dlSettings(userId);
   const row = await database.prepare(`
     SELECT uc.caption_mode, uc.caption_language

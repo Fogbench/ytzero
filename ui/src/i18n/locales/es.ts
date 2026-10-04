@@ -1102,6 +1102,8 @@ export const es: Locale = {
     playerShowScreenshotHint: "Muestra un botón de cámara en la barra de control del reproductor. El atajo S sigue funcionando.",
     playerShowPip: "Botón de imagen en imagen en el reproductor",
     playerShowPipHint: "Muestra un botón de imagen en imagen en la barra de control del reproductor.",
+    playerAutoCaptions: "Mostrar subtítulos autogenerados",
+    playerAutoCaptionsHint: "Muestra los subtítulos automáticos de YouTube en el menú de subtítulos. Desactívalo para ver solo los creados por el autor.",
     watchChoiceTitle: "¿Cómo quieres verlo?",
     watchChoiceYouTube: "Ver en YouTube",
     watchChoiceWait: "Descargar y ver localmente",

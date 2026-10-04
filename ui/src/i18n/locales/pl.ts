@@ -1006,6 +1006,8 @@ export const pl: Locale = {
     playerShowScreenshotHint: "Pokazuje przycisk aparatu na pasku sterowania odtwarzacza. Skrót S nadal działa.",
     playerShowPip: "Przycisk obrazu w obrazie w odtwarzaczu",
     playerShowPipHint: "Pokazuje przycisk obrazu w obrazie na pasku sterowania odtwarzacza.",
+    playerAutoCaptions: "Pokazuj napisy generowane automatycznie",
+    playerAutoCaptionsHint: "Wyświetla automatyczne napisy YouTube w menu napisów. Wyłącz, aby widzieć tylko napisy stworzone przez autora.",
     watchChoiceTitle: "Jak chcesz obejrzeć?",
     watchChoiceYouTube: "Oglądaj z YouTube",
     watchChoiceWait: "Pobierz i obejrzyj lokalnie",

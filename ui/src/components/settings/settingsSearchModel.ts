@@ -39,6 +39,7 @@ const CATALOG: CatalogEntry[] = [
   { view: "display:playback", label: "playerShowDownload", description: "playerShowDownloadHint" },
   { view: "display:playback", label: "playerShowScreenshot", description: "playerShowScreenshotHint" },
   { view: "display:playback", label: "playerShowPip", description: "playerShowPipHint" },
+  { view: "display:subtitles", label: "playerAutoCaptions", description: "playerAutoCaptionsHint" },
   { view: "display:subtitles", label: "forceCaptions", description: "forceCaptionsHint" },
   { view: "display:subtitles", label: "playerLanguage" },
   { view: "display:subtitles", label: "subtitleStyleTitle", description: "subtitleStyleHint" },

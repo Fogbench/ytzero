@@ -39,6 +39,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     appNameInput,
     autoFullscreen,
     playerButtons,
+    autoCaptions,
     canManageArea,
     changeDeArrowThumbnails,
     changeDeArrowTitles,
@@ -89,6 +90,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     setAppNameInput,
     setAutoFullscreen,
     setPlayerButtons,
+    setAutoCaptions,
     setKeyboardSeekSeconds,
     setLanguage,
     setPlayerCc,
@@ -473,6 +475,15 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
           }
 
           {displaySubTab === "subtitles" && canManageArea("playback") && <SettingsSection title={t("subtitles")} className="settings-display-group">
+          <SettingRow label={t("playerAutoCaptions")} description={t("playerAutoCaptionsHint")}>
+            <Switch
+              checked={autoCaptions}
+              onCheckedChange={(next) => {
+                setAutoCaptions(next);
+                savePlayer({ player_auto_captions: next ? "1" : "0" });
+              }}
+            />
+          </SettingRow>
           <SettingRow label={t("forceCaptions")} description={t("forceCaptionsHint")}>
             <Switch
               checked={playerCc}
