@@ -7,4 +7,4 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 command -v bun >/dev/null || { echo "error: Bun is required, see https://bun.sh" >&2; exit 1; }
 (cd "$ROOT_DIR/app" && bun install --production --frozen-lockfile)
 bash "$ROOT_DIR/scripts/install-deps.sh"
-echo "Done. Start it with: bash start.sh"
+echo "Done. Start it with: bun run start"
