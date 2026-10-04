@@ -13,21 +13,26 @@ on:
         description: "Version name for the files (for example v2.0.0)"
         required: true
 
-permissions:
-  contents: write
-
 jobs:
   tarball:
     name: Build the tarball and draft the release
     runs-on: ubuntu-latest
+    # Only this job may write to the repository (it creates the release).
+    permissions:
+      contents: write
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Do not leave the token in .git/config while installs and the build run.
+          persist-credentials: false
 
       - name: Set up the Bun runtime
         uses: oven-sh/setup-bun@v2
+        with:
+          # Same Bun version as scripts/release/tools.lock. Change both together.
+          bun-version: 1.4.2
 
       - name: Install server dependencies
         working-directory: app
@@ -43,6 +48,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ github.event.inputs.version || github.ref_name }}
         run: |
-          gh release create "$VERSION" --draft --title "$VERSION" \
+          # --target makes a tag that does not exist yet (manual run) point at the
+          # commit that was built, not at the default branch. An existing tag is kept.
+          gh release create "$VERSION" --draft --target "$GITHUB_SHA" --title "$VERSION" \
             --notes "Draft: edit the notes, then publish." \
             release/ytzero-"$VERSION".tar.gz release/ytzero-"$VERSION".tar.gz.sha256
