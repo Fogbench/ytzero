@@ -123,6 +123,9 @@ export default function ShortsPlayer({
       const inner = document.createElement("div");
       container.appendChild(inner);
       playerRefs.current[s] = new w.YT.Player(inner, {
+        // Same host as the watch page's embed; the default www.youtube.com host
+        // can answer "This video is unavailable" (error 152) on some origins.
+        host: "https://www.youtube-nocookie.com",
         videoId,
         width: "100%",
         height: "100%",
