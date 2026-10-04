@@ -37,7 +37,7 @@
 It reads public YouTube RSS feeds, stores everything in your own SQLite or PostgreSQL database, and gives you a calm place to sort, schedule, watch, archive, and revisit videos from creators you already follow. [yt-dlp](https://github.com/yt-dlp/yt-dlp) is installed with the app: it lets YT Zero stream videos through your own server into its own player, and, if you switch Downloads on, keep copies on disk.
 
 PostgreSQL deployments can run multiple HTTP replicas with one nominated
-background worker. See the [clustered deployment configuration](wiki/Configuration.md#clustered-postgresql-deployment)
+background worker. See the [clustered deployment configuration](https://github.com/Pelski/ytzero/wiki/Configuration#clustered-postgresql-deployment)
 for worker, shared-storage, and load-balancer requirements. SQLite deployments
 remain single-instance.
 
@@ -113,7 +113,7 @@ YT Zero removes that layer. It keeps subscriptions, watch progress, playlists, t
   profile. See the [localization guide](docs/localization.md) for native names,
   locale behavior, and contribution notes.
 
-See the full list with screens in the **[Features](wiki/Features.md)** wiki page.
+See the full list with screens in the **[Features](https://github.com/Pelski/ytzero/wiki/Features)** wiki page.
 
 ## yt-dlp: direct playback and downloads
 
@@ -132,7 +132,7 @@ directly to yt-dlp, so an older installation cannot shadow a working one.
 Administrators
 can update yt-dlp from the UI and choose stable or nightly releases plus an
 automatic-update interval. Details and the full settings reference:
-**[YT-DLP Integration](wiki/YT-DLP-Integration.md)**.
+**[YT-DLP Integration](https://github.com/Pelski/ytzero/wiki/YT-DLP-Integration)**.
 
 ## Audio mode
 
@@ -173,7 +173,7 @@ Configure it under **Settings → Plugins → TubeArchivist** with the server UR
 and API token. The YT Zero server/container must be able to reach that address;
 the browser does not need direct TubeArchivist access. Full setup, data flow,
 security, backup behavior, troubleshooting, and limitations:
-**[TubeArchivist Integration](wiki/TubeArchivist-Integration.md)**.
+**[TubeArchivist Integration](https://github.com/Pelski/ytzero/wiki/TubeArchivist-Integration)**.
 
 ## How it works
 
@@ -196,26 +196,13 @@ bun run setup
 bun run start   # http://localhost:3001, data in ./data
 ```
 
-The app starts empty: add channels from **Settings → Channels**. The direct player is the default; to switch back to YouTube's embed, set **Default player** to **YouTube embed** in **Settings > Downloads > Configuration**. Environment variables are listed in [Configuration](wiki/Configuration.md). Keep `./data` backed up.
+The app starts empty: add channels from **Settings → Channels**. The direct player is the default; to switch back to YouTube's embed, set **Default player** to **YouTube embed** in **Settings > Downloads > Configuration**. Environment variables are listed in [Configuration](https://github.com/Pelski/ytzero/wiki/Configuration). Keep `./data` backed up.
 
 ## Documentation
 
-Documentation lives in the [`wiki/`](wiki/) folder of this repository (some of those pages still describe upstream's Docker and cloud installs, which this fork does not provide):
+This fork does not keep its own wiki. General documentation for the app (features, settings, profiles, authentication, importing subscriptions, backups, configuration) is in the original project's wiki: **[Pelski/ytzero wiki](https://github.com/Pelski/ytzero/wiki)**. It describes upstream, so where it differs from this README (Docker and cloud installs, yt-dlp being optional, YouTube's embed as the default player), this README is correct for the fork.
 
-- **[Configuration](wiki/Configuration.md)** — environment variables.
-- **[Features](wiki/Features.md)** — everything the app does, with screens.
-- **[Settings](wiki/Settings.md)** — current navigation, sections, and administrator-only access.
-- **[Importing Subscriptions](wiki/Importing-Subscriptions.md)** — OPML and Google Takeout.
-- **[Profiles](wiki/Profiles.md)** — multi-account profiles.
-- **[Authentication](wiki/Authentication.md)** — login methods and setup.
-- **[Child Lock](wiki/Child-Lock.md)** — PIN-protecting settings.
-- **[YT-DLP Integration](wiki/YT-DLP-Integration.md)** — downloads, offline playback, and retention.
-- **[Audio mode](docs/audio-mode.md)** — background audio playback for regular videos and active livestreams.
-- **[TubeArchivist Integration](wiki/TubeArchivist-Integration.md)** — use an existing archive in the normal feed and local player.
-- **[Backup & Updates](wiki/Backup-and-Updates.md)** — keeping your data safe.
-- **[How It Works](wiki/How-It-Works.md)** — what is fetched and stored.
-- **[Privacy & License](wiki/Privacy-and-License.md)** — external requests, optional integrations, and licensing.
-- **[Development](wiki/Development.md)** — tech stack and repository layout.
+In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research](docs/direct-streaming-research.md), [Public sharing](docs/public-sharing.md), [Backup and restore architecture](docs/backup-restore-architecture.md) and [Localization](docs/localization.md).
 
 ## Tech stack
 
@@ -242,7 +229,7 @@ The optional [DeArrow](https://dearrow.ajay.app/) integration fetches community-
 
 YouTube is a trademark of Google LLC. This project is not affiliated with, endorsed by, or associated with YouTube or Google LLC.
 
-Licensed under the **GNU Affero General Public License v3.0 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE). More in **[Privacy & License](wiki/Privacy-and-License.md)**.
+Licensed under the **GNU Affero General Public License v3.0 only** (`AGPL-3.0-only`). See [LICENSE](LICENSE). More in **[Privacy & License](https://github.com/Pelski/ytzero/wiki/Privacy-and-License)**.
 
 ## Thanks
 
