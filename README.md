@@ -36,11 +36,6 @@
 
 It reads public YouTube RSS feeds, stores everything in your own SQLite or PostgreSQL database, and gives you a calm place to sort, schedule, watch, archive, and revisit videos from creators you already follow. [yt-dlp](https://github.com/yt-dlp/yt-dlp) is installed with the app: it lets YT Zero stream videos through your own server into its own player, and, if you switch Downloads on, keep copies on disk.
 
-PostgreSQL deployments can run multiple HTTP replicas with one nominated
-background worker. See the [clustered deployment configuration](https://github.com/Pelski/ytzero/wiki/Configuration#clustered-postgresql-deployment)
-for worker, shared-storage, and load-balancer requirements. SQLite deployments
-remain single-instance.
-
 If the problem is "YouTube is good at surfacing more, not better," YT Zero is the opposite: a quiet inbox, your own rules, and a player built around intentional watching.
 
 ![YT Zero main feed](docs/assets/feed.png)
@@ -170,7 +165,7 @@ normal feed—there is no separate TubeArchivist page:
   unwatched changes synchronize in both directions through a durable queue.
 
 Configure it under **Settings → Plugins → TubeArchivist** with the server URL
-and API token. The YT Zero server/container must be able to reach that address;
+and API token. The YT Zero server must be able to reach that address;
 the browser does not need direct TubeArchivist access. Full setup, data flow,
 security, backup behavior, troubleshooting, and limitations:
 **[TubeArchivist Integration](https://github.com/Pelski/ytzero/wiki/TubeArchivist-Integration)**.
@@ -201,6 +196,8 @@ The app starts empty: add channels from **Settings → Channels**. The direct pl
 ## Documentation
 
 This fork does not keep its own wiki. General documentation for the app (features, settings, profiles, authentication, importing subscriptions, backups, configuration) is in the original project's wiki: **[Pelski/ytzero wiki](https://github.com/Pelski/ytzero/wiki)**. It describes upstream, so where it differs from this README (Docker and cloud installs, yt-dlp being optional, YouTube's embed as the default player), this README is correct for the fork.
+
+Upstream also has a tvOS app and a browser extension. This fork does not ship, build or support them; see [Pelski/ytzero](https://github.com/Pelski/ytzero) if you want them.
 
 In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research](docs/direct-streaming-research.md), [Public sharing](docs/public-sharing.md), [Backup and restore architecture](docs/backup-restore-architecture.md) and [Localization](docs/localization.md).
 
