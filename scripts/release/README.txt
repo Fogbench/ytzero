@@ -142,7 +142,8 @@ start.sh  (run every time)
   you accepted the default). It puts ./bin first on the PATH
   (so the downloaded tools are found), reads the version from the file
   VERSION, and runs "bun src/index.ts" inside app/ with the built web client
-  from ui/dist. It stays in the foreground; press Ctrl+C to stop it. Run it
+  from ui/dist. Temporary files go to ./.cache/tmp, inside this folder. It
+  stays in the foreground; press Ctrl+C to stop it. Run it
   under tmux, screen or a systemd service if you want it to keep running.
   Setting that up is not covered here.
 
@@ -151,9 +152,26 @@ start.sh  (run every time)
 
       PORT=8080 bash start.sh
 
+  If the port file holds anything but a number from 1 to 65535, start.sh
+  says so and uses 3001.
+
   Other settings are environment variables, listed on the upstream
   Configuration page:
   https://github.com/Pelski/ytzero/wiki/Configuration
+
+  Your own settings: ytzero.env. If a file named ytzero.env exists in this
+  folder, start.sh reads it before it starts the server, and every setting
+  in it becomes an environment variable of the server. It can also set PORT,
+  and then it wins over the file ./port and over PORT=... on the command
+  line. You create it yourself with a text editor; the release does not
+  contain one. It is read like a shell script: one NAME=value per line, with
+  quotes around a value that contains spaces. For example:
+
+      PORT=8080
+
+  update.sh never changes or deletes ytzero.env, and neither does
+  uninstall.sh, so your settings survive updates. Do not put them in
+  app/.env: an update replaces the whole app folder.
 
 
 update.sh  (update to the latest release)
@@ -163,8 +181,12 @@ update.sh  (update to the latest release)
 
   - Same version: prints "Already on version 2.0.0 (latest)" (with the
     version you have) and changes nothing.
-  - Newer version: shows both versions and asks to continue ("--yes" skips
-    the question). It then downloads the tarball and its .sha256 file,
+  - Different version: if the latest release is newer than yours, it shows
+    both versions and asks to continue ("--yes" skips the question). If it
+    is OLDER than yours (a downgrade), update.sh refuses, because a newer
+    version may have changed your database in a way the older one cannot
+    read; "bash update.sh --allow-downgrade" overrides that.
+  - After you confirm, it downloads the tarball and its .sha256 file,
     refuses to go on if the checksum file is missing or does not match, and
     copies your database (data/db) to
     ./backups/pre-update-<old version>-<time>/ before changing anything.
@@ -184,6 +206,15 @@ update.sh  (update to the latest release)
     "latest".
   - "bash update.sh --check" only tells you whether an update exists.
   - It refuses to run while the server is running from this folder.
+  - Only one update can run at a time. While it runs, it keeps a folder
+    named .update.lock here. If an update was stopped and update.sh still
+    complains about the lock, delete the folder .update.lock; this is safe
+    as long as no update is running.
+  - If an update stops partway (for example the library install fails
+    because there is no internet), your data is untouched and the folder
+    still counts as the old version. Run "bash update.sh" again to finish.
+  - It keeps the newest 5 database copies in ./backups and removes older
+    ones that it made itself (the folders named pre-update-...).
   - It needs internet access and a published (not draft) release.
 
 
@@ -191,13 +222,15 @@ uninstall.sh  (undo install-linux.sh)
 
   Removes what install-linux.sh added, inside this folder only:
 
-  - app/node_modules, .bun-cache and .cache
+  - app/node_modules, .bun-cache, .cache and .tmp
   - Bun and the tools in ./bin that the installer downloaded
     (bun, yt-dlp, deno, ffmpeg, ffprobe), the list ./bin/.installed and ./port
 
-  It keeps ./data and ./backups unless you ask otherwise, and never touches
-  anything outside this folder. A Bun, yt-dlp, deno or ffmpeg that was
-  already on your system stays exactly as it was.
+  It keeps ./data unless you use --remove-data. It always keeps ./backups:
+  there is no option to remove them, so delete that folder by hand if you
+  want it gone. It never touches anything outside this folder. A Bun,
+  yt-dlp, deno or ffmpeg that was already on your system stays exactly as it
+  was.
 
       bash uninstall.sh --dry-run      list what would go, remove nothing
       bash uninstall.sh                ask first, keep ./data
@@ -228,5 +261,9 @@ WHAT IS IN THE FOLDER
                         install of it)
   uninstall.sh          Removes what the installer added
   .bun-cache/           Bun's download cache, created by the installer
-  .cache/               yt-dlp, Deno and Bun caches, created by start.sh
-  backups/              Database copies made by update.sh
+  .cache/               yt-dlp, Deno and Bun caches and temporary files, made
+                        when start.sh runs (not before)
+  .tmp/                 Temporary downloads of install-linux.sh and update.sh,
+                        removed when they finish
+  backups/              Database copies made by update.sh (the newest 5)
+  ytzero.env            Your own settings, if you made the file (see start.sh)
