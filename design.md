@@ -1,14 +1,12 @@
 # YT Zero — system projektowy aplikacji
 
 > Status: normatywny opis interfejsu produktowego `ui/`, przygotowany na podstawie stanu repozytorium z 2 września 2026.
->
-> Ten dokument nie opisuje strony marketingowej z `pages/`. Ma ona osobny język wizualny, osobne fonty i własne tokeny.
 
 ## Szybki kontrakt
 
 | Obszar | Reguła, od której zaczynamy |
 | --- | --- |
-| zakres | interfejs produktowy `ui/`; nie strona marketingowa `pages/` |
+| zakres | interfejs produktowy `ui/` |
 | powierzchnie | `--bg` → `--surface` → `--surface-2` → `--surface-3` |
 | obramowania | brak na kartach, sekcjach, przyciskach, popoverach i dialogach; border tylko wtedy, gdy opisuje pole, podział, wybór, dane lub drop target |
 | odstępy | skala `0 / 4 / 8 / 12 / 16 / 20 / 24px`; wartości optyczne należą wyłącznie do receptury komponentu |

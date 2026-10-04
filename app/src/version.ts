@@ -1,8 +1,8 @@
 // The pipeline stamps app/src/build-version.txt and app/src/build-commit.txt before the build
-// starts, so both labels travel with the sources into the image, the release
+// starts, so both labels travel with the sources into the release
 // tarball and the native install without a build arg. YTZERO_VERSION and
-// YTZERO_COMMIT stay the fallback for unstamped builds (docker run -e, the
-// scripts/install.sh env file, a plain checkout), and the commit is still
+// YTZERO_COMMIT stay the fallback for unstamped builds (an env file or a
+// plain checkout), and the commit is still
 // resolved from git after that so dev logs carry it too.
 import { readFileSync } from "node:fs";
 
@@ -24,7 +24,7 @@ export function pickBuildVersion(file: string | null, env: string | undefined): 
 
 /** Commit the running build was made from: stamp, then env var, then git.
  * Values that are not commit hashes are ignored, so a truncated stamp or the
- * "unknown" placeholder the Docker build defaults to cannot mask a real hash. */
+ * "unknown" placeholder a build default may use cannot mask a real hash. */
 export function pickBuildCommit(file: string | null, env: string | undefined, git: () => string | null): string {
   const stamped = [file, env].map((value) => value?.trim()).find((value) => value && COMMIT_HASH.test(value));
   if (stamped) return stamped;

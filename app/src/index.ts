@@ -29,8 +29,7 @@ if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
 }
 
 const app = new Hono();
-// Serve the built UI (ui/dist is copied to ./public in the Docker image,
-// or set UI_DIST when running locally).
+// Serve the built UI from ./public, or from UI_DIST (set for a source run).
 const uiDir = process.env.UI_DIST ?? "./public";
 
 // Health probe for container runtimes, reverse proxies and installers. Declared

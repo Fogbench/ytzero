@@ -22,8 +22,7 @@ The [EJS guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS) recommends Deno
 (at least 2.3.0). Current official yt-dlp executables include the challenge
 solver scripts. Bun's EJS support is deprecated; running the application in
 Bun does not replace Deno. The installed local yt-dlp and Deno worked without
-Docker or a development-server fix. Docker remains useful for installations
-that lack these dependencies. For YouTube refusals, the
+a development-server fix. In this fork `bun run setup` downloads both. For YouTube refusals, the
 [PO Token guide](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)
 describes token-provider support; the existing cookie/provider configuration
 continues to apply.
