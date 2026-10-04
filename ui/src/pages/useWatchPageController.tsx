@@ -206,23 +206,50 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   // Prefetch the next durable queue item. End-of-video policy decides whether
   // a feed merely offers it or an explicitly ordered playlist advances to it.
   const {
-    dismiss: dismissUpNextVideo,
-    hasPrefetched: hasNextQueueVideo,
+    dismiss: queueDismiss,
+    hasPrefetched: queueHasNext,
     hasPrevious: hasPreviousQueueVideo,
     loadingNext: upNextLoadingNext,
-    play: goToUpNextVideo,
-    playPrefetched: playNextQueueVideo,
+    play: queueGoTo,
+    playPrefetched: queuePlayNext,
     playPrevious: playPreviousQueueVideo,
-    prefetched: prefetchedQueueVideo,
-    show: showUpNextVideo,
-    skip: skipUpNextVideo,
-    video: upNextVideo,
+    prefetched: queuePrefetched,
+    show: queueShow,
+    skip: queueSkip,
+    video: queueUpNext,
   } = useUpNextQueue({
     currentVideoId: id,
     direction: isContinuousPlaylistQueue(playbackQueue) || settings?.feed_autoplay_direction === "newest" ? "newest" : "oldest",
     navigate,
     queue: playlistId ? null : playbackQueue,
   });
+  // With no play queue and no playlist, "up next" falls back to the first video
+  // in "More like this". Skip moves on to the following suggestion.
+  const relatedFallbackActive = !playlistId && !playbackQueue;
+  const [relatedIndex, setRelatedIndex] = useState(0);
+  const [relatedOffered, setRelatedOffered] = useState(false);
+  useEffect(() => { setRelatedIndex(0); setRelatedOffered(false); }, [id]);
+  const relatedNext = relatedFallbackActive ? related.filter((item) => item.video_id !== id)[relatedIndex] ?? null : null;
+  const hasNextQueueVideo = queueHasNext || Boolean(relatedNext);
+  const prefetchedQueueVideo = queuePrefetched ?? relatedNext;
+  const upNextVideo = queueUpNext ?? (relatedOffered ? relatedNext : null);
+  const playRelatedNext = useCallback(() => {
+    if (relatedNext) navigate(`/watch/${relatedNext.video_id}`);
+  }, [navigate, relatedNext]);
+  const playNextQueueVideo = queueHasNext ? queuePlayNext : playRelatedNext;
+  const goToUpNextVideo = queueUpNext ? queueGoTo : playRelatedNext;
+  const showUpNextVideo = useCallback(() => {
+    if (queueHasNext) queueShow();
+    else if (relatedNext) setRelatedOffered(true);
+  }, [queueHasNext, queueShow, relatedNext]);
+  const skipUpNextVideo = useCallback(() => {
+    if (queueUpNext) return queueSkip();
+    setRelatedIndex((index) => index + 1);
+  }, [queueSkip, queueUpNext]);
+  const dismissUpNextVideo = useCallback(() => {
+    queueDismiss();
+    setRelatedOffered(false);
+  }, [queueDismiss]);
   const queueEndAction = playbackEndAction(
     playbackQueue,
     hasNextQueueVideo,
