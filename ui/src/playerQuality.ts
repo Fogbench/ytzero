@@ -58,9 +58,40 @@ function ofCodec(list: DirectQuality[], codec: QualityCodec): DirectQuality[] {
   return list.filter((entry) => entry.codec === codec);
 }
 
-/** The entry that plays for a choice. `list` is best first and limited to what the browser can play. */
-export function resolveQuality(choice: QualityChoice, list: DirectQuality[]): DirectQuality | null {
+/** What the browser says about decoding one quality (the fields we use from `mediaCapabilities.decodingInfo`). */
+export interface DecodeInfo {
+  supported: boolean;
+  smooth: boolean;
+}
+
+/**
+ * Turns the browser's answer into "can play" and "plays smoothly". Without an
+ * answer (the API is missing or threw) we assume both, so nothing is hidden.
+ */
+export function decodeVerdict(info: DecodeInfo | null | undefined): DecodeInfo {
+  if (!info) return { supported: true, smooth: true };
+  return { supported: info.supported, smooth: info.supported && info.smooth };
+}
+
+/**
+ * The entry that plays for a choice. `list` is best first and limited to what the
+ * browser can play at all, and a specific height is always taken from it.
+ * "auto" only considers `smoothIds` (what decodes smoothly), so a machine without
+ * hardware AV1 does not get 4K software decoding. If nothing is smooth, auto
+ * takes the lowest height. Without `smoothIds`, every entry counts as smooth.
+ */
+export function resolveQuality(
+  choice: QualityChoice,
+  list: DirectQuality[],
+  smoothIds?: ReadonlySet<string>,
+): DirectQuality | null {
   if (list.length === 0) return null;
+  if (choice.height === "auto" && smoothIds) {
+    const smooth = list.filter((entry) => smoothIds.has(entry.id));
+    const lowest = Math.min(...list.map((entry) => entry.height));
+    const pool = smooth.length > 0 ? smooth : list.filter((entry) => entry.height === lowest);
+    return resolveQuality(choice, pool);
+  }
   const preferred = ofCodec(list, choice.codec);
   const other = list.filter((entry) => entry.codec !== choice.codec);
   if (choice.height === "auto") return preferred[0] ?? other[0];
