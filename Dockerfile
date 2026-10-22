@@ -12,13 +12,13 @@ ARG BUN_BUILD_IMAGE=oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe947397
 # ---- web client: the same files on every CPU, so it is built once on the build machine ----
 FROM --platform=$BUILDPLATFORM ${BUN_BUILD_IMAGE} AS ui
 ARG YTZERO_VERSION=dev
-WORKDIR /src
-COPY ui/package.json ui/bun.lock ui/
-RUN cd ui && bun install --frozen-lockfile
-COPY shared/ shared/
-COPY ui/ ui/
+WORKDIR /src/ui
+COPY ui/package.json ui/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY shared/ /src/shared/
+COPY ui/ ./
 # Offline changelog: same as scripts/package-release.sh, so the build never asks GitHub.
-RUN cd ui && YTZERO_CHANGELOG_OFFLINE=1 YTZERO_VERSION="$YTZERO_VERSION" bun run build
+RUN YTZERO_CHANGELOG_OFFLINE=1 YTZERO_VERSION="$YTZERO_VERSION" bun run build
 
 # ---- third-party tools for the target CPU, from tools.lock ----
 FROM ${BUN_BUILD_IMAGE} AS tools

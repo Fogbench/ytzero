@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT_DIR="$1"; OUT="$2"
 msg() { echo "$*"; }
 die() { echo "error: $*" >&2; exit 1; }
-# shellcheck source=../release/tools-lib.sh
+# shellcheck source=scripts/release/tools-lib.sh
 . "$ROOT_DIR/tools-lib.sh"
 LOCK="$ROOT_DIR/tools.lock"
 
