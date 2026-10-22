@@ -104,6 +104,56 @@ export function resolveQuality(
     ?? resolveQuality({ height: Math.min(...list.map((entry) => entry.height)), codec: choice.codec }, list);
 }
 
+/** What `qualities.json` says about the default stream (no `?q=`) and the profile's quality limit. */
+export interface QualityLimits {
+  /** The default stream is H.264 capped at this height. */
+  defaultHeight: number;
+  /** The profile's quality limit; Auto never goes above it. null = none. */
+  maxHeight: number | null;
+}
+
+/** Used until `qualities.json` says otherwise (an older server sends no limits). */
+export const DEFAULT_QUALITY_LIMITS: QualityLimits = { defaultHeight: 1080, maxHeight: null };
+
+/** The limits in a `qualities.json` response; an older server sends none. */
+export function qualityLimitsFrom(response: { defaultHeight?: number; maxHeight?: number | null }): QualityLimits {
+  return {
+    defaultHeight: response.defaultHeight ?? DEFAULT_QUALITY_LIMITS.defaultHeight,
+    maxHeight: response.maxHeight ?? null,
+  };
+}
+
+/** The entry the default stream plays: the tallest MP4 at or below the default height; null when the list has none. */
+export function defaultStreamQuality(list: DirectQuality[], limits: QualityLimits = DEFAULT_QUALITY_LIMITS): DirectQuality | null {
+  return ofCodec(list, "avc1").find((entry) => entry.height <= limits.defaultHeight) ?? null;
+}
+
+/**
+ * What to ask the server for, null meaning the default stream (no `?q=`).
+ * Playback starts on the default stream before `list` is in ("play first"), so
+ * once it is, "auto" only switches to a taller quality than the default (never
+ * a reload for a codec swap or a step down) and never above the profile's
+ * limit, and a picked height switches unless the default stream already is
+ * that entry.
+ */
+export function streamQuality(
+  choice: QualityChoice,
+  list: DirectQuality[],
+  smoothIds?: ReadonlySet<string>,
+  limits: QualityLimits = DEFAULT_QUALITY_LIMITS,
+): DirectQuality | null {
+  const fallback = defaultStreamQuality(list, limits);
+  if (choice.height === "auto") {
+    const max = limits.maxHeight;
+    const picked = resolveQuality(choice, max === null ? list : list.filter((entry) => entry.height <= max), smoothIds);
+    if (!picked || !fallback) return picked;
+    return picked.height > fallback.height ? picked : null;
+  }
+  const picked = resolveQuality(choice, list, smoothIds);
+  if (!picked || !fallback) return picked;
+  return picked.id === fallback.id ? null : picked;
+}
+
 /** One menu row per height, using the preferred codec where it has that height. */
 export function qualityRows(codec: QualityCodec, list: DirectQuality[]): DirectQuality[] {
   const heights = [...new Set(list.map((entry) => entry.height))].sort((a, b) => b - a);

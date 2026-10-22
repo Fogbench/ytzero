@@ -39,6 +39,7 @@ import { useAppliedVideoCardActionConfig, type VideoCardActionConfig, type Video
 import { otherPlaybackModeIsAudioOnly, playVideoInOtherPlaybackMode } from "../videoCardPlaybackMode";
 import { claimVideoCardPreview, readVideoCardPreviewMode, releaseVideoCardPreview } from "../videoCardPreview";
 import "./VideoGrid.css";
+import { directPrefetch } from "../directPrefetch";
 import "./VideoCard.css";
 import "./VideoCardActionsBar.css";
 import "./VideoCardMetadata.css";
@@ -260,6 +261,8 @@ export function VideoCard({
   }, [isWatched, video.status, video.watched]);
 
   const schedulePreview = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && !actionPreview && !processing && video.is_private !== 1
+      && video.live_status !== "live" && video.live_status !== "upcoming") directPrefetch.hover(video.video_id);
     if (event.pointerType !== "mouse" || previewTimerRef.current != null || previewActive) return;
     const mode = readVideoCardPreviewMode();
     const downloaded = downloadStatus === "done";
@@ -683,7 +686,7 @@ export function VideoCard({
           style={{ "--actions-proximity": actionProximity } as CSSProperties}
           onPointerEnter={selectable || readOnly ? undefined : schedulePreview}
           onPointerMove={selectable || readOnly ? undefined : updateActionProximity}
-          onPointerLeave={selectable || readOnly ? undefined : (event) => { resetActionProximity(event); stopPreview(); }}
+          onPointerLeave={selectable || readOnly ? undefined : (event) => { resetActionProximity(event); stopPreview(); directPrefetch.cancelHover(video.video_id); }}
         >
           {selectable && (
             <button

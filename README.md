@@ -61,6 +61,21 @@ bash start.sh            # prints the address to open
 - Needs `curl`, `xz` and `unzip` or `python3`. Without yt-dlp the app still runs and uses the YouTube embed.
 - Tested: Linux x86_64, the automated install/update/uninstall test on a Proxmox container. macOS has no installer; `README.txt` inside the package lists the manual steps.
 
+## Run with Docker
+
+Image `ghcr.io/fogbench/ytzero` for x86_64 and aarch64, one tag per release (`YYYY.MM.N`, same as the tarball) plus `latest`.
+
+```bash
+docker run -d --name ytzero -p 3001:3001 -v ytzero-data:/data --restart unless-stopped ghcr.io/fogbench/ytzero:latest
+```
+
+Or with Compose: save [compose.yaml](compose.yaml) in an empty folder and run `docker compose up -d`. Open http://localhost:3001.
+
+- Reachable from outside this machine (a VPS, a shared network)? Docker opens the port past the host firewall, and YT Zero has no login until you set one (see [authentication](https://github.com/Pelski/ytzero/wiki) upstream): set a login, or publish the port on this machine only with `-p 127.0.0.1:3001:3001` (in compose.yaml: `"127.0.0.1:3001:3001"`).
+- Update: `docker compose pull && docker compose up -d` (with `docker run`: `docker pull` the image, then remove and re-create the container with the same command).
+- Backup: `docker run --rm -v ytzero-data:/data -v "$PWD":/backup alpine tar czf /backup/ytzero-data.tgz -C /data .` (stop the container first).
+- All data is in the volume `ytzero-data`; yt-dlp lives there too and updates itself between releases. The server runs as uid 1000: a host folder instead of the volume must belong to that user.
+
 ## Run from source
 
 For development, or if you do not want the package. Run it natively with [Bun](https://bun.sh). On Linux (x86_64, aarch64), `bun run setup` installs the dependencies and downloads yt-dlp, Deno and ffmpeg into `./bin` when they are not already on your `PATH` (needs `curl`, `xz` and `unzip` or `python3`). On macOS, install them yourself, for example with Homebrew. Without yt-dlp the app still runs and uses the YouTube embed.
@@ -91,7 +106,7 @@ The app starts empty; add channels from **Settings > Channels**. Keep `./data` b
 
 ## Documentation
 
-General documentation is in the [upstream wiki](https://github.com/Pelski/ytzero/wiki) (upstream). Where it differs from this README (Docker and cloud installs, yt-dlp being optional), this README is correct for the fork.
+General documentation is in the [upstream wiki](https://github.com/Pelski/ytzero/wiki) (upstream). Where it differs from this README (Docker image, cloud installs, yt-dlp being optional), this README is correct for the fork.
 
 In this repository: [Audio mode](docs/audio-mode.md), [Direct streaming research](docs/direct-streaming-research.md), [Public sharing](docs/public-sharing.md), [Backup and restore architecture](docs/backup-restore-architecture.md) and [Localization](docs/localization.md).
 

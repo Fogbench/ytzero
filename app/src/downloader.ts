@@ -29,7 +29,7 @@ import {
   ytdlpStatus,
   type DlSettings,
 } from "./downloadConfig";
-import { ytdlpSelfUpdate } from "./ytdlpUpdater";
+import { ytdlpReadyStatus, ytdlpSelfUpdate, waitForFirstYtdlpUpdate } from "./ytdlpUpdater";
 import { DOWNLOAD_MANIFEST_SUFFIX, recoverDownloadsFromDisk, writeDownloadManifest } from "./downloadRecovery";
 import { downloadScheduleAllowsNow } from "./downloadSchedule";
 import { backgroundTasksEnabled } from "./deploymentMode";
@@ -1162,7 +1162,7 @@ const { getDirectVideoResponse, invalidateDirectVideoSources: invalidateProgress
   dlSettings,
   downloadCookiesConfigured,
   downloadCookiesFile,
-  ytdlpStatus,
+  ytdlpStatus: ytdlpReadyStatus,
 });
 
 function invalidateDirectVideoSources(userId: number): void {
@@ -1253,6 +1253,8 @@ export async function startDownloader() {
   setTimeout(() => tick().catch(reportTickError), 8_000);
   setInterval(() => tick().catch(reportTickError), TICK_INTERVAL_MS);
   const updateYtdlp = () => ytdlpSelfUpdate().catch((error) => log.warn("downloads.ytdlp_update_failed", { error: error instanceof Error ? error.message : String(error) }));
+  // A new volume updates its bootstrap yt-dlp at once: lookups wait for it.
+  void waitForFirstYtdlpUpdate();
   setTimeout(updateYtdlp, 10_000);
   setInterval(updateYtdlp, 60 * 60_000);
   const recordsByStatus = Object.fromEntries((await database.prepare("SELECT status AS name, COUNT(*) AS count FROM downloads GROUP BY status").all() as { name: string; count: number }[]).map((row) => [row.name, Number(row.count)]));

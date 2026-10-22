@@ -1,4 +1,5 @@
 import { downloadCookiesConfigured, ytdlpCommand } from "./downloadConfig";
+import { directVideoStreaming } from "./directVideoStreaming";
 import { log } from "./logger";
 import { subtitleLanguageLabel } from "./subtitleLanguages";
 import { safeSubtitleUpstreamUrl } from "./subtitleUpstream";
@@ -28,7 +29,6 @@ interface CacheEntry {
   pending?: Promise<SubtitleMetadata>;
 }
 
-const metadataCache = new Map<string, CacheEntry>();
 
 /** Collapse only YouTube's opaque 11-character per-audio-track suffix. */
 export function normalizeSubtitleLanguage(code: string): string {
@@ -178,21 +178,53 @@ async function fetchMetadata(userId: number, videoId: string): Promise<SubtitleM
   }
 }
 
-async function cachedMetadata(userId: number, videoId: string): Promise<SubtitleMetadata> {
-  const key = `${userId}:${videoId}`;
-  const current = metadataCache.get(key);
-  if (current?.value && current.expiresAt > Date.now()) return current.value;
-  if (current?.pending) return current.pending;
-  const pending = fetchMetadata(userId, videoId);
-  metadataCache.set(key, { expiresAt: Date.now() + METADATA_CACHE_MS, pending });
-  try {
-    const value = await pending;
-    metadataCache.set(key, { expiresAt: Date.now() + METADATA_CACHE_MS, value });
-    return value;
-  } catch (error) {
-    metadataCache.delete(key);
-    throw error;
+type MetadataLookup = (userId: number, videoId: string) => Promise<SubtitleMetadata>;
+
+/**
+ * Caption maps come from the direct player's yt-dlp lookup first (cached or in
+ * flight, so a video opened in the direct player costs one yt-dlp run); only
+ * when that lookup yields nothing does this spawn its own, cookie-preferring one.
+ */
+export function createSubtitleMetadataCache(
+  shared: (userId: number, videoId: string) => Promise<SubtitleMetadata | null>,
+  own: MetadataLookup,
+) {
+  const cache = new Map<string, CacheEntry>();
+
+  async function lookup(userId: number, videoId: string): Promise<SubtitleMetadata> {
+    const fromShared = await shared(userId, videoId).catch(() => null);
+    if (fromShared) return fromShared;
+    log.info("downloads.subtitle_availability_own_lookup", { userId, videoId });
+    return own(userId, videoId);
   }
+
+  async function get(userId: number, videoId: string): Promise<SubtitleMetadata> {
+    const key = `${userId}:${videoId}`;
+    const current = cache.get(key);
+    if (current?.value && current.expiresAt > Date.now()) return current.value;
+    if (current?.pending) return current.pending;
+    const pending = lookup(userId, videoId);
+    cache.set(key, { expiresAt: Date.now() + METADATA_CACHE_MS, pending });
+    try {
+      const value = await pending;
+      cache.set(key, { expiresAt: Date.now() + METADATA_CACHE_MS, value });
+      return value;
+    } catch (error) {
+      cache.delete(key);
+      throw error;
+    }
+  }
+
+  return { get, clear: () => cache.clear() };
+}
+
+const metadataCache = createSubtitleMetadataCache(
+  (userId, videoId) => directVideoStreaming.directCaptionMaps(userId, videoId),
+  fetchMetadata,
+);
+
+function cachedMetadata(userId: number, videoId: string): Promise<SubtitleMetadata> {
+  return metadataCache.get(userId, videoId);
 }
 
 export async function availableSubtitlesForVideo(userId: number, videoId: string, automaticLanguages: Iterable<string>, automaticOnlyAsFallback = false): Promise<AvailableSubtitle[]> {

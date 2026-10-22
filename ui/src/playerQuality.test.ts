@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { decodeVerdict, heightLabel, qualityRows, readQualityChoice, resolveQuality, type DirectQuality } from "./playerQuality";
+import {
+  decodeVerdict, defaultStreamQuality, qualityLimitsFrom, heightLabel, qualityRows, readQualityChoice, resolveQuality, streamQuality, type DirectQuality,
+} from "./playerQuality";
 
 const q = (height: number, codec: "avc1" | "av01", fps = 30, hdr = false): DirectQuality => (
   { id: `${height}-${codec}`, width: Math.round(height * 16 / 9), height, fps, codec, hdr }
@@ -70,5 +72,67 @@ describe("player quality menu", () => {
     expect(resolveQuality({ height: 720, codec: "avc1" }, list, none)?.id).toBe("720-avc1");
     // Without smoothIds (no verdicts at all) auto still picks the tallest.
     expect(resolveQuality({ height: "auto", codec: "av01" }, list)?.id).toBe("2160-av01");
+  });
+
+  test("the server default stream is the tallest MP4 at or below 1080p", () => {
+    expect(defaultStreamQuality(list)?.id).toBe("1080-avc1");
+    expect(defaultStreamQuality([q(2160, "avc1"), q(1440, "avc1"), q(720, "avc1")])?.id).toBe("720-avc1");
+    expect(defaultStreamQuality([q(1440, "av01")])).toBe(null);
+    expect(defaultStreamQuality([])).toBe(null);
+  });
+
+  test("a profile limited to 720p: the default stream entry is 720p, and Auto never goes above the limit", () => {
+    const limits = { defaultHeight: 720, maxHeight: 720 };
+    const smooth = new Set(list.map((entry) => entry.id));
+    expect(defaultStreamQuality(list, limits)?.id).toBe("720-avc1");
+    // Picking 1080p must switch: the default stream is 720p, not 1080p.
+    expect(streamQuality({ height: 1080, codec: "avc1" }, list, smooth, limits)?.id).toBe("1080-avc1");
+    // Picking 720p is the default stream.
+    expect(streamQuality({ height: 720, codec: "avc1" }, list, smooth, limits)).toBe(null);
+    // Auto stays on the default stream, with 2160 smooth and with 1080 smooth.
+    expect(streamQuality({ height: "auto", codec: "av01" }, list, smooth, limits)).toBe(null);
+    expect(streamQuality({ height: "auto", codec: "avc1" }, list, new Set(["1080-avc1", "720-avc1"]), limits)).toBe(null);
+  });
+
+  test("player path: a qualities.json response of a 720p-limited profile drives the menu entry and Auto", () => {
+    const response = JSON.parse(JSON.stringify({ qualities: list, audioTracks: [], defaultHeight: 720, maxHeight: 720 }));
+    const limits = qualityLimitsFrom(response);
+    const smooth = new Set<string>(response.qualities.map((entry: DirectQuality) => entry.id));
+    expect(defaultStreamQuality(response.qualities, limits)?.id).toBe("720-avc1"); // the menu's active entry
+    expect(streamQuality({ height: "auto", codec: "av01" }, response.qualities, smooth, limits)).toBe(null);
+    expect(streamQuality({ height: 1080, codec: "avc1" }, response.qualities, smooth, limits)?.id).toBe("1080-avc1");
+    // An older server sends no limits: 1080p default, no cap.
+    expect(qualityLimitsFrom({})).toEqual({ defaultHeight: 1080, maxHeight: null });
+  });
+
+  test("a profile limit between list heights: Auto steps up only within the limit", () => {
+    const limits = { defaultHeight: 1080, maxHeight: 1440 };
+    expect(streamQuality({ height: "auto", codec: "av01" }, list, new Set(list.map((entry) => entry.id)), limits)?.id).toBe("1440-av01");
+  });
+
+  test("play first: before the list is in, the default stream plays (no ?q=)", () => {
+    expect(streamQuality({ height: "auto", codec: "av01" }, [])).toBe(null);
+    expect(streamQuality({ height: 2160, codec: "av01" }, [])).toBe(null);
+  });
+
+  test("auto steps up from the default stream only to a taller smooth quality", () => {
+    const auto = { height: "auto" as const, codec: "av01" as const };
+    // Hardware AV1: 4K is smooth, so auto steps up.
+    expect(streamQuality(auto, list, new Set(list.map((entry) => entry.id)))?.id).toBe("2160-av01");
+    // Only up to 1080p is smooth: stay on the default stream, no reload for a codec swap at the same height.
+    expect(streamQuality(auto, list, new Set(["1080-av01", "1080-avc1", "720-avc1"]))).toBe(null);
+    // Only 720p smooth: still keep the 1080p already playing rather than step down.
+    expect(streamQuality(auto, list, new Set(["720-avc1"]))).toBe(null);
+    // Nothing smooth: default stream.
+    expect(streamQuality(auto, list, new Set())).toBe(null);
+    // Without verdicts every entry counts as smooth.
+    expect(streamQuality(auto, list)?.id).toBe("2160-av01");
+  });
+
+  test("a picked height switches to it once the list is in, unless it is the default stream", () => {
+    expect(streamQuality({ height: 720, codec: "avc1" }, list, new Set())?.id).toBe("720-avc1");
+    expect(streamQuality({ height: 1440, codec: "avc1" }, list)?.id).toBe("1440-av01");
+    expect(streamQuality({ height: 1080, codec: "avc1" }, list)).toBe(null);
+    expect(streamQuality({ height: 1080, codec: "av01" }, list)?.id).toBe("1080-av01");
   });
 });

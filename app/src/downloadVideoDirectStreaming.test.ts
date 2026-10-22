@@ -148,6 +148,7 @@ function directDependencies(spawn: typeof Bun.spawn, fetchImpl: typeof fetch) {
     prioritizeDownload: async () => true,
     ytdlpStatus: async () => "2026.07.04",
     videoAvailable: async () => true,
+    directPlayable: async () => true,
     spawn,
     fetchImpl,
   };
@@ -293,6 +294,43 @@ describe("direct no-transcode video HLS", () => {
     expect((await streaming.getDirectHlsPlaylist(1, "quality", "index.m3u8", undefined, null, "999-av01")).kind).toBe("unsupported");
     expect((await streaming.getDirectHlsPlaylist(1, "quality", "index.m3u8")).kind).toBe("playlist");
     streaming.resetDirectHlsSessions();
+  });
+
+  test("the default stream (no q) is at most 1080p; a lower profile setting still caps it", async () => {
+    const selectorFor = async (quality: string) => {
+      let selector = "";
+      const spawn = ((command: string[]) => {
+        selector = command[command.indexOf("-f") + 1] ?? "";
+        return fakeProcess(selection(1));
+      }) as unknown as typeof Bun.spawn;
+      const streaming = createDownloadVideoDirectStreaming({
+        ...directDependencies(spawn, (async () => new Response(null, { status: 404 })) as unknown as typeof fetch),
+        dlSettings: async () => ({ quality }),
+      });
+      await streaming.getDirectQualities(1, `cap-${quality}`);
+      streaming.resetDirectHlsSessions();
+      return selector;
+    };
+    expect(await selectorFor("best")).toContain("[height<=1080]");
+    expect(await selectorFor("2160")).toContain("[height<=1080]");
+    expect(await selectorFor("1080")).toContain("[height<=1080]");
+    expect(await selectorFor("720")).toContain("[height<=720]");
+    expect(await selectorFor("720")).not.toContain("[height<=1080]");
+  });
+
+  test("qualities.json tells the player the default stream height and the profile's limit", async () => {
+    const limitsFor = async (quality: string) => {
+      const streaming = createDownloadVideoDirectStreaming({
+        ...directDependencies((() => fakeProcess(selection(1))) as unknown as typeof Bun.spawn, (async () => new Response(null, { status: 404 })) as unknown as typeof fetch),
+        dlSettings: async () => ({ quality }),
+      });
+      const result = await streaming.getDirectQualities(1, `limits-${quality}`);
+      streaming.resetDirectHlsSessions();
+      return result.kind === "qualities" ? { defaultHeight: result.defaultHeight, maxHeight: result.maxHeight } : null;
+    };
+    expect(await limitsFor("best")).toEqual({ defaultHeight: 1080, maxHeight: null });
+    expect(await limitsFor("2160")).toEqual({ defaultHeight: 1080, maxHeight: 2160 });
+    expect(await limitsFor("720")).toEqual({ defaultHeight: 720, maxHeight: 720 });
   });
 
   test("rejects missing or malformed yt-dlp headers before fetching media", async () => {
@@ -548,5 +586,99 @@ describe("DIRECT_QUALITY_PATTERN", () => {
     for (const value of ["", "~", "1440", "1440-vp9", "av01", "1080-avc1~", "../x"]) {
       expect(DIRECT_QUALITY_PATTERN.test(value)).toBe(false);
     }
+  });
+});
+
+describe("early direct source lookup", () => {
+  function deferredSpawn(output: () => string) {
+    let spawns = 0;
+    const releases: Array<() => void> = [];
+    const spawn = (() => {
+      spawns++;
+      let release!: () => void;
+      const exited = new Promise<number>((resolve) => { release = () => resolve(0); });
+      releases.push(release);
+      return {
+        stdout: new Response(output()).body!,
+        stderr: new Response("").body!,
+        exited,
+        kill: () => release(),
+      } as unknown as ReturnType<typeof Bun.spawn>;
+    }) as unknown as typeof Bun.spawn;
+    return { spawn, releases, spawns: () => spawns };
+  }
+
+  test("a prefetch shares the in-flight lookup and the player reuses its cached result", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const fetchImpl = (async (_input, init) => rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(fake.spawn, fetchImpl));
+    const first = streaming.prefetchDirectSources(1, "early");
+    const second = streaming.prefetchDirectSources(1, "early");
+    for (let i = 0; i < 50 && fake.releases.length === 0; i++) await Bun.sleep(1);
+    expect(fake.spawns()).toBe(1);
+    fake.releases[0]();
+    expect(await (await first).done).toBe(true);
+    expect(await (await second).done).toBe(true);
+    expect((await streaming.getDirectHlsPlaylist(1, "early", "index.m3u8")).kind).toBe("playlist");
+    expect(fake.spawns()).toBe(1);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("a player request that disconnects does not abort a running prefetch", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const fetchImpl = (async (_input, init) => rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(fake.spawn, fetchImpl));
+    const prefetch = streaming.prefetchDirectSources(1, "early");
+    const controller = new AbortController();
+    const player = streaming.getDirectQualities(1, "early", controller.signal);
+    for (let i = 0; i < 50 && fake.releases.length === 0; i++) await Bun.sleep(1);
+    controller.abort();
+    expect((await player).kind).toBe("failed");
+    fake.releases[0]();
+    expect(await (await prefetch).done).toBe(true);
+    expect((await streaming.getDirectQualities(1, "early")).kind).toBe("qualities");
+    expect(fake.spawns()).toBe(1);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("prefetches start at most one yt-dlp lookup per profile and two overall; the player is not capped", async () => {
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(fake.spawn, (async () => new Response(null, { status: 500 })) as unknown as typeof fetch));
+    const settle = async () => { for (let i = 0; i < 20; i++) await Bun.sleep(1); };
+    const profileOne = await Promise.all(["a", "b", "c"].map((id) => streaming.prefetchDirectSources(1, id)));
+    await settle();
+    expect(profileOne.map((result) => result.started)).toEqual([true, false, false]);
+    expect(fake.spawns()).toBe(1);
+    // Joining the running lookup for the same video costs nothing and is allowed.
+    expect((await streaming.prefetchDirectSources(1, "a")).started).toBe(true);
+    expect((await streaming.prefetchDirectSources(2, "d")).started).toBe(true);
+    expect((await streaming.prefetchDirectSources(3, "e")).started).toBe(false);
+    await settle();
+    expect(fake.spawns()).toBe(2);
+    const player = streaming.getDirectQualities(3, "e");
+    await settle();
+    expect(fake.spawns()).toBe(3);
+    fake.releases[0]();
+    expect(await profileOne[0].done).toBe(true);
+    expect(await profileOne[1].done).toBe(false);
+    expect((await streaming.prefetchDirectSources(1, "b")).started).toBe(true);
+    await settle();
+    expect(fake.spawns()).toBe(4);
+    for (const release of fake.releases) release();
+    await player;
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("prefetch and caption lookups skip videos the direct player cannot open", async () => {
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(fake.spawn, fetch),
+      directPlayable: async (videoId: string) => videoId !== "live",
+    });
+    expect((await streaming.prefetchDirectSources(1, "live")).started).toBe(false);
+    expect(await streaming.directCaptionMaps(1, "live")).toBeNull();
+    expect(fake.spawns()).toBe(0);
   });
 });
