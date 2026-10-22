@@ -12,14 +12,9 @@ export function registerDirectVideoRoutes(
   api: Hono<ApiEnvironment>,
   currentUserId: (context: Context<ApiEnvironment>) => number,
 ): void {
-  api.get("/videos/:id/direct-hls/:file", async (context) => {
-    const userId = currentUserId(context);
+  /** Shared checks for every direct-stream request; a Response means refused. */
+  async function refusal(context: Context<ApiEnvironment>, userId: number, videoId: string): Promise<Response | null> {
     if (await isChildUser(userId)) return context.json({ error: "not allowed" }, 403);
-    const videoId = context.req.param("id");
-    const file = context.req.param("file");
-    if (!["index.m3u8", "video.m3u8", "audio.m3u8", "video.mp4", "audio.mp4", "qualities.json"].includes(file)) {
-      return context.json({ error: "not found" }, 404);
-    }
     const video = await database.prepare(
       "SELECT live_status, members_only, is_private, is_unavailable FROM videos WHERE video_id = ?",
     ).get<VideoState>(videoId);
@@ -30,6 +25,30 @@ export function registerDirectVideoRoutes(
     // Streaming is independent of the offline-download feature and its
     // experimental play-while-downloading preference.
     if (!await ytdlpStatus()) return context.json({ error: "yt-dlp unavailable" }, 503);
+    return null;
+  }
+
+  // Warm the yt-dlp lookup (watch page opened, card hovered) so the player's
+  // first request finds it cached or in flight. Answers at once; the lookup
+  // runs without the request's signal so a disconnect does not cancel it.
+  api.post("/videos/:id/direct-hls/prefetch", async (context) => {
+    const userId = currentUserId(context);
+    const videoId = context.req.param("id");
+    const refused = await refusal(context, userId, videoId);
+    if (refused) return refused;
+    void directVideoStreaming.prefetchDirectSources(userId, videoId).catch(() => {});
+    return context.json({ ok: true }, 202);
+  });
+
+  api.get("/videos/:id/direct-hls/:file", async (context) => {
+    const userId = currentUserId(context);
+    const videoId = context.req.param("id");
+    const file = context.req.param("file");
+    if (!["index.m3u8", "video.m3u8", "audio.m3u8", "video.mp4", "audio.mp4", "qualities.json"].includes(file)) {
+      return context.json({ error: "not found" }, 404);
+    }
+    const refused = await refusal(context, userId, videoId);
+    if (refused) return refused;
     const signal = context.req.raw.signal;
     const generation = context.req.query("v") ?? null;
     if (file === "qualities.json") {

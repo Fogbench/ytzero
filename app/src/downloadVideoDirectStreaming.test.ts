@@ -550,3 +550,58 @@ describe("DIRECT_QUALITY_PATTERN", () => {
     }
   });
 });
+
+describe("early direct source lookup", () => {
+  function deferredSpawn(output: () => string) {
+    let spawns = 0;
+    const releases: Array<() => void> = [];
+    const spawn = (() => {
+      spawns++;
+      let release!: () => void;
+      const exited = new Promise<number>((resolve) => { release = () => resolve(0); });
+      releases.push(release);
+      return {
+        stdout: new Response(output()).body!,
+        stderr: new Response("").body!,
+        exited,
+        kill: () => release(),
+      } as unknown as ReturnType<typeof Bun.spawn>;
+    }) as unknown as typeof Bun.spawn;
+    return { spawn, releases, spawns: () => spawns };
+  }
+
+  test("a prefetch shares the in-flight lookup and the player reuses its cached result", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const fetchImpl = (async (_input, init) => rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(fake.spawn, fetchImpl));
+    const first = streaming.prefetchDirectSources(1, "early");
+    const second = streaming.prefetchDirectSources(1, "early");
+    for (let i = 0; i < 50 && fake.releases.length === 0; i++) await Bun.sleep(1);
+    expect(fake.spawns()).toBe(1);
+    fake.releases[0]();
+    expect(await first).toBe(true);
+    expect(await second).toBe(true);
+    expect((await streaming.getDirectHlsPlaylist(1, "early", "index.m3u8")).kind).toBe("playlist");
+    expect(fake.spawns()).toBe(1);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("a player request that disconnects does not abort a running prefetch", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const fetchImpl = (async (_input, init) => rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(fake.spawn, fetchImpl));
+    const prefetch = streaming.prefetchDirectSources(1, "early");
+    const controller = new AbortController();
+    const player = streaming.getDirectQualities(1, "early", controller.signal);
+    for (let i = 0; i < 50 && fake.releases.length === 0; i++) await Bun.sleep(1);
+    controller.abort();
+    expect((await player).kind).toBe("failed");
+    fake.releases[0]();
+    expect(await prefetch).toBe(true);
+    expect((await streaming.getDirectQualities(1, "early")).kind).toBe("qualities");
+    expect(fake.spawns()).toBe(1);
+    streaming.resetDirectHlsSessions();
+  });
+});

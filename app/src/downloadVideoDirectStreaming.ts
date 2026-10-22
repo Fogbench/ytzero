@@ -1014,6 +1014,16 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     return proxyResource(result.session, file === "video.mp4" ? "video" : "audio", range, signal);
   }
 
+  /**
+   * Warm the source lookup before the player asks. Deliberately takes no
+   * signal: the lookup is shared and cached, and a client that disconnects
+   * (or a player request that aborts) must not cancel it.
+   */
+  async function prefetchDirectSources(userId: number, videoId: string): Promise<boolean> {
+    if (!await videoAvailable(videoId)) return false;
+    return (await resolveSources(userId, videoId)).kind === "sources";
+  }
+
   /** Lightweight ownership check for child playlist/resource requests. */
   function hasDirectHlsSession(userId: number, videoId: string): boolean {
     const session = sessions.get(keyFor(userId, videoId));
@@ -1071,6 +1081,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     getDirectQualities,
     getDirectHlsResource,
     hasDirectHlsSession,
+    prefetchDirectSources,
     invalidateDirectHlsSession,
     invalidateDirectHlsSources,
     resetDirectHlsSessions,
