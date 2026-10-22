@@ -71,6 +71,7 @@ docker run -d --name ytzero -p 3001:3001 -v ytzero-data:/data --restart unless-s
 
 Or with Compose: save [compose.yaml](compose.yaml) in an empty folder and run `docker compose up -d`. Open http://localhost:3001.
 
+- Reachable from outside this machine (a VPS, a shared network)? Docker opens the port past the host firewall, and YT Zero has no login until you set one (see [authentication](https://github.com/Pelski/ytzero/wiki) upstream): set a login, or publish the port on this machine only with `-p 127.0.0.1:3001:3001` (in compose.yaml: `"127.0.0.1:3001:3001"`).
 - Update: `docker compose pull && docker compose up -d` (with `docker run`: `docker pull` the image, then remove and re-create the container with the same command).
 - Backup: `docker run --rm -v ytzero-data:/data -v "$PWD":/backup alpine tar czf /backup/ytzero-data.tgz -C /data .` (stop the container first).
 - All data is in the volume `ytzero-data`; yt-dlp lives there too and updates itself between releases. The server runs as uid 1000: a host folder instead of the volume must belong to that user.
