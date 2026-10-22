@@ -8,7 +8,7 @@
         "@simplewebauthn/browser": "^14.0.0",
         "@use-gesture/react": "^10.3.1",
         "canvas-confetti": "^1.9.4",
-        "emoji-picker-react": "^4.22.3",
+        "emoji-picker-react": "5.1.0",
         "hls.js": "^1.7.3",
         "html2canvas": "^1.4.1",
         "lucide-react": "^1.61.0",
@@ -129,7 +129,7 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
-    "emoji-picker-react": ["emoji-picker-react@4.22.3", "", { "dependencies": { "shipstyles": "1.0.0" }, "peerDependencies": { "react": ">=16.8" } }, "sha512-jrAkkoN69l5lA2Xp6P5axqoK1YdHNS1+MKMlLxwltnnnaXrojUjZaolgI/U8vdx8vFWqG42yYqpLSR83f6pwiw=="],
+    "emoji-picker-react": ["emoji-picker-react@5.1.0", "", { "dependencies": { "shipstyles": "1.0.0" }, "peerDependencies": { "react": ">=16.8" } }, "sha512-yw4D7tarPZpqaygpS1tNyoJ2ymJzBx5koXqYpifY2waovnoRQlL5xIxzNRudJNWKrHbjk8Ky+xFE1nkHHWCyew=="],
 
     "fdir": ["fdir@6.5.0", "", { "peerDependencies": { "picomatch": "^3 || ^4" }, "optionalPeers": ["picomatch"] }, "sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg=="],
 
