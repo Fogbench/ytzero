@@ -59,6 +59,8 @@ interface YtdlpSelection {
   requested_formats?: unknown;
   requested_downloads?: unknown;
   http_headers?: unknown;
+  subtitles?: unknown;
+  automatic_captions?: unknown;
 }
 
 export interface DirectVideoMediaSource {
@@ -79,7 +81,13 @@ export interface DirectVideoMediaSource {
   originalLanguage?: boolean;
 }
 
-interface DirectVideoSources {
+/** yt-dlp's caption maps: track id -> its formats. */
+export interface DirectCaptionMaps {
+  subtitles: Record<string, unknown>;
+  automaticCaptions: Record<string, unknown>;
+}
+
+interface DirectVideoSources extends DirectCaptionMaps {
   video: DirectVideoMediaSource;
   audio: DirectVideoMediaSource;
   durationSeconds: number;
@@ -239,6 +247,27 @@ function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: numbe
   return result;
 }
 
+/**
+ * Keep only the WebVTT formats of each caption track: the subtitles menu uses
+ * nothing else, and a full auto-caption map (every language, every format) is
+ * large to keep for the hours a lookup stays cached.
+ */
+function webVttCaptionMap(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, unknown> = {};
+  for (const [track, formats] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(formats)) continue;
+    const kept = formats.flatMap((format) => {
+      if (!format || typeof format !== "object") return [];
+      const { ext, url, name } = format as { ext?: unknown; url?: unknown; name?: unknown };
+      if (ext !== "vtt" || typeof url !== "string") return [];
+      return [name === undefined ? { ext, url } : { ext, url, name }];
+    });
+    if (kept.length) result[track] = kept;
+  }
+  return result;
+}
+
 export function parseSelection(stdout: string, now: number): DirectVideoSources | null {
   const line = stdout.trim();
   if (!line) return null;
@@ -273,6 +302,8 @@ export function parseSelection(stdout: string, now: number): DirectVideoSources 
     expiresAt: Math.min(video.expiresAt, audio.expiresAt),
     alternatives: alternativeVideos(selection, now),
     audioAlternatives: alternativeAudios(selection, now),
+    subtitles: webVttCaptionMap(selection.subtitles),
+    automaticCaptions: webVttCaptionMap(selection.automatic_captions),
   };
 }
 
@@ -1014,6 +1045,27 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     return proxyResource(result.session, file === "video.mp4" ? "video" : "audio", range, signal);
   }
 
+  /**
+   * Warm the source lookup before the player asks. Deliberately takes no
+   * signal: the lookup is shared and cached, and a client that disconnects
+   * (or a player request that aborts) must not cancel it.
+   */
+  async function prefetchDirectSources(userId: number, videoId: string): Promise<boolean> {
+    if (!await videoAvailable(videoId)) return false;
+    return (await resolveSources(userId, videoId)).kind === "sources";
+  }
+
+  /**
+   * The caption maps from the same shared, cached lookup the player uses, so
+   * opening a video runs yt-dlp once. Null when that lookup yields no sources.
+   * No signal, for the same reason as the prefetch.
+   */
+  async function directCaptionMaps(userId: number, videoId: string): Promise<DirectCaptionMaps | null> {
+    const resolution = await resolveSources(userId, videoId);
+    if (resolution.kind !== "sources") return null;
+    return { subtitles: resolution.sources.subtitles, automaticCaptions: resolution.sources.automaticCaptions };
+  }
+
   /** Lightweight ownership check for child playlist/resource requests. */
   function hasDirectHlsSession(userId: number, videoId: string): boolean {
     const session = sessions.get(keyFor(userId, videoId));
@@ -1071,6 +1123,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     getDirectQualities,
     getDirectHlsResource,
     hasDirectHlsSession,
+    prefetchDirectSources,
+    directCaptionMaps,
     invalidateDirectHlsSession,
     invalidateDirectHlsSources,
     resetDirectHlsSessions,

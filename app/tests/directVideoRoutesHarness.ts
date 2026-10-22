@@ -36,7 +36,17 @@ directVideoStreaming.getDirectHlsResource = async (userId, _videoId, _file, rang
     "Content-Type": "video/mp4", "Content-Length": "4", "Content-Range": `${range.replace("=", " ")}/16`, "Cache-Control": "no-store",
   } }) };
 };
+let prefetches = 0;
+directVideoStreaming.prefetchDirectSources = async (userId, videoId) => {
+  prefetches++;
+  assert.equal(userId, 1);
+  assert.equal(videoId, "direct-test");
+  return true;
+};
 const app = new Hono().route("/api", api);
+const prefetch = (token = adult) => app.request("http://localhost/api/videos/direct-test/direct-hls/prefetch", {
+  method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {},
+});
 const request = (file: string, token = adult) => app.request(`http://localhost/api/videos/direct-test/direct-hls/${file}`, {
   headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), Range: "bytes=4-7" },
 });
@@ -54,6 +64,17 @@ const media = await request("video.mp4?v=test-version");
 assert.equal(media.status, 206);
 assert.equal(media.headers.get("content-range"), "bytes 4-7/16");
 assert.equal(await media.text(), "4567");
+assert.equal((await prefetch("")).status, 401);
+assert.equal((await prefetch(child)).status, 204);
+await database.prepare("INSERT OR REPLACE INTO download_settings(user_id,key,value) VALUES(1,'default_player','youtube')").run();
+assert.equal((await prefetch()).status, 204);
+await database.prepare("UPDATE download_settings SET value='1' WHERE user_id=1 AND key='enabled'").run();
+await database.prepare("INSERT OR REPLACE INTO download_settings(user_id,key,value) VALUES(1,'default_player','direct'),(1,'watch_source_mode','download')").run();
+assert.equal((await prefetch()).status, 204);
+await database.prepare("UPDATE download_settings SET value='0' WHERE user_id=1 AND key='enabled'").run();
+assert.equal(prefetches, 0);
+assert.equal((await prefetch()).status, 202);
+assert.equal(prefetches, 1);
 
 // Follow precisely the master -> audio/video -> initialization/media graph
 // that AVPlayer loads, with only a scoped ticket on every media request.
@@ -105,6 +126,7 @@ for (const patch of ["live_status='live'", "live_status='upcoming'", "members_on
   await database.prepare("UPDATE videos SET live_status='none',members_only=0,is_private=0,is_unavailable=0 WHERE video_id='direct-test'").run();
   await database.exec(`UPDATE videos SET ${patch} WHERE video_id='direct-test'`);
   assert.equal((await request("index.m3u8")).status, 409);
+  assert.equal((await prefetch()).status, 204);
   const issueResponse = await app.request("http://localhost/api/videos/direct-test/playback-ticket", { method: "POST", headers: { Authorization: `Bearer ${adult}` } });
   assert.equal(issueResponse.status, patch === "live_status='live'" ? 200 : 409);
   if (patch === "live_status='live'") {
@@ -114,6 +136,7 @@ for (const patch of ["live_status='live'", "live_status='upcoming'", "members_on
   }
 }
 assert.equal(calls, before);
+assert.equal(prefetches, 1);
 // The live transport uses rolling MPEG-TS segments, not the VOD byte-range graph.
 await database.prepare("UPDATE videos SET live_status='live',members_only=0,is_private=0,is_unavailable=0 WHERE video_id='direct-test'").run();
 let liveCalls = 0;

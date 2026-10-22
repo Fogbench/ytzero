@@ -1,5 +1,5 @@
 import { apiFetch } from "./apiTransport";
-import { http, sharedGet } from "./apiHttp";
+import { ApiError, http, sharedGet } from "./apiHttp";
 import { devicePairingApi } from "./devicePairingApi";
 import type { EmojiSkinTone } from "./emojiSkinTone";
 import type { DirectAudioTrack, DirectQuality } from "./playerQuality";
@@ -261,6 +261,12 @@ export const api = {
   streamUrl: (id: string) => `/api/videos/${id}/stream`,
   directStreamUrl: (id: string) => `/api/videos/${id}/direct-stream`,
   directHlsUrl: (id: string) => `/api/videos/${id}/direct-hls/index.m3u8`,
+  /** Warms the direct player's lookup; the server answers at once (202, or 204 when it has nothing to do). */
+  prefetchDirect: async (id: string) => {
+    // A background warm-up never redirects to the login page.
+    const response = await apiFetch(`/api/videos/${id}/direct-hls/prefetch`, { method: "POST" }, { suppressAuthenticationNavigation: true });
+    if (!response.ok) throw new ApiError(`HTTP ${response.status}`, response.status);
+  },
   directQualities: (id: string) => http<{ qualities: DirectQuality[]; audioTracks?: DirectAudioTrack[] }>(`/videos/${id}/direct-hls/qualities.json`),
   hlsUrl: (id: string) => `/api/videos/${id}/hls/index.m3u8`,
   audioUrl: (id: string) => `/api/videos/${id}/audio`,
