@@ -48,6 +48,14 @@ if [ "${SMOKE_DOCKER_HEALTH:-1}" = 1 ]; then
   echo "docker health: healthy"
 fi
 
+# A new volume updates its bootstrap yt-dlp right after start. Lookups wait for that
+# themselves, but the test plays only after it so it checks the binary users end up with.
+for _ in $(seq 1 90); do
+  docker logs "$NAME" 2>&1 | grep -qE 'downloads\.ytdlp_update(d|_failed)' && break
+  sleep 1
+done
+echo "yt-dlp: $(docker exec "$NAME" /data/bin/yt-dlp --version) ($(docker logs "$NAME" 2>&1 | grep -oE 'downloads\.ytdlp_update(d|_failed)' | head -n 1 || echo 'first update still running after 90 s'))"
+
 # The player opens a video through /info first (that stores it), then streams it.
 info_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 "$BASE/api/videos/$VIDEO/info" || true)"
 body="$(mktemp)"
