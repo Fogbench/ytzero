@@ -267,7 +267,7 @@ export const api = {
     const response = await apiFetch(`/api/videos/${id}/direct-hls/prefetch`, { method: "POST" }, { suppressAuthenticationNavigation: true });
     if (!response.ok) throw new ApiError(`HTTP ${response.status}`, response.status);
   },
-  directQualities: (id: string) => http<{ qualities: DirectQuality[]; audioTracks?: DirectAudioTrack[] }>(`/videos/${id}/direct-hls/qualities.json`),
+  directQualities: (id: string) => http<{ qualities: DirectQuality[]; audioTracks?: DirectAudioTrack[]; defaultHeight?: number; maxHeight?: number | null }>(`/videos/${id}/direct-hls/qualities.json`),
   hlsUrl: (id: string) => `/api/videos/${id}/hls/index.m3u8`,
   audioUrl: (id: string) => `/api/videos/${id}/audio`,
   audioHlsUrl: (id: string) => `/api/videos/${id}/audio/index.m3u8`,
