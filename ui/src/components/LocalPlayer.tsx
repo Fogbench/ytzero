@@ -8,7 +8,7 @@ import { useI18n } from "../i18n";
 import SubtitlePicker from "./SubtitlePicker";
 import PlayerSettingsMenu from "./PlayerSettingsMenu";
 import {
-  decodeVerdict, qualityContentType, readQualityChoice, resolveQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
+  decodeVerdict, defaultStreamQuality, qualityContentType, readQualityChoice, streamQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
   type DecodeInfo, type DirectAudioTrack, type DirectQuality, type QualityChoice,
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
@@ -444,7 +444,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const [qualityChoice, setQualityChoice] = useState<QualityChoice>(() => {
     try { return readQualityChoice(localStorage); } catch { return readQualityChoice({ getItem: () => null }); }
   });
-  // null while the list is loading; [] when it failed, which plays the server default.
+  // null while the list is loading; [] when it failed. Either way the server's default
+  // stream (1080p MP4 or the best below) plays meanwhile: playback never waits for the list.
   const [playable, setPlayable] = useState<DirectQuality[] | null>(directQualities ? null : []);
   // Which of those decode smoothly. "auto" picks only from these (none smooth: no quality, so the server default plays); a quality the viewer picks by hand may be outside it.
   const [smoothIds, setSmoothIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -454,6 +455,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const [audioTracks, setAudioTracks] = useState<DirectAudioTrack[]>([]);
   const [audioChoice, setAudioChoice] = useState<string | null>(null);
 
+  const qualityChoiceRef = useRef(qualityChoice);
+  qualityChoiceRef.current = qualityChoice;
   useEffect(() => {
     if (!directQualities || !videoId) { setPlayable([]); return; }
     let cancelled = false;
@@ -471,13 +474,21 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       .catch(() => ({ list: [] as DirectQuality[], smooth: new Set<string>() }))
       .then(({ list, smooth }) => {
         if (cancelled) return;
+        // The default stream is already playing; if the list asks for another one
+        // (auto stepping up, or a height the viewer picked), carry on from here.
+        const video = videoRef.current;
+        if (streamQuality(qualityChoiceRef.current, list, smooth) && video && video.readyState > 0) {
+          switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
+          setSwitchStart(video.currentTime);
+        }
         setSmoothIds(smooth);
         setPlayable(list);
       });
     return () => { cancelled = true; };
   }, [directQualities, videoId]);
 
-  const activeQuality = useMemo(() => resolveQuality(qualityChoice, playable ?? [], smoothIds), [qualityChoice, playable, smoothIds]);
+  // The stream asked for with `?q=`; null = the server's default stream.
+  const activeQuality = useMemo(() => streamQuality(qualityChoice, playable ?? [], smoothIds), [qualityChoice, playable, smoothIds]);
   // When the chosen quality fails for good, retry once on the server's default
   // stream before the page gives up on the direct player altogether.
   const [qualityFailed, setQualityFailed] = useState(false);
@@ -500,7 +511,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       localStorage.setItem(QUALITY_CODEC_KEY, choice.codec);
     } catch {}
     setQualityFailed(false);
-    const next = resolveQuality(choice, playable ?? [], smoothIds);
+    const next = streamQuality(choice, playable ?? [], smoothIds);
     const video = videoRef.current;
     // next may be null (auto with nothing smooth = server default); that is a stream change too.
     if (video && (next?.id ?? null) !== (activeQuality?.id ?? null)) {
@@ -529,7 +540,6 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   useVideoHlsSource({
     active: hls,
     durationSeconds,
-    hold: directQualities && playable === null,
     mediaRef: videoRef,
     onFatalError: onStreamFatal,
     onReady: onStreamReady,
@@ -1078,7 +1088,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
                 qualities: playable ?? [],
                 loading: playable === null,
                 choice: qualityChoice,
-                active: activeQuality,
+                active: (!qualityFailed && activeQuality) || defaultStreamQuality(playable ?? []),
                 onChoiceChange: changeQualityChoice,
               } : undefined}
               speed={playbackRate}
