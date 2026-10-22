@@ -3,9 +3,11 @@
 # the version, the non-root user and the bundled tools, then play one video directly
 # (open it like the player does, then read the first bytes of /api/videos/<id>/direct-stream).
 # Usage: bash scripts/docker/smoke-test.sh <image> [expected version] [host port, default 3113]
-# The direct play needs YouTube. It fails the test, except when YouTube answers with its
-# "confirm you're not a bot" check, which it gives to many datacenter addresses (GitHub's
-# runners included): that is about the runner's address, not the image, so it is a warning.
+# The direct play needs YouTube. It fails the test, except when YouTube refuses the address
+# (its "confirm you're not a bot" check or a rate limit), which it does to many datacenter
+# addresses (GitHub's runners included): that is about the runner's address, not the image,
+# so it is a warning. The app logs such a refusal as youtube.refusal_started, often without
+# yt-dlp's own wording, so both are accepted.
 # SMOKE_PLAY_STRICT=1 makes that a failure too.
 set -euo pipefail
 IMAGE="$1"; EXPECT_VERSION="${2:-}"; PORT="${3:-3113}"
@@ -63,8 +65,8 @@ code="$(curl -sS -o "$body" -w '%{http_code}' -H 'Range: bytes=0-65535' --max-ti
 size="$(wc -c < "$body")"; rm -f "$body"
 if { [ "$code" = 200 ] || [ "$code" = 206 ]; } && [ "$size" -gt 1000 ]; then
   echo "direct play: HTTP $code, $size bytes"
-elif [ "${SMOKE_PLAY_STRICT:-0}" != 1 ] && docker logs "$NAME" 2>&1 | grep -qiE "confirm you.?re not a bot"; then
-  echo "::warning::direct play skipped: YouTube asked this runner to confirm it is not a bot (info HTTP $info_code, stream HTTP $code)."
+elif [ "${SMOKE_PLAY_STRICT:-0}" != 1 ] && docker logs "$NAME" 2>&1 | grep -qiE "confirm you.?re not a bot|youtube\.refusal_started"; then
+  echo "::warning::direct play skipped: YouTube refused this runner's address (bot check or rate limit; info HTTP $info_code, stream HTTP $code)."
 else
   fail "direct play: info HTTP $info_code, stream HTTP $code, $size bytes"
 fi
