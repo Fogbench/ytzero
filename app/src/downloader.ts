@@ -425,6 +425,10 @@ export async function prioritizeDownload(userId: number, videoId: string): Promi
 export async function removeDownload(userId: number, videoId: string) {
   const result = await database.transaction(async () => {
     await database.prepare("DELETE FROM download_owners WHERE user_id=? AND video_id=?").run(userId, videoId);
+    // Removing the copy withdraws the request: a still-queued video would make
+    // the scheduled tick download it again. Same state as dequeue; an explicit
+    // download click (manual) still works.
+    await database.prepare("UPDATE user_videos SET status='inbox', bucket=NULL, queued_at=NULL, show_from=NULL WHERE user_id=? AND video_id=? AND status='queued'").run(userId, videoId);
     const remaining = await database.prepare("SELECT user_id FROM download_owners WHERE video_id=? ORDER BY created_at,user_id LIMIT 1").get<{ user_id: number }>(videoId);
     if (remaining) {
       await database.prepare("UPDATE downloads SET requested_by_user_id=? WHERE video_id=? AND requested_by_user_id=?").run(remaining.user_id, videoId, userId);
