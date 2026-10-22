@@ -455,9 +455,39 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const [audioTracks, setAudioTracks] = useState<DirectAudioTrack[]>([]);
   const [audioChoice, setAudioChoice] = useState<string | null>(null);
 
+  // Play first: the default stream plays until its first frame is on screen; only
+  // then may the list switch to another stream (Auto stepping up, a picked height).
+  const [frameShown, setFrameShown] = useState(false);
+  const frameShownRef = useRef(false);
   const qualityChoiceRef = useRef(qualityChoice);
   qualityChoiceRef.current = qualityChoice;
+  const listRef = useRef<{ list: DirectQuality[]; smooth: ReadonlySet<string> } | null>(null);
+  // Where a new stream should start: the current position once one is loaded, else where this one was meant to start.
+  const switchPosition = () => {
+    const video = videoRef.current;
+    return video && video.readyState > 0 ? video.currentTime : (switchStart ?? startSeconds);
+  };
+  const switchPositionRef = useRef(switchPosition);
+  switchPositionRef.current = switchPosition;
+  /** Remembers where we are so the stream about to replace this one carries on there. */
+  const beginSwitch = useCallback((playing: boolean) => {
+    const position = switchPositionRef.current();
+    switchRef.current = { position, playing };
+    setSwitchStart(position);
+  }, []);
+  const onLoadedData = () => {
+    if (frameShownRef.current) return;
+    frameShownRef.current = true;
+    const video = videoRef.current;
+    const known = listRef.current;
+    // Autoplay may still be starting, so count it as playing.
+    if (video && known && streamQuality(qualityChoiceRef.current, known.list, known.smooth)) beginSwitch(autoplay || !video.paused);
+    setFrameShown(true);
+  };
   useEffect(() => {
+    frameShownRef.current = false;
+    setFrameShown(false);
+    listRef.current = null;
     if (!directQualities || !videoId) { setPlayable([]); return; }
     let cancelled = false;
     setPlayable(null);
@@ -474,21 +504,23 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       .catch(() => ({ list: [] as DirectQuality[], smooth: new Set<string>() }))
       .then(({ list, smooth }) => {
         if (cancelled) return;
-        // The default stream is already playing; if the list asks for another one
-        // (auto stepping up, or a height the viewer picked), carry on from here.
+        listRef.current = { list, smooth };
+        // The default stream is already on screen; if the list asks for another one, carry on from here.
         const video = videoRef.current;
-        if (streamQuality(qualityChoiceRef.current, list, smooth) && video && video.readyState > 0) {
-          switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
-          setSwitchStart(video.currentTime);
+        if (frameShownRef.current && video && streamQuality(qualityChoiceRef.current, list, smooth)) {
+          beginSwitch(!video.paused && !video.ended);
         }
         setSmoothIds(smooth);
         setPlayable(list);
       });
     return () => { cancelled = true; };
-  }, [directQualities, videoId]);
+  }, [beginSwitch, directQualities, videoId]);
 
   // The stream asked for with `?q=`; null = the server's default stream.
-  const activeQuality = useMemo(() => streamQuality(qualityChoice, playable ?? [], smoothIds), [qualityChoice, playable, smoothIds]);
+  const activeQuality = useMemo(
+    () => (frameShown ? streamQuality(qualityChoice, playable ?? [], smoothIds) : null),
+    [frameShown, qualityChoice, playable, smoothIds],
+  );
   // When the chosen quality fails for good, retry once on the server's default
   // stream before the page gives up on the direct player altogether.
   const [qualityFailed, setQualityFailed] = useState(false);
@@ -516,9 +548,11 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     // next may be null (auto with nothing smooth = server default); that is a stream change too.
     if (video && (next?.id ?? null) !== (activeQuality?.id ?? null)) {
       // Remember where we were; the new stream starts there, playing only if we were.
-      switchRef.current = { position: video.currentTime, playing: !video.paused && !video.ended };
-      setSwitchStart(video.currentTime);
+      beginSwitch(video.readyState > 0 ? !video.paused && !video.ended : autoplay);
     }
+    // A choice made by hand applies right away, even before the first frame.
+    frameShownRef.current = true;
+    setFrameShown(true);
     setQualityChoice(choice);
   };
   const changeAudioChoice = (id: string) => {
@@ -944,6 +978,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
         onClick={onVideoClick}
         onDoubleClick={onVideoDoubleClick}
         onLoadedMetadata={onLoadedMetadata}
+        onLoadedData={onLoadedData}
         onPlay={(e) => { if (directQualities) applyAudioEnhance(e.currentTarget, audioEnhanceRef.current); resumeAudioEnhance(e.currentTarget); setPlaying(true); endedRef.current = false; showControls(); }}
         onPause={() => { setPlaying(false); setControlsVisible(true); }}
         onWaiting={() => setBuffering(true)}
