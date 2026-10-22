@@ -111,7 +111,11 @@ export async function migrateLegacyDownloadCookies() {
 // ---------- yt-dlp binary ----------
 
 let ytdlpVersion: string | null | undefined;
+let ytdlpCheckedAt = 0;
 let warnedAboutMissingRuntime = false;
+// A failed check is retried after this long: yt-dlp can fail to start for a
+// moment (e.g. while the updater replaces the file) and must not stay "missing".
+const YTDLP_MISSING_RECHECK_MS = 60_000;
 
 export function invalidateYtdlpStatus(): void {
   ytdlpVersion = undefined;
@@ -131,7 +135,8 @@ export async function ytdlpJavascriptRuntimeStatus(): Promise<string | null> {
 }
 
 export async function ytdlpStatus(): Promise<string | null> {
-  if (ytdlpVersion !== undefined) return ytdlpVersion;
+  if (ytdlpVersion !== undefined && (ytdlpVersion || Date.now() - ytdlpCheckedAt < YTDLP_MISSING_RECHECK_MS)) return ytdlpVersion;
+  ytdlpCheckedAt = Date.now();
   try {
     const proc = Bun.spawn([YTDLP, "--version"], { stdout: "pipe", stderr: "ignore" });
     const out = await new Response(proc.stdout).text();
