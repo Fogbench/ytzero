@@ -418,6 +418,68 @@ describe("direct no-transcode video HLS", () => {
     streaming.resetDirectHlsSessions();
   });
 
+  test("a failed non-default build does not block the default stream, and the window ends", async () => {
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    let resolutions = 0;
+    let clock = 1_000_000;
+    let refuse = true;
+    const withFormats = () => { const m = JSON.parse(selection(++resolutions)); m.formats = [...m.requested_formats]; return JSON.stringify(m); };
+    const spawn = (() => fakeProcess(withFormats())) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (refuse) return new Response(null, { status: 403 });
+      return rangedResponse(String(input).includes("/video-") ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(spawn, fetchImpl), failedBuildCacheMs: 5_000, now: () => clock,
+    });
+    expect((await streaming.getDirectHlsPlaylist(1, "choice", "index.m3u8", undefined, undefined, "1080-avc1")).kind).toBe("failed");
+    const afterFirst = resolutions;
+    expect((await streaming.getDirectHlsPlaylist(1, "choice", "index.m3u8", undefined, undefined, "1080-avc1")).kind).toBe("failed");
+    expect(resolutions).toBe(afterFirst);
+    refuse = false;
+    expect((await streaming.getDirectHlsPlaylist(1, "choice", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+    refuse = true;
+    expect((await streaming.getDirectHlsPlaylist(1, "win", "index.m3u8")).kind).toBe("failed");
+    refuse = false;
+    expect((await streaming.getDirectHlsPlaylist(1, "win", "index.m3u8")).kind).toBe("failed");
+    clock += 5_001;
+    expect((await streaming.getDirectHlsPlaylist(1, "win", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("invalidating a video clears its negative cache entry", async () => {
+    let refuse = true;
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    let resolutions = 0;
+    const spawn = (() => fakeProcess(selection(++resolutions))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (refuse) return new Response(null, { status: 403 });
+      return rangedResponse(String(input).includes("/video-") ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({ ...directDependencies(spawn, fetchImpl), failedBuildCacheMs: 60_000 });
+    expect((await streaming.getDirectHlsPlaylist(1, "inv", "index.m3u8")).kind).toBe("failed");
+    refuse = false;
+    streaming.invalidateDirectHlsSession("inv");
+    expect((await streaming.getDirectHlsPlaylist(1, "inv", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("index retries stop at the wall-clock budget", async () => {
+    let clock = 0;
+    let fetches = 0;
+    const spawn = (() => fakeProcess(selection(1))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async () => { fetches++; clock += 2_000; return new Response(null, { status: 403 }); }) as unknown as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(spawn, fetchImpl), indexRetryDelaysMs: [1, 1, 1, 1, 1, 1], now: () => clock,
+    });
+    expect((await streaming.getDirectHlsPlaylist(1, "budget", "index.m3u8")).kind).toBe("failed");
+    expect(fetches).toBeLessThanOrEqual(8);
+    streaming.resetDirectHlsSessions();
+  });
+
   test("splits a large fragment into upstream ranges below YouTube's throttle threshold", async () => {
     const video = mediaFixture([6_000, 6_000], [9 * 1024 * 1024, 2_000]);
     const audio = mediaFixture([6_000, 6_000], [500, 500]);
