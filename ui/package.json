@@ -18,20 +18,20 @@
     "@simplewebauthn/browser": "^14.0.0",
     "@use-gesture/react": "^10.3.1",
     "canvas-confetti": "^1.9.4",
-    "emoji-picker-react": "^4.22.3",
+    "emoji-picker-react": "5.1.0",
     "hls.js": "^1.7.3",
     "html2canvas": "^1.4.1",
-    "lucide-react": "^1.52.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-router": "^8.4.0"
+    "lucide-react": "^1.61.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router": "^8.5.0"
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "typescript": "7.0.2",
-    "vite": "^8.3.2"
+    "vite": "^8.3.5"
   }
 }
