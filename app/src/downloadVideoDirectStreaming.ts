@@ -31,6 +31,10 @@ interface DownloadVideoDirectStreamingDependencies {
   now?: () => number;
   resolveTimeoutMs?: number;
   rangeTimeoutMs?: number;
+  /** Waits between retries of a 403 on the index fetch (same URLs, no new lookup). */
+  indexRetryDelaysMs?: number[];
+  /** How long a build that failed at the index stage is remembered. */
+  failedBuildCacheMs?: number;
 }
 
 interface YtdlpFormat {
@@ -181,8 +185,13 @@ export type DirectVideoResourceResult =
 type SessionBuildResult =
   | { kind: "ready"; session: DirectVideoSession }
   | { kind: "unsupported"; expiresAt: number }
-  | { kind: "failed" };
+  | { kind: "failed"; retryAfter?: number };
 
+/** Safety net for URLs googlevideo holds back with 403 until available_at; the
+ * tv_samsung exclusion is the main fix, so keep the worst case small. */
+const DEFAULT_INDEX_RETRY_DELAYS_MS = [400, 600, 1000, 1000, 1000];
+const INDEX_RETRY_BUDGET_MS = 4500;
+const DEFAULT_FAILED_BUILD_CACHE_MS = 5000;
 const INITIAL_INDEX_BYTES = 64 * 1024;
 const MAX_INDEX_BYTES = 2 * 1024 * 1024;
 const DEFAULT_RESOLVE_TIMEOUT_MS = 30_000;
@@ -446,6 +455,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     now = Date.now,
     resolveTimeoutMs = DEFAULT_RESOLVE_TIMEOUT_MS,
     rangeTimeoutMs = DEFAULT_RANGE_TIMEOUT_MS,
+    indexRetryDelaysMs = DEFAULT_INDEX_RETRY_DELAYS_MS,
+    failedBuildCacheMs = DEFAULT_FAILED_BUILD_CACHE_MS,
   } = dependencies;
   const sourceCache = new Map<string, CachedResolution>();
   const sourceResolutions = new Map<string, SharedOperation<SourceResolutionResult>>();
@@ -453,6 +464,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   const sessionBuilds = new Map<string, SharedOperation<SessionBuildResult>>();
   const buildChoices = new Map<string, string | null>();
   const unsupported = new Map<string, number>();
+  const failedBuilds = new Map<string, number>();
   /** Profiles with a prefetch-started yt-dlp lookup still running. */
   const prefetchingProfiles = new Set<number>();
   const rangeRequests = new MediaRequestQueue(MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE, 32);
@@ -663,27 +675,51 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     };
   }
 
-  async function readIndex(source: DirectVideoMediaSource, signal: AbortSignal): Promise<
+  function sleepAbortable(ms: number, signal: AbortSignal): Promise<void> {
+    return new Promise((resolve) => {
+      if (signal.aborted) return resolve();
+      const timer = setTimeout(done, ms);
+      function done() { clearTimeout(timer); signal.removeEventListener("abort", done); resolve(); }
+      signal.addEventListener("abort", done, { once: true });
+    });
+  }
+
+  async function readIndex(source: DirectVideoMediaSource, signal: AbortSignal, context: { userId: number; videoId: string }, retryDelays: number[] = indexRetryDelaysMs): Promise<
     | { kind: "ok"; indexed: IndexedSource }
     | { kind: "unsupported" }
     | { kind: "failed" }
   > {
     let requestedBytes = INITIAL_INDEX_BYTES;
+    let refusals = 0;
+    const startedAt = now();
+    const fail = (reason: string, response: Response | null, extra: Record<string, unknown> = {}) => {
+      log.warn("downloads.direct_stream_index_failed", {
+        ...context, itag: source.formatId, reason, status: response?.status ?? null, retries: refusals, ...extra,
+      });
+      return { kind: "failed" as const };
+    };
     while (!signal.aborted && requestedBytes <= MAX_INDEX_BYTES) {
       const operation = requestSignal(signal, rangeTimeoutMs, "direct video index timeout");
       try {
         const response = await fetchRange(source, 0, requestedBytes - 1, operation.signal);
+        if (response?.status === 403 && refusals < retryDelays.length && now() - startedAt < INDEX_RETRY_BUDGET_MS) {
+          // googlevideo holds fresh signed URLs back with 403 until available_at.
+          await response.body?.cancel().catch(() => {});
+          await sleepAbortable(retryDelays[refusals]!, signal);
+          refusals++;
+          continue;
+        }
         if (!response || response.status === 403 || response.status === 404 || response.status === 410) {
           await response?.body?.cancel().catch(() => {});
-          return { kind: "failed" };
+          return fail(response ? "upstream_refused" : "fetch_failed", response);
         }
         const range = validatedContentRange(response, 0, requestedBytes - 1);
         if (!range) {
           await response.body?.cancel().catch(() => {});
-          return { kind: "failed" };
+          return fail("bad_range", response, { contentRange: response.headers.get("content-range") });
         }
         const buffer = await response.arrayBuffer().catch(() => null);
-        if (!buffer || buffer.byteLength !== range.length || operation.signal.aborted) return { kind: "failed" };
+        if (!buffer || buffer.byteLength !== range.length || operation.signal.aborted) return fail(operation.signal.aborted ? "aborted" : "short_body", response);
         const bytes = new Uint8Array(buffer);
         const parsed = parseMediaSidx(bytes, range.total);
         if (parsed.kind === "need_more") {
@@ -744,14 +780,16 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     const sources = sourcesForChoice(resolution.sources, choice);
     if (!sources) return { kind: "unsupported", expiresAt: 0 };
     const [video, audio] = await Promise.all([
-      readIndex(sources.video, signal),
-      readIndex(sources.audio, signal),
+      readIndex(sources.video, signal, { userId, videoId }),
+      readIndex(sources.audio, signal, { userId, videoId }),
     ]);
     if (signal.aborted || video.kind === "failed" || audio.kind === "failed") {
       // A refused signed URL must not poison every manifest retry for hours.
       const key = keyFor(userId, videoId);
       if (sourceCache.get(key)?.sources === sources) sourceCache.delete(key);
-      return { kind: "failed" };
+      return failedBuildCacheMs > 0 && !signal.aborted
+        ? { kind: "failed", retryAfter: now() + failedBuildCacheMs }
+        : { kind: "failed" };
     }
     if (video.kind === "unsupported" || audio.kind === "unsupported") return {
       kind: "unsupported",
@@ -799,6 +837,9 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     for (const [key, expiresAt] of unsupported) {
       if (expiresAt <= current) unsupported.delete(key);
     }
+    for (const [key, expiresAt] of failedBuilds) {
+      if (expiresAt <= current) failedBuilds.delete(key);
+    }
     while (sessions.size > MAX_DIRECT_SESSIONS) {
       const oldest = [...sessions].sort((left, right) => left[1].lastAccess - right[1].lastAccess)[0]?.[0];
       if (!oldest) break;
@@ -829,6 +870,12 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     // A failed AV1 attempt must not hide the default stream for ten minutes.
     const unsupportedUntil = wanted === null ? unsupported.get(key) : undefined;
     if (unsupportedUntil && unsupportedUntil > now()) return { kind: "unsupported", expiresAt: unsupportedUntil };
+    const failedKey = `${key}|${choice ?? ""}`;
+    const failedUntil = failedBuilds.get(failedKey);
+    if (failedUntil !== undefined) {
+      if (failedUntil > now()) return { kind: "failed" };
+      failedBuilds.delete(failedKey);
+    }
     let operation = sessionBuilds.get(key);
     if (operation && buildChoices.get(key) !== wanted) {
       sessionBuilds.delete(key);
@@ -843,6 +890,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       current.promise = buildSession(userId, videoId, wanted, controller.signal)
         .then((result) => {
           if (result.kind === "ready" && !controller.signal.aborted) sessions.set(key, result.session);
+          if (result.kind === "failed" && result.retryAfter && !controller.signal.aborted) failedBuilds.set(`${key}|${wanted ?? ""}`, result.retryAfter);
           if (result.kind === "unsupported" && wanted === null && !controller.signal.aborted) {
             unsupported.set(key, result.expiresAt);
           }
@@ -892,8 +940,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
             return null;
           }
           const [video, audio] = await Promise.all([
-            readIndex(sources.video, controller.signal),
-            readIndex(sources.audio, controller.signal),
+            readIndex(sources.video, controller.signal, { userId: session.userId, videoId: session.videoId }, []),
+            readIndex(sources.audio, controller.signal, { userId: session.userId, videoId: session.videoId }, []),
           ]);
           if (video.kind !== "ok" || audio.kind !== "ok") {
             if (attempt === 1 && !controller.signal.aborted) continue;
@@ -1136,6 +1184,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     const invalidateKey = (key: string) => {
       sourceCache.delete(key);
       unsupported.delete(key);
+      for (const failedKey of failedBuilds.keys()) if (failedKey.startsWith(`${key}|`)) failedBuilds.delete(failedKey);
       sessions.get(key)?.refresh?.controller.abort();
       sessions.delete(key);
       const resolution = sourceResolutions.get(key);
@@ -1153,7 +1202,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       invalidateKey(keyFor(userId, videoId));
       return;
     }
-    for (const key of new Set([...sourceCache.keys(), ...sessions.keys(), ...sessionBuilds.keys()])) {
+    for (const key of new Set([...sourceCache.keys(), ...sessions.keys(), ...sessionBuilds.keys(), ...[...failedBuilds.keys()].map((failedKey) => failedKey.split("|")[0]!)])) {
       if (key.endsWith(`:${videoId}`)) invalidateKey(key);
     }
   }
@@ -1166,6 +1215,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     sessions.clear();
     sessionBuilds.clear();
     unsupported.clear();
+    failedBuilds.clear();
     rangeRequests.cancelPending();
   }
 

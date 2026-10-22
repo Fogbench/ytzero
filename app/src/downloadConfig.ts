@@ -53,11 +53,16 @@ export function ytdlpCommand(userId: number, args: string[], useCookies = false)
   return [YTDLP, ...ytdlpAttemptArgs(args, useCookies, useCookies && downloadCookiesConfigured(userId) ? downloadCookiesFile(userId) : null)];
 }
 
+/** yt-dlp nightly 2026.10.21 added the tv_samsung client, whose googlevideo URLs
+ * answer 403 until `available_at`, about 5 s after yt-dlp exits. Every lookup
+ * (early/direct, progressive, download) shares this exclusion. */
+export const YTDLP_PLAYER_CLIENT_ARGS = "youtube:player_client=default,-tv_samsung";
+
 /** The bundled PO-token plugin is deliberately opt-in per anonymous command.
  * This keeps it out of cookie-backed attempts and native installs that did not
  * opt into the image-provided paths. */
 export function ytdlpAttemptArgs(args: string[], useCookies: boolean, cookieFile: string | null = null): string[] {
-  const result = [...args, ...denoRuntimeArgs(ytdlpJavascriptRuntime)];
+  const result = [...args, ...denoRuntimeArgs(ytdlpJavascriptRuntime), "--extractor-args", YTDLP_PLAYER_CLIENT_ARGS];
   if (useCookies && cookieFile) result.push("--cookies", cookieFile);
   if (!useCookies) {
     const pluginDir = process.env.YTDLP_BGUTIL_PLUGIN_DIR;

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { createDownloadVideoDirectStreaming, DIRECT_QUALITY_PATTERN, parseSelection } from "./downloadVideoDirectStreaming";
+import { log } from "./logger";
 import { createDownloadVideoStreaming } from "./downloadVideoStreaming";
 
 function concat(...parts: Uint8Array<ArrayBufferLike>[]): Uint8Array<ArrayBuffer> {
@@ -151,6 +152,8 @@ function directDependencies(spawn: typeof Bun.spawn, fetchImpl: typeof fetch) {
     directPlayable: async () => true,
     spawn,
     fetchImpl,
+    indexRetryDelaysMs: [] as number[],
+    failedBuildCacheMs: 0,
   };
 }
 
@@ -360,6 +363,120 @@ describe("direct no-transcode video HLS", () => {
     expect((await streaming.getDirectHlsPlaylist(1, "retry", "index.m3u8")).kind).toBe("failed");
     expect((await streaming.getDirectHlsPlaylist(1, "retry", "index.m3u8")).kind).toBe("playlist");
     expect(resolutions).toBe(2);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("a 403 on the first index fetch is retried on the same URLs without a new lookup", async () => {
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    let resolutions = 0;
+    const spawn = (() => fakeProcess(selection(++resolutions))) as unknown as typeof Bun.spawn;
+    const refusals = new Map<string, number>();
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      const count = (refusals.get(url) ?? 0) + 1;
+      refusals.set(url, count);
+      if (count <= 2) return new Response(null, { status: 403 });
+      return rangedResponse(url.includes("/video-") ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({ ...directDependencies(spawn, fetchImpl), indexRetryDelaysMs: [1, 1, 1] });
+    expect((await streaming.getDirectHlsPlaylist(1, "late", "index.m3u8")).kind).toBe("playlist");
+    expect(resolutions).toBe(1);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("a persistent index 403 is logged and a negative cache stops repeated lookups", async () => {
+    const spawnArgs: string[][] = [];
+    let resolutions = 0;
+    const spawn = ((command: string[]) => { spawnArgs.push(command); return fakeProcess(selection(++resolutions)); }) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async () => new Response(null, { status: 403 })) as unknown as typeof fetch;
+    const warnings: unknown[][] = [];
+    const original = log.warn;
+    log.warn = ((...args: unknown[]) => { warnings.push(args); }) as typeof log.warn;
+    try {
+      const streaming = createDownloadVideoDirectStreaming({
+        ...directDependencies(spawn, fetchImpl), indexRetryDelaysMs: [1], failedBuildCacheMs: 60_000,
+      });
+      for (let i = 0; i < 4; i++) expect((await streaming.getDirectHlsPlaylist(1, "dead", "index.m3u8")).kind).toBe("failed");
+      expect(resolutions).toBe(1);
+      const entry = warnings.find((args) => args[0] === "downloads.direct_stream_index_failed");
+      expect(entry).toBeTruthy();
+      expect(JSON.stringify(entry)).toContain("403");
+      streaming.resetDirectHlsSessions();
+    } finally {
+      log.warn = original;
+    }
+  });
+
+  test("lookup arguments exclude the delayed tv_samsung client", async () => {
+    const commands: string[][] = [];
+    const spawn = ((command: string[]) => { commands.push(command); return fakeProcess(selection(1)); }) as unknown as typeof Bun.spawn;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, (async () => new Response(null, { status: 404 })) as unknown as typeof fetch));
+    await streaming.getDirectHlsPlaylist(1, "args", "index.m3u8");
+    const args = commands[0]!;
+    expect(args[args.indexOf("youtube:player_client=default,-tv_samsung") - 1]).toBe("--extractor-args");
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("a failed non-default build does not block the default stream, and the window ends", async () => {
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    let resolutions = 0;
+    let clock = 1_000_000;
+    let refuse = true;
+    const withFormats = () => { const m = JSON.parse(selection(++resolutions)); m.formats = [...m.requested_formats]; return JSON.stringify(m); };
+    const spawn = (() => fakeProcess(withFormats())) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (refuse) return new Response(null, { status: 403 });
+      return rangedResponse(String(input).includes("/video-") ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(spawn, fetchImpl), failedBuildCacheMs: 5_000, now: () => clock,
+    });
+    expect((await streaming.getDirectHlsPlaylist(1, "choice", "index.m3u8", undefined, undefined, "1080-avc1")).kind).toBe("failed");
+    const afterFirst = resolutions;
+    expect((await streaming.getDirectHlsPlaylist(1, "choice", "index.m3u8", undefined, undefined, "1080-avc1")).kind).toBe("failed");
+    expect(resolutions).toBe(afterFirst);
+    refuse = false;
+    expect((await streaming.getDirectHlsPlaylist(1, "choice", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+    refuse = true;
+    expect((await streaming.getDirectHlsPlaylist(1, "win", "index.m3u8")).kind).toBe("failed");
+    refuse = false;
+    expect((await streaming.getDirectHlsPlaylist(1, "win", "index.m3u8")).kind).toBe("failed");
+    clock += 5_001;
+    expect((await streaming.getDirectHlsPlaylist(1, "win", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("invalidating a video clears its negative cache entry", async () => {
+    let refuse = true;
+    const video = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const audio = mediaFixture([6_000, 6_000], [500, 500]);
+    let resolutions = 0;
+    const spawn = (() => fakeProcess(selection(++resolutions))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (refuse) return new Response(null, { status: 403 });
+      return rangedResponse(String(input).includes("/video-") ? video.bytes : audio.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({ ...directDependencies(spawn, fetchImpl), failedBuildCacheMs: 60_000 });
+    expect((await streaming.getDirectHlsPlaylist(1, "inv", "index.m3u8")).kind).toBe("failed");
+    refuse = false;
+    streaming.invalidateDirectHlsSession("inv");
+    expect((await streaming.getDirectHlsPlaylist(1, "inv", "index.m3u8")).kind).toBe("playlist");
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("index retries stop at the wall-clock budget", async () => {
+    let clock = 0;
+    let fetches = 0;
+    const spawn = (() => fakeProcess(selection(1))) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async () => { fetches++; clock += 2_000; return new Response(null, { status: 403 }); }) as unknown as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(spawn, fetchImpl), indexRetryDelaysMs: [1, 1, 1, 1, 1, 1], now: () => clock,
+    });
+    expect((await streaming.getDirectHlsPlaylist(1, "budget", "index.m3u8")).kind).toBe("failed");
+    expect(fetches).toBeLessThanOrEqual(8);
     streaming.resetDirectHlsSessions();
   });
 
