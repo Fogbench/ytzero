@@ -1,0 +1,19 @@
+# YT Zero with Docker Compose: save this file in an empty folder, then run
+#   docker compose up -d        and open http://localhost:3001
+# Update: docker compose pull && docker compose up -d
+# All data (database, downloads, yt-dlp) is in the volume "ytzero-data".
+services:
+  ytzero:
+    image: ghcr.io/fogbench/ytzero:latest
+    container_name: ytzero
+    ports:
+      - "3001:3001"
+    volumes:
+      - ytzero-data:/data
+    environment:
+      - TZ=Etc/UTC
+    restart: unless-stopped
+
+volumes:
+  ytzero-data:
+    name: ytzero-data

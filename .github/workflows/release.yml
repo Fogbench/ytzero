@@ -1,8 +1,10 @@
 name: Release tarball
 
 # Runs when a tag starting with "v" is pushed (or by hand). It builds the tarball
-# and its checksum and attaches them to a DRAFT release. Nothing is public until
-# the draft is published by hand on GitHub.
+# and its checksum and attaches them to a DRAFT release, and builds and smoke-tests
+# the Docker image. Nothing is public until the draft is published by hand on GitHub:
+# publishing it runs this workflow again, and only that run pushes the image
+# ghcr.io/fogbench/ytzero:<version> and :latest (x86_64 and aarch64).
 on:
   push:
     tags:
@@ -10,12 +12,16 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version name for the files (for example v2.0.0)"
+        description: "Version name for the files (CalVer, for example 2026.10.2)"
         required: true
+  release:
+    types: [published]
 
 jobs:
   tarball:
     name: Build the tarball and draft the release
+    # Publishing the draft does not rebuild the tarball; that run is for the image only.
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     # Only this job may write to the repository (it creates the release).
     permissions:
@@ -65,6 +71,93 @@ jobs:
         run: |
           # --target makes a tag that does not exist yet (manual run) point at the
           # commit that was built, not at the default branch. An existing tag is kept.
+          notes="Draft: edit the notes, then publish.
+
+          Docker (x86_64 and aarch64; pushed when this release is published): \`docker pull ghcr.io/fogbench/ytzero:$VERSION\`, or run it with the compose file: https://github.com/Fogbench/ytzero/blob/$VERSION/compose.yaml"
           gh release create "$VERSION" --draft --target "$GITHUB_SHA" --title "$VERSION" \
-            --notes "Draft: edit the notes, then publish." \
+            --notes "$notes" \
             release/ytzero-"$VERSION".tar.gz release/ytzero-"$VERSION".tar.gz.sha256
+
+  image:
+    name: Build, test and publish the Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # used only by the push step, which runs only when a release is published
+    env:
+      IMAGE: ghcr.io/fogbench/ytzero
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Decide the version and whether to publish
+        id: plan
+        env:
+          VERSION: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          # Only a published app release (CalVer, not a pre-release such as tools-ffmpeg-7.0.2)
+          # pushes the image. Every other run builds and smoke-tests it only.
+          publish=false; skip=false
+          if [ "$EVENT" = release ]; then
+            if [[ "$VERSION" =~ ^[1-9][0-9]{3}\.(0[1-9]|1[0-2])\.[1-9][0-9]*$ ]] && [ "$PRERELEASE" != true ]; then
+              publish=true
+            else
+              echo "$VERSION is not an app release (CalVer, not a pre-release): no image."
+              skip=true
+            fi
+          fi
+          [[ "$VERSION" =~ ^[0-9A-Za-z._-]+$ ]] || { echo "::error::bad version '$VERSION'"; exit 1; }
+          { echo "version=$VERSION"; echo "publish=$publish"; echo "skip=$skip"; } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU (to build for aarch64)
+        if: steps.plan.outputs.publish == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.plan.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build the x86_64 image for the smoke test
+        if: steps.plan.outputs.skip != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ytzero:smoke
+          build-args: |
+            YTZERO_VERSION=${{ steps.plan.outputs.version }}
+            YTZERO_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test (start, health, tools, one direct play)
+        if: steps.plan.outputs.skip != 'true'
+        run: bash scripts/docker/smoke-test.sh ytzero:smoke "${{ steps.plan.outputs.version }}" 3113
+
+      - name: Log in to the GitHub container registry
+        if: steps.plan.outputs.publish == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image for x86_64 and aarch64
+        if: steps.plan.outputs.publish == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.plan.outputs.version }}
+            ${{ env.IMAGE }}:latest
+          build-args: |
+            YTZERO_VERSION=${{ steps.plan.outputs.version }}
+            YTZERO_COMMIT=${{ github.sha }}
+          cache-from: type=gha
