@@ -35,7 +35,9 @@ fi
 
 uid="$(docker exec "$NAME" id -u)"
 [ "$uid" != 0 ] || fail "the server runs as root"
-docker exec "$NAME" sh -c '/data/bin/yt-dlp --version && deno --version | head -n 1 && ffmpeg -version | head -n 1 && ffprobe -version | head -n 1' \
+# yt-dlp is checked further down, after its first update: a PyInstaller binary reads its
+# own file again while it runs, so a run that overlaps the update can crash.
+docker exec "$NAME" sh -c 'deno --version | head -n 1 && ffmpeg -version | head -n 1 && ffprobe -version | head -n 1' \
   || fail "a bundled tool does not run"
 
 # Docker's own health check must agree (it runs every 30 s after a 30 s start period).
@@ -56,7 +58,8 @@ for _ in $(seq 1 90); do
   docker logs "$NAME" 2>&1 | grep -qE 'downloads\.ytdlp_update(d|_failed)' && break
   sleep 1
 done
-echo "yt-dlp: $(docker exec "$NAME" /data/bin/yt-dlp --version) ($(docker logs "$NAME" 2>&1 | grep -oE 'downloads\.ytdlp_update(d|_failed)' | head -n 1 || echo 'first update still running after 90 s'))"
+ytdlp_version="$(docker exec "$NAME" /data/bin/yt-dlp --version)" || fail "yt-dlp does not run"
+echo "yt-dlp: $ytdlp_version ($(docker logs "$NAME" 2>&1 | grep -oE 'downloads\.ytdlp_update(d|_failed)' | head -n 1 || echo 'first update still running after 90 s'))"
 
 # The player opens a video through /info first (that stores it), then streams it.
 info_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 "$BASE/api/videos/$VIDEO/info" || true)"
