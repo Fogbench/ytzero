@@ -148,6 +148,7 @@ function directDependencies(spawn: typeof Bun.spawn, fetchImpl: typeof fetch) {
     prioritizeDownload: async () => true,
     ytdlpStatus: async () => "2026.07.04",
     videoAvailable: async () => true,
+    directPlayable: async () => true,
     spawn,
     fetchImpl,
   };
@@ -602,8 +603,8 @@ describe("early direct source lookup", () => {
     for (let i = 0; i < 50 && fake.releases.length === 0; i++) await Bun.sleep(1);
     expect(fake.spawns()).toBe(1);
     fake.releases[0]();
-    expect(await first).toBe(true);
-    expect(await second).toBe(true);
+    expect(await (await first).done).toBe(true);
+    expect(await (await second).done).toBe(true);
     expect((await streaming.getDirectHlsPlaylist(1, "early", "index.m3u8")).kind).toBe("playlist");
     expect(fake.spawns()).toBe(1);
     streaming.resetDirectHlsSessions();
@@ -621,9 +622,48 @@ describe("early direct source lookup", () => {
     controller.abort();
     expect((await player).kind).toBe("failed");
     fake.releases[0]();
-    expect(await prefetch).toBe(true);
+    expect(await (await prefetch).done).toBe(true);
     expect((await streaming.getDirectQualities(1, "early")).kind).toBe("qualities");
     expect(fake.spawns()).toBe(1);
     streaming.resetDirectHlsSessions();
+  });
+
+  test("prefetches start at most one yt-dlp lookup per profile and two overall; the player is not capped", async () => {
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(fake.spawn, (async () => new Response(null, { status: 500 })) as unknown as typeof fetch));
+    const settle = async () => { for (let i = 0; i < 20; i++) await Bun.sleep(1); };
+    const profileOne = await Promise.all(["a", "b", "c"].map((id) => streaming.prefetchDirectSources(1, id)));
+    await settle();
+    expect(profileOne.map((result) => result.started)).toEqual([true, false, false]);
+    expect(fake.spawns()).toBe(1);
+    // Joining the running lookup for the same video costs nothing and is allowed.
+    expect((await streaming.prefetchDirectSources(1, "a")).started).toBe(true);
+    expect((await streaming.prefetchDirectSources(2, "d")).started).toBe(true);
+    expect((await streaming.prefetchDirectSources(3, "e")).started).toBe(false);
+    await settle();
+    expect(fake.spawns()).toBe(2);
+    const player = streaming.getDirectQualities(3, "e");
+    await settle();
+    expect(fake.spawns()).toBe(3);
+    fake.releases[0]();
+    expect(await profileOne[0].done).toBe(true);
+    expect(await profileOne[1].done).toBe(false);
+    expect((await streaming.prefetchDirectSources(1, "b")).started).toBe(true);
+    await settle();
+    expect(fake.spawns()).toBe(4);
+    for (const release of fake.releases) release();
+    await player;
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("prefetch and caption lookups skip videos the direct player cannot open", async () => {
+    const fake = deferredSpawn(() => selection(1));
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(fake.spawn, fetch),
+      directPlayable: async (videoId: string) => videoId !== "live",
+    });
+    expect((await streaming.prefetchDirectSources(1, "live")).started).toBe(false);
+    expect(await streaming.directCaptionMaps(1, "live")).toBeNull();
+    expect(fake.spawns()).toBe(0);
   });
 });
