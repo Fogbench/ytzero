@@ -74,4 +74,31 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       }
     });
   });
+
+  describe("playlist routes", () => {
+    const post = (path: string, body: unknown, method = "POST") => api.request(`http://localhost${path}`, {
+      method,
+      headers: { Cookie: "ytzero_profile=1", "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    test("from-session-queue stores the playlist and its videos", async () => {
+      db.prepare("INSERT OR IGNORE INTO channels(channel_id,title,url) VALUES('UCold','Old','')").run();
+      db.prepare("INSERT INTO videos(video_id,channel_id,title) VALUES('queueVid001','UCold','Q1'),('queueVid002','UCold','Q2')").run();
+      const res = await post("/playlists/from-session-queue", { name: "From queue", video_ids: ["queueVid001", "queueVid002"] });
+      expect(res.status).toBe(200);
+      const { playlist } = await res.json() as any;
+      expect(playlist.name).toBe("From queue");
+      const rows = db.prepare("SELECT video_id FROM user_playlist_videos WHERE playlist_id=? ORDER BY position").all(playlist.id) as any[];
+      expect(rows.map((r) => r.video_id)).toEqual(["queueVid001", "queueVid002"]);
+    });
+
+    test("deleting a video from a playlist removes it", async () => {
+      const { playlist } = await (await post("/playlists", { name: "Del" })).json() as any;
+      db.prepare("INSERT INTO user_playlist_videos(playlist_id,video_id,position) VALUES(?, 'queueVid001', 0)").run(playlist.id);
+      const res = await post(`/playlists/${playlist.id}/videos/queueVid001`, undefined, "DELETE");
+      expect(res.status).toBe(200);
+      expect(db.prepare("SELECT 1 FROM user_playlist_videos WHERE playlist_id=?").get(playlist.id)).toBeNull();
+    });
+  });
 }
