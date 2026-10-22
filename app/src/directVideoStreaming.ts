@@ -1,5 +1,6 @@
 import { createDownloadVideoDirectStreaming } from "./downloadVideoDirectStreaming";
-import { YTDLP, dlSettings, downloadCookiesConfigured, downloadCookiesFile, ytdlpStatus } from "./downloadConfig";
+import { YTDLP, dlSettings, downloadCookiesConfigured, downloadCookiesFile } from "./downloadConfig";
+import { ytdlpReadyStatus } from "./ytdlpUpdater";
 
 // Deliberately has no download scheduler or ffmpeg dependency: opening a
 // direct player only resolves metadata and relays requested media byte ranges.
@@ -8,6 +9,6 @@ export const directVideoStreaming = createDownloadVideoDirectStreaming({
   dlSettings,
   downloadCookiesConfigured,
   downloadCookiesFile,
-  ytdlpStatus,
+  ytdlpStatus: ytdlpReadyStatus,
   resourcePath: "direct-hls",
 });
