@@ -15,8 +15,8 @@ bun 1.4.2 x86_64-baseline https://github.com/oven-sh/bun/releases/download/bun-v
 bun 1.4.2 aarch64 https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-aarch64.zip 54328bbc2d9c8e0c9f892c544d66c57a83b84139e34909e5ee81758f1ac8fda7
 deno 2.9.7 x86_64 https://github.com/denoland/deno/releases/download/v2.9.7/deno-x86_64-unknown-linux-gnu.zip c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490
 deno 2.9.7 aarch64 https://github.com/denoland/deno/releases/download/v2.9.7/deno-aarch64-unknown-linux-gnu.zip c832298b1ad4422481334855f6003e0f54145762c5a134f20a489511d2f65bbf
-yt-dlp 2026.08.19 x86_64 https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux 58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a
-yt-dlp 2026.08.19 aarch64 https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19/yt-dlp_linux_aarch64 b16e4dab368a816cd05d477d698a605a6ae87ccee1c8ffd38fa21d7254141fcc
+yt-dlp 2026.10.21 x86_64 https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp_linux d8bd33fca9d5b23bd5b9952b3fca36db5c46331933fda9f598a3da14ce2c243f
+yt-dlp 2026.10.21 aarch64 https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp_linux_aarch64 e137c2171b0b8ef648e6136e86aa70c65923e93e434f01c93901d64744b190aa
 ffmpeg 7.0.2 x86_64 https://johnvansickle.com/ffmpeg/releases/ffmpeg-7.0.2-amd64-static.tar.xz abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
 ffmpeg 7.0.2 x86_64 https://johnvansickle.com/ffmpeg/old-releases/ffmpeg-7.0.2-amd64-static.tar.xz abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67
 ffmpeg 7.0.2 x86_64 https://github.com/Fogbench/ytzero/releases/download/tools-ffmpeg-7.0.2/ffmpeg-7.0.2-amd64-static.tar.xz abda8d77ce8309141f83ab8edf0596834087c52467f6badf376a6a2a4c87cf67

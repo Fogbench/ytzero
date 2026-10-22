@@ -27,6 +27,33 @@ export function ytdlpProvisionReconciliationPending(): boolean {
   return YTDLP === YTDLP_MANAGED_PATH && Boolean(YTDLP_PROVISION_MARKER && existsSync(YTDLP_PROVISION_MARKER));
 }
 
+const FIRST_UPDATE_WAIT_MS = 20_000;
+let firstUpdate: Promise<void> | null = null;
+
+/** A brand-new volume starts with the image's pinned yt-dlp, which YouTube may
+ * already have outrun (2026-10: the 2026.08.19 pin failed every direct play
+ * until the first self-update). Lookups await this so they use the updated
+ * binary: it starts the first update when nothing has yet, waits for it at
+ * most `timeoutMs`, never throws, and runs the update once per process. An
+ * existing volume (no provision marker) answers at once. */
+export function waitForFirstYtdlpUpdate(timeoutMs = FIRST_UPDATE_WAIT_MS): Promise<void> {
+  if (!firstUpdate) {
+    if (!ytdlpProvisionReconciliationPending()) return Promise.resolve();
+    firstUpdate = ytdlpSelfUpdate().then(() => undefined, (error) => {
+      log.warn("downloads.ytdlp_update_failed", { error: error instanceof Error ? error.message : String(error), first: true });
+    });
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => { timer = setTimeout(resolve, timeoutMs); });
+  return Promise.race([firstUpdate, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** `ytdlpStatus` for lookups: on a new volume it first waits for the first update. */
+export async function ytdlpReadyStatus(): Promise<string | null> {
+  await waitForFirstYtdlpUpdate();
+  return ytdlpStatus();
+}
+
 export function ytdlpUpdateChannel(): YtdlpUpdateChannel {
   return resolveYtdlpUpdateChannel(getSetting("ytdlp_update_channel"));
 }

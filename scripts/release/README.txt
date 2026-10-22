@@ -132,7 +132,7 @@ tools.lock  (the pinned tool list, one per release)
   release have the same tools. The tools are:
 
     bun      1.4.2        deno     2.9.7
-    yt-dlp   2026.08.19   ffmpeg   7.0.2 (static build, johnvansickle.com)
+    yt-dlp   2026.10.21   ffmpeg   7.0.2 (static build, johnvansickle.com)
 
   If johnvansickle.com does not answer, ffmpeg is downloaded from a backup
   copy of the same file on this project's own GitHub release instead (the
