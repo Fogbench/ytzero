@@ -1,6 +1,6 @@
 import { pluginEnabled } from "./plugins";
 
-function localMediaSourceSelect(uid: number): string {
+export function localMediaSourceSelect(uid: number): string {
   const tubeArchivistEnabled = pluginEnabled("tubearchivist") ? 1 : 0;
   return `CASE
            WHEN EXISTS(SELECT 1 FROM downloads d JOIN download_owners owner ON owner.video_id=d.video_id WHERE owner.user_id=${uid} AND d.video_id=v.video_id AND d.status='done') THEN 'download'
