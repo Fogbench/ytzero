@@ -5,6 +5,7 @@ import { ytdlpStatus } from "../downloadConfig";
 import { dlSettings, profileDownloadsEnabled } from "../downloadSettingsStore";
 import { directVideoStreaming } from "../directVideoStreaming";
 import { DIRECT_QUALITY_PATTERN } from "../downloadVideoDirectStreaming";
+import { localMediaSourceSelect } from "../videoSelect";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type VideoState = { live_status: string; members_only: number; is_private: number; is_unavailable: number };
@@ -15,6 +16,14 @@ async function opensDirectPlayer(userId: number): Promise<boolean> {
   if (settings.default_player === "youtube") return false;
   if (!["ask", "download"].includes(String(settings.watch_source_mode))) return true;
   return !await profileDownloadsEnabled(userId);
+}
+
+/** The watch page plays a finished download or a TubeArchivist copy from the file, never the direct player. */
+async function playsLocally(userId: number, videoId: string): Promise<boolean> {
+  const row = await database.prepare(
+    `SELECT ${localMediaSourceSelect(userId)} AS source FROM videos v WHERE v.video_id = ?`,
+  ).get<{ source: string | null }>(videoId);
+  return Boolean(row?.source);
 }
 
 export function registerDirectVideoRoutes(
@@ -47,7 +56,12 @@ export function registerDirectVideoRoutes(
     const videoId = context.req.param("id");
     if (await refusal(context, userId, videoId)) return context.body(null, 204);
     if (!await opensDirectPlayer(userId)) return context.body(null, 204);
-    void directVideoStreaming.prefetchDirectSources(userId, videoId).catch(() => {});
+    if (await playsLocally(userId, videoId)) return context.body(null, 204);
+    // The streaming layer caps new prefetch lookups (per profile and overall);
+    // 204 when it declined, 202 when a lookup started or was joined.
+    const prefetch = await directVideoStreaming.prefetchDirectSources(userId, videoId).catch(() => null);
+    if (!prefetch?.started) return context.body(null, 204);
+    void prefetch.done.catch(() => {});
     return context.json({ ok: true }, 202);
   });
 

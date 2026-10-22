@@ -37,11 +37,12 @@ directVideoStreaming.getDirectHlsResource = async (userId, _videoId, _file, rang
   } }) };
 };
 let prefetches = 0;
+let prefetchStarts = true;
 directVideoStreaming.prefetchDirectSources = async (userId, videoId) => {
   prefetches++;
   assert.equal(userId, 1);
   assert.equal(videoId, "direct-test");
-  return true;
+  return { started: prefetchStarts, done: Promise.resolve(prefetchStarts) };
 };
 const app = new Hono().route("/api", api);
 const prefetch = (token = adult) => app.request("http://localhost/api/videos/direct-test/direct-hls/prefetch", {
@@ -73,8 +74,25 @@ await database.prepare("INSERT OR REPLACE INTO download_settings(user_id,key,val
 assert.equal((await prefetch()).status, 204);
 await database.prepare("UPDATE download_settings SET value='0' WHERE user_id=1 AND key='enabled'").run();
 assert.equal(prefetches, 0);
+// A local copy plays from the file, so a YouTube lookup would be wasted.
+await database.prepare("INSERT INTO downloads(video_id,status) VALUES('direct-test','done')").run();
+await database.prepare("INSERT INTO download_owners(user_id,video_id) VALUES(1,'direct-test')").run();
+assert.equal((await prefetch()).status, 204);
+await database.prepare("DELETE FROM downloads WHERE video_id='direct-test'").run();
+await database.prepare("INSERT INTO tube_archivist_items(video_id,available) VALUES('direct-test',1)").run();
+const { setPluginEnabled } = await import("../src/plugins");
+await setPluginEnabled("tubearchivist", true);
+assert.equal((await prefetch()).status, 204);
+await setPluginEnabled("tubearchivist", false);
+await database.prepare("DELETE FROM tube_archivist_items WHERE video_id='direct-test'").run();
+assert.equal(prefetches, 0);
 assert.equal((await prefetch()).status, 202);
 assert.equal(prefetches, 1);
+// The streaming layer's cap refused a new lookup: nothing started, so 204.
+prefetchStarts = false;
+assert.equal((await prefetch()).status, 204);
+prefetchStarts = true;
+prefetches = 1;
 
 // Follow precisely the master -> audio/video -> initialization/media graph
 // that AVPlayer loads, with only a scoped ticket on every media request.

@@ -26,6 +26,8 @@ interface DownloadVideoDirectStreamingDependencies {
   fetchImpl?: typeof fetch;
   spawn?: typeof Bun.spawn;
   videoAvailable?: (videoId: string) => Promise<boolean>;
+  /** The direct player could open it: available, not members-only, not live or upcoming. */
+  directPlayable?: (videoId: string) => Promise<boolean>;
   now?: () => number;
   resolveTimeoutMs?: number;
   rangeTimeoutMs?: number;
@@ -82,6 +84,14 @@ export interface DirectVideoMediaSource {
 }
 
 /** yt-dlp's caption maps: track id -> its formats. */
+/** Concurrent prefetch-started yt-dlp lookups across all profiles. */
+const MAX_PREFETCH_LOOKUPS = 2;
+
+export interface DirectPrefetch {
+  started: boolean;
+  done: Promise<boolean>;
+}
+
 export interface DirectCaptionMaps {
   subtitles: Record<string, unknown>;
   automaticCaptions: Record<string, unknown>;
@@ -429,6 +439,10 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     videoAvailable = async (videoId) => Boolean(await database.prepare(
       "SELECT 1 FROM videos WHERE video_id = ? AND is_private = 0 AND is_unavailable = 0",
     ).get(videoId)),
+    directPlayable = async (videoId) => Boolean(await database.prepare(
+      `SELECT 1 FROM videos WHERE video_id = ? AND is_private = 0 AND is_unavailable = 0 AND members_only = 0
+         AND COALESCE(live_status, 'none') NOT IN ('live', 'upcoming')`,
+    ).get(videoId)),
     now = Date.now,
     resolveTimeoutMs = DEFAULT_RESOLVE_TIMEOUT_MS,
     rangeTimeoutMs = DEFAULT_RANGE_TIMEOUT_MS,
@@ -439,6 +453,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   const sessionBuilds = new Map<string, SharedOperation<SessionBuildResult>>();
   const buildChoices = new Map<string, string | null>();
   const unsupported = new Map<string, number>();
+  /** Profiles with a prefetch-started yt-dlp lookup still running. */
+  const prefetchingProfiles = new Set<number>();
   const rangeRequests = new MediaRequestQueue(MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE, 32);
 
   const DIRECT_DEFAULT_MAX_HEIGHT = 1080;
@@ -1054,18 +1070,44 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
    * Warm the source lookup before the player asks. Deliberately takes no
    * signal: the lookup is shared and cached, and a client that disconnects
    * (or a player request that aborts) must not cancel it.
+   *
+   * Joining a cached or running lookup is free. A new yt-dlp run is capped:
+   * one per profile and MAX_PREFETCH_LOOKUPS overall, so hovering down a feed
+   * (or a script posting every id) cannot pile up processes. Player requests
+   * bypass the cap. `started` is decided before the lookup runs; `done`
+   * settles when it finishes.
    */
-  async function prefetchDirectSources(userId: number, videoId: string): Promise<boolean> {
-    if (!await videoAvailable(videoId)) return false;
-    return (await resolveSources(userId, videoId)).kind === "sources";
+  async function prefetchDirectSources(userId: number, videoId: string): Promise<DirectPrefetch> {
+    const skipped = { started: false, done: Promise.resolve(false) };
+    if (!await directPlayable(videoId)) return skipped;
+    const key = keyFor(userId, videoId);
+    const cached = sourceCache.get(key);
+    const joins = (cached && cached.expiresAt > now()) || sourceResolutions.has(key);
+    if (!joins) {
+      if (prefetchingProfiles.has(userId) || prefetchingProfiles.size >= MAX_PREFETCH_LOOKUPS) return skipped;
+      prefetchingProfiles.add(userId);
+    }
+    const done = resolveSources(userId, videoId)
+      .then((result) => result.kind === "sources")
+      .finally(() => { if (!joins) prefetchingProfiles.delete(userId); });
+    return { started: true, done };
   }
 
   /**
    * The caption maps from the same shared, cached lookup the player uses, so
-   * opening a video runs yt-dlp once. Null when that lookup yields no sources.
+   * opening a video runs yt-dlp once. Null when that lookup yields no sources,
+   * and at once for videos the direct player cannot use (the subtitle menu then
+   * runs its own lookup instead of paying for a doomed direct one first).
    * No signal, for the same reason as the prefetch.
    */
   async function directCaptionMaps(userId: number, videoId: string): Promise<DirectCaptionMaps | null> {
+    const key = keyFor(userId, videoId);
+    const cached = sourceCache.get(key);
+    if (!cached || cached.expiresAt <= now()) {
+      if (!await directPlayable(videoId)) return null;
+      const unsupportedUntil = unsupported.get(key);
+      if (unsupportedUntil && unsupportedUntil > now()) return null;
+    }
     const resolution = await resolveSources(userId, videoId);
     if (resolution.kind !== "sources") return null;
     return { subtitles: resolution.sources.subtitles, automaticCaptions: resolution.sources.automaticCaptions };

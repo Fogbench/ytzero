@@ -92,7 +92,7 @@ describe("one yt-dlp lookup per video", () => {
     ],
   });
 
-  function counted(stdout: string, exitCode = 0) {
+  function counted(stdout: string, exitCode = 0, directPlayable = async (_videoId: string) => true) {
     const counter = { spawns: 0 };
     const spawn = (() => {
       counter.spawns++;
@@ -105,7 +105,7 @@ describe("one yt-dlp lookup per video", () => {
     }) as unknown as typeof Bun.spawn;
     const streaming = createDownloadVideoDirectStreaming({
       YTDLP: "yt-dlp", dlSettings: async () => ({ quality: "best" }), downloadCookiesConfigured: () => false,
-      downloadCookiesFile: () => "cookies", ytdlpStatus: async () => "2026.07.04", videoAvailable: async () => true, spawn,
+      downloadCookiesFile: () => "cookies", ytdlpStatus: async () => "2026.07.04", videoAvailable: async () => true, directPlayable, spawn,
     });
     return { counter, streaming };
   }
@@ -126,6 +126,16 @@ describe("one yt-dlp lookup per video", () => {
     expect(counter.spawns).toBe(1);
     expect(own).toBe(0);
     expect(buildSubtitleAvailability(captions.subtitles, captions.automaticCaptions, ["fr"]).map((s) => s.lang)).toEqual(["en", "fr"]);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("a video the direct player cannot use goes straight to the menu's own lookup", async () => {
+    const { counter, streaming } = counted(lookup, 0, async () => false);
+    let own = 0;
+    const metadata = createSubtitleMetadataCache(streaming.directCaptionMaps, async () => { own++; return { subtitles: { en: [] }, automaticCaptions: {} }; });
+    expect(await metadata.get(1, "gone-private")).toEqual({ subtitles: { en: [] }, automaticCaptions: {} });
+    expect(counter.spawns).toBe(0);
+    expect(own).toBe(1);
     streaming.resetDirectHlsSessions();
   });
 
