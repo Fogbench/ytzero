@@ -5,6 +5,10 @@ name: Release tarball
 # the Docker image. Nothing is public until the draft is published by hand on GitHub:
 # publishing it runs this workflow again, and only that run pushes the image
 # ghcr.io/fogbench/ytzero:<version> and :latest (x86_64 and aarch64).
+# Each CPU type is built and smoke-tested natively on its own runner in every run
+# (so an aarch64 problem shows while the release is still a draft) and pushed on
+# its own: an aarch64 failure never holds back the x86_64 image, or the reverse.
+# Third-party actions are pinned by commit; the tag is in the comment.
 on:
   push:
     tags:
@@ -28,7 +32,7 @@ jobs:
       contents: write
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           # Do not leave the token in .git/config while installs and the build run.
@@ -50,7 +54,7 @@ jobs:
           fi
 
       - name: Set up the Bun runtime
-        uses: oven-sh/setup-bun@v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           # Same Bun version as scripts/release/tools.lock. Change both together.
           bun-version: 1.4.2
@@ -78,21 +82,16 @@ jobs:
             --notes "$notes" \
             release/ytzero-"$VERSION".tar.gz release/ytzero-"$VERSION".tar.gz.sha256
 
-  image:
-    name: Build, test and publish the Docker image
+  plan:
+    name: Decide the version and whether to publish the image
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write   # used only by the push step, which runs only when a release is published
-    env:
-      IMAGE: ghcr.io/fogbench/ytzero
+    permissions: {}
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      publish: ${{ steps.plan.outputs.publish }}
+      skip: ${{ steps.plan.outputs.skip }}
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Decide the version and whether to publish
+      - name: Decide
         id: plan
         env:
           VERSION: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref_name }}
@@ -113,51 +112,98 @@ jobs:
           [[ "$VERSION" =~ ^[0-9A-Za-z._-]+$ ]] || { echo "::error::bad version '$VERSION'"; exit 1; }
           { echo "version=$VERSION"; echo "publish=$publish"; echo "skip=$skip"; } >> "$GITHUB_OUTPUT"
 
-      - name: Set up QEMU (to build for aarch64)
-        if: steps.plan.outputs.publish == 'true'
-        uses: docker/setup-qemu-action@v3
+  image:
+    name: Build, test and push the Docker image (${{ matrix.arch }})
+    needs: plan
+    if: needs.plan.outputs.skip != 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false   # one CPU type failing must not cancel the other
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm   # native: no QEMU, so the smoke test runs the real thing
+    permissions:
+      contents: read
+      packages: write   # used only by the push step, which runs only when a release is published
+    env:
+      IMAGE: ghcr.io/fogbench/ytzero
+      VERSION: ${{ needs.plan.outputs.version }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
-        if: steps.plan.outputs.skip != 'true'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      - name: Build the x86_64 image for the smoke test
-        if: steps.plan.outputs.skip != 'true'
-        uses: docker/build-push-action@v6
+      - name: Build the image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/${{ matrix.arch }}
           load: true
           tags: ytzero:smoke
           build-args: |
-            YTZERO_VERSION=${{ steps.plan.outputs.version }}
+            YTZERO_VERSION=${{ needs.plan.outputs.version }}
             YTZERO_COMMIT=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=image-${{ matrix.arch }}
+          cache-to: type=gha,scope=image-${{ matrix.arch }},mode=max
 
-      - name: Smoke test (start, health, tools, one direct play)
-        if: steps.plan.outputs.skip != 'true'
-        run: bash scripts/docker/smoke-test.sh ytzero:smoke "${{ steps.plan.outputs.version }}" 3113
+      - name: Smoke test (start, health, tools, first yt-dlp update, one direct play)
+        run: bash scripts/docker/smoke-test.sh ytzero:smoke "$VERSION" 3113
 
       - name: Log in to the GitHub container registry
-        if: steps.plan.outputs.publish == 'true'
-        uses: docker/login-action@v3
+        if: needs.plan.outputs.publish == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push the image for x86_64 and aarch64
-        if: steps.plan.outputs.publish == 'true'
-        uses: docker/build-push-action@v6
+      - name: Push the tested image as <version>-<arch>
+        if: needs.plan.outputs.publish == 'true'
+        # The exact image the smoke test ran, not a rebuild.
+        run: |
+          docker tag ytzero:smoke "$IMAGE:$VERSION-$ARCH"
+          docker push "$IMAGE:$VERSION-$ARCH"
+
+  manifest:
+    name: Publish <version> and latest for the CPU types that passed
+    needs: [plan, image]
+    # Runs even when one CPU type failed, so the other one is still published.
+    if: always() && needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/fogbench/ytzero
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - name: Log in to the GitHub container registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.plan.outputs.version }}
-            ${{ env.IMAGE }}:latest
-          build-args: |
-            YTZERO_VERSION=${{ steps.plan.outputs.version }}
-            YTZERO_COMMIT=${{ github.sha }}
-          cache-from: type=gha
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Combine the pushed CPU types under <version> and latest
+        run: |
+          refs=(); missing=()
+          for arch in amd64 arm64; do
+            if docker buildx imagetools inspect "$IMAGE:$VERSION-$arch" >/dev/null 2>&1; then
+              refs+=("$IMAGE:$VERSION-$arch")
+            else
+              missing+=("$arch")
+            fi
+          done
+          [ "${#refs[@]}" -gt 0 ] || { echo "::error::no CPU type was pushed for $VERSION"; exit 1; }
+          docker buildx imagetools create -t "$IMAGE:$VERSION" -t "$IMAGE:latest" "${refs[@]}"
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::warning::$VERSION was published without: ${missing[*]} (see the image job of that CPU type)."
+          fi
