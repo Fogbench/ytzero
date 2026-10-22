@@ -104,6 +104,33 @@ export function resolveQuality(
     ?? resolveQuality({ height: Math.min(...list.map((entry) => entry.height)), codec: choice.codec }, list);
 }
 
+/** The server's default stream (no `?q=`) is H.264 capped at this height (lower if the profile's quality setting says so). */
+export const DEFAULT_STREAM_HEIGHT = 1080;
+
+/** The entry the default stream plays: the tallest MP4 at or below 1080p; null when the list has none. */
+export function defaultStreamQuality(list: DirectQuality[]): DirectQuality | null {
+  return ofCodec(list, "avc1").find((entry) => entry.height <= DEFAULT_STREAM_HEIGHT) ?? null;
+}
+
+/**
+ * What to ask the server for, null meaning the default stream (no `?q=`).
+ * Playback starts on the default stream before `list` is in ("play first"), so
+ * once it is, "auto" only switches to a taller quality than the default (never
+ * a reload for a codec swap or a step down), and a picked height switches
+ * unless the default stream already is that entry.
+ */
+export function streamQuality(
+  choice: QualityChoice,
+  list: DirectQuality[],
+  smoothIds?: ReadonlySet<string>,
+): DirectQuality | null {
+  const picked = resolveQuality(choice, list, smoothIds);
+  const fallback = defaultStreamQuality(list);
+  if (!picked || !fallback) return picked;
+  if (choice.height === "auto") return picked.height > fallback.height ? picked : null;
+  return picked.id === fallback.id ? null : picked;
+}
+
 /** One menu row per height, using the preferred codec where it has that height. */
 export function qualityRows(codec: QualityCodec, list: DirectQuality[]): DirectQuality[] {
   const heights = [...new Set(list.map((entry) => entry.height))].sort((a, b) => b - a);

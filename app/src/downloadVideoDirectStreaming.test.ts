@@ -295,6 +295,28 @@ describe("direct no-transcode video HLS", () => {
     streaming.resetDirectHlsSessions();
   });
 
+  test("the default stream (no q) is at most 1080p; a lower profile setting still caps it", async () => {
+    const selectorFor = async (quality: string) => {
+      let selector = "";
+      const spawn = ((command: string[]) => {
+        selector = command[command.indexOf("-f") + 1] ?? "";
+        return fakeProcess(selection(1));
+      }) as unknown as typeof Bun.spawn;
+      const streaming = createDownloadVideoDirectStreaming({
+        ...directDependencies(spawn, (async () => new Response(null, { status: 404 })) as unknown as typeof fetch),
+        dlSettings: async () => ({ quality }),
+      });
+      await streaming.getDirectQualities(1, `cap-${quality}`);
+      streaming.resetDirectHlsSessions();
+      return selector;
+    };
+    expect(await selectorFor("best")).toContain("[height<=1080]");
+    expect(await selectorFor("2160")).toContain("[height<=1080]");
+    expect(await selectorFor("1080")).toContain("[height<=1080]");
+    expect(await selectorFor("720")).toContain("[height<=720]");
+    expect(await selectorFor("720")).not.toContain("[height<=1080]");
+  });
+
   test("rejects missing or malformed yt-dlp headers before fetching media", async () => {
     for (const headers of [undefined, {}, { "User-Agent": 123 }, { "User-Agent": "bad\r\nheader" }]) {
       const metadata = JSON.parse(selection(1));

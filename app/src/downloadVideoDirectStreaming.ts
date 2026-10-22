@@ -441,13 +441,18 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   const unsupported = new Map<string, number>();
   const rangeRequests = new MediaRequestQueue(MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE, 32);
 
+  const DIRECT_DEFAULT_MAX_HEIGHT = 1080;
+
   async function formatSelector(userId: number): Promise<string> {
     const setting = await dlSettings(userId);
     const parsedHeight = setting.quality === "best" ? null : Number(setting.quality);
-    const cap = Number.isFinite(parsedHeight) && Number(parsedHeight) > 0
-      ? `[height<=${Math.floor(Number(parsedHeight))}]`
-      : "";
-    return `bestvideo[ext=mp4][vcodec^=avc1][protocol^=http]${cap}+bestaudio[ext=m4a][acodec^=mp4a][protocol^=http]`;
+    // The default stream (no `q`) starts playback before the player knows the
+    // quality menu, so it stays at 1080p; the player steps up afterwards. A
+    // lower profile setting still caps it.
+    const height = Number.isFinite(parsedHeight) && Number(parsedHeight) > 0
+      ? Math.min(Math.floor(Number(parsedHeight)), DIRECT_DEFAULT_MAX_HEIGHT)
+      : DIRECT_DEFAULT_MAX_HEIGHT;
+    return `bestvideo[ext=mp4][vcodec^=avc1][protocol^=http][height<=${height}]+bestaudio[ext=m4a][acodec^=mp4a][protocol^=http]`;
   }
 
   async function resolveAttempt(
