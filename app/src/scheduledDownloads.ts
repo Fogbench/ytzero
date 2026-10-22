@@ -26,6 +26,8 @@ export async function enqueueScheduledDownloadsForUser(userId: number, enqueue: 
   let queued = 0;
   for (const row of rows) {
     if (!shouldAutoDownloadVideo(row.is_short, settings.download_shorts === 1)) continue;
+    // The user may have removed or dequeued it since the batch was selected.
+    if (!await database.prepare("SELECT 1 FROM user_videos WHERE user_id=? AND video_id=? AND status='queued'").get(row.user_id, row.video_id)) continue;
     if (await enqueue(row.user_id, row.video_id)) queued++;
   }
   return queued;

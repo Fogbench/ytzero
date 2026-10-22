@@ -16,7 +16,7 @@ if (process.env[ISOLATION_FLAG] !== "1") {
 
   const { db } = await import("./db");
   const { api } = await import("./routes");
-  const { enqueueDownload } = await import("./downloader");
+  const { cancelAllPendingDownloads, enqueueDownload } = await import("./downloader");
   const { setProfileDownloadsEnabled } = await import("./downloadConfig");
   const { enqueueScheduledDownloadsForUser } = await import("./scheduledDownloads");
 
@@ -67,13 +67,41 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       expect(uv(2, "rmShared001").status).toBe("queued");
     });
 
-    test("a watched video stays out of the scheduled tick after removal", async () => {
-      seed("rmWatched01");
-      await enqueueDownload(1, "rmWatched01", "manual");
-      db.prepare("UPDATE user_videos SET watched=1 WHERE user_id=1 AND video_id='rmWatched01'").run();
-      await remove("rmWatched01");
-      expect(await tick(1)).toBe(0);
-      expect(dl("rmWatched01")?.status).toBe("deleted");
+    test("only a queued status changes on removal", async () => {
+      seed("rmArchived1");
+      db.prepare("UPDATE user_videos SET status='archived' WHERE user_id=1 AND video_id='rmArchived1'").run();
+      await enqueueDownload(1, "rmArchived1", "manual");
+      await remove("rmArchived1");
+      expect(uv(1, "rmArchived1").status).toBe("archived");
+    });
+
+    test("other owner's queued video is not duplicated by a tick", async () => {
+      await tick(2);
+      expect(owners("rmShared001")).toEqual([2]);
+      expect(dl("rmShared001")?.status).toBe("queued");
+    });
+
+    test("cancel-all leaves the watch-later queue organisation alone", async () => {
+      seed("rmCancel001");
+      db.prepare("UPDATE user_videos SET bucket='evening' WHERE user_id=1 AND video_id='rmCancel001'").run();
+      await enqueueDownload(1, "rmCancel001", "manual");
+      await cancelAllPendingDownloads(1);
+      expect(dl("rmCancel001")?.status).toBe("deleted");
+      expect(db.prepare("SELECT status, bucket FROM user_videos WHERE user_id=1 AND video_id='rmCancel001'").get()).toEqual({ status: "queued", bucket: "evening" });
+    });
+
+    test("tick rechecks the queue state right before enqueueing", async () => {
+      seed("rmRace00001");
+      seed("rmRace00002");
+      const seen: string[] = [];
+      await enqueueScheduledDownloadsForUser(1, async (u, v) => {
+        if (!v.startsWith("rmRace")) return false;
+        seen.push(v);
+        const other = v === "rmRace00001" ? "rmRace00002" : "rmRace00001";
+        db.prepare("UPDATE user_videos SET status='inbox' WHERE user_id=1 AND video_id=?").run(other);
+        return false;
+      });
+      expect(seen.length).toBe(1);
     });
   });
 }
