@@ -269,7 +269,7 @@ api.delete("/videos/:id/download", async (c) => {
   if (await isChildUser(uid)) return c.json({ error: "not allowed" }, 403);
   const requestedProfile = Number(c.req.query("profile_id"));
   const ownerId = Number.isInteger(requestedProfile) && requestedProfile > 0 && isAdmin(c) ? requestedProfile : uid;
-  await removeDownload(ownerId, c.req.param("id"));
+  await removeDownload(ownerId, c.req.param("id"), { withdrawQueue: true });
   return c.json({ ok: true });
 });
 
