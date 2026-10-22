@@ -317,6 +317,21 @@ describe("direct no-transcode video HLS", () => {
     expect(await selectorFor("720")).not.toContain("[height<=1080]");
   });
 
+  test("qualities.json tells the player the default stream height and the profile's limit", async () => {
+    const limitsFor = async (quality: string) => {
+      const streaming = createDownloadVideoDirectStreaming({
+        ...directDependencies((() => fakeProcess(selection(1))) as unknown as typeof Bun.spawn, (async () => new Response(null, { status: 404 })) as unknown as typeof fetch),
+        dlSettings: async () => ({ quality }),
+      });
+      const result = await streaming.getDirectQualities(1, `limits-${quality}`);
+      streaming.resetDirectHlsSessions();
+      return result.kind === "qualities" ? { defaultHeight: result.defaultHeight, maxHeight: result.maxHeight } : null;
+    };
+    expect(await limitsFor("best")).toEqual({ defaultHeight: 1080, maxHeight: null });
+    expect(await limitsFor("2160")).toEqual({ defaultHeight: 1080, maxHeight: 2160 });
+    expect(await limitsFor("720")).toEqual({ defaultHeight: 720, maxHeight: 720 });
+  });
+
   test("rejects missing or malformed yt-dlp headers before fetching media", async () => {
     for (const headers of [undefined, {}, { "User-Agent": 123 }, { "User-Agent": "bad\r\nheader" }]) {
       const metadata = JSON.parse(selection(1));

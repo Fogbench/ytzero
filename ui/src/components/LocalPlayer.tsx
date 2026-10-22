@@ -8,8 +8,8 @@ import { useI18n } from "../i18n";
 import SubtitlePicker from "./SubtitlePicker";
 import PlayerSettingsMenu from "./PlayerSettingsMenu";
 import {
-  decodeVerdict, defaultStreamQuality, qualityContentType, readQualityChoice, streamQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
-  type DecodeInfo, type DirectAudioTrack, type DirectQuality, type QualityChoice,
+  decodeVerdict, DEFAULT_QUALITY_LIMITS, defaultStreamQuality, qualityLimitsFrom, qualityContentType, readQualityChoice, streamQuality, QUALITY_CODEC_KEY, QUALITY_HEIGHT_KEY,
+  type DecodeInfo, type DirectAudioTrack, type DirectQuality, type QualityChoice, type QualityLimits,
 } from "../playerQuality";
 import { downloadScreenshotCanvas, type PlayerScreenshotFormat } from "../playerScreenshot";
 import { enforceLocalPlayerVolume } from "../localPlayerVolume";
@@ -461,7 +461,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
   const frameShownRef = useRef(false);
   const qualityChoiceRef = useRef(qualityChoice);
   qualityChoiceRef.current = qualityChoice;
-  const listRef = useRef<{ list: DirectQuality[]; smooth: ReadonlySet<string> } | null>(null);
+  const listRef = useRef<{ list: DirectQuality[]; smooth: ReadonlySet<string>; limits: QualityLimits } | null>(null);
+  const [limits, setLimits] = useState<QualityLimits>(DEFAULT_QUALITY_LIMITS);
   // Where a new stream should start: the current position once one is loaded, else where this one was meant to start.
   const switchPosition = () => {
     const video = videoRef.current;
@@ -481,7 +482,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     const video = videoRef.current;
     const known = listRef.current;
     // Autoplay may still be starting, so count it as playing.
-    if (video && known && streamQuality(qualityChoiceRef.current, known.list, known.smooth)) beginSwitch(autoplay || !video.paused);
+    if (video && known && streamQuality(qualityChoiceRef.current, known.list, known.smooth, known.limits)) beginSwitch(autoplay || !video.paused);
     setFrameShown(true);
   };
   useEffect(() => {
@@ -492,11 +493,14 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
     let cancelled = false;
     setPlayable(null);
     setSmoothIds(new Set());
+    setLimits(DEFAULT_QUALITY_LIMITS);
     setAudioTracks([]);
     setAudioChoice(null);
+    let limitsFound = DEFAULT_QUALITY_LIMITS;
     void api.directQualities(videoId)
-      .then(async ({ qualities, audioTracks: tracks }) => {
+      .then(async ({ qualities, audioTracks: tracks, ...limitFields }) => {
         if (!cancelled) setAudioTracks(tracks ?? []);
+        limitsFound = qualityLimitsFrom(limitFields);
         const checks = await Promise.all(qualities.map((quality) => checkDecode(quality)));
         const smooth = new Set(qualities.filter((_, index) => checks[index].smooth).map((quality) => quality.id));
         return { list: qualities.filter((_, index) => checks[index].supported), smooth };
@@ -504,13 +508,14 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       .catch(() => ({ list: [] as DirectQuality[], smooth: new Set<string>() }))
       .then(({ list, smooth }) => {
         if (cancelled) return;
-        listRef.current = { list, smooth };
+        listRef.current = { list, smooth, limits: limitsFound };
         // The default stream is already on screen; if the list asks for another one, carry on from here.
         const video = videoRef.current;
-        if (frameShownRef.current && video && streamQuality(qualityChoiceRef.current, list, smooth)) {
+        if (frameShownRef.current && video && streamQuality(qualityChoiceRef.current, list, smooth, limitsFound)) {
           beginSwitch(!video.paused && !video.ended);
         }
         setSmoothIds(smooth);
+        setLimits(limitsFound);
         setPlayable(list);
       });
     return () => { cancelled = true; };
@@ -518,8 +523,8 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
 
   // The stream asked for with `?q=`; null = the server's default stream.
   const activeQuality = useMemo(
-    () => (frameShown ? streamQuality(qualityChoice, playable ?? [], smoothIds) : null),
-    [frameShown, qualityChoice, playable, smoothIds],
+    () => (frameShown ? streamQuality(qualityChoice, playable ?? [], smoothIds, limits) : null),
+    [frameShown, qualityChoice, playable, smoothIds, limits],
   );
   // When the chosen quality fails for good, retry once on the server's default
   // stream before the page gives up on the direct player altogether.
@@ -543,7 +548,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
       localStorage.setItem(QUALITY_CODEC_KEY, choice.codec);
     } catch {}
     setQualityFailed(false);
-    const next = streamQuality(choice, playable ?? [], smoothIds);
+    const next = streamQuality(choice, playable ?? [], smoothIds, limits);
     const video = videoRef.current;
     // next may be null (auto with nothing smooth = server default); that is a stream change too.
     if (video && (next?.id ?? null) !== (activeQuality?.id ?? null)) {
@@ -1123,7 +1128,7 @@ const LocalPlayer = forwardRef<LocalPlayerHandle, {
                 qualities: playable ?? [],
                 loading: playable === null,
                 choice: qualityChoice,
-                active: (!qualityFailed && activeQuality) || defaultStreamQuality(playable ?? []),
+                active: (!qualityFailed && activeQuality) || defaultStreamQuality(playable ?? [], limits),
                 onChoiceChange: changeQualityChoice,
               } : undefined}
               speed={playbackRate}

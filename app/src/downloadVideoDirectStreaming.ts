@@ -443,15 +443,21 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
 
   const DIRECT_DEFAULT_MAX_HEIGHT = 1080;
 
-  async function formatSelector(userId: number): Promise<string> {
+  /**
+   * The default stream (no `q`) starts playback before the player knows the
+   * quality menu, so it stays at 1080p; the player steps up afterwards. A lower
+   * profile setting still caps it. `maxHeight` is the profile's limit (null =
+   * best); the player reads both from qualities.json.
+   */
+  async function directHeightLimits(userId: number): Promise<{ defaultHeight: number; maxHeight: number | null }> {
     const setting = await dlSettings(userId);
     const parsedHeight = setting.quality === "best" ? null : Number(setting.quality);
-    // The default stream (no `q`) starts playback before the player knows the
-    // quality menu, so it stays at 1080p; the player steps up afterwards. A
-    // lower profile setting still caps it.
-    const height = Number.isFinite(parsedHeight) && Number(parsedHeight) > 0
-      ? Math.min(Math.floor(Number(parsedHeight)), DIRECT_DEFAULT_MAX_HEIGHT)
-      : DIRECT_DEFAULT_MAX_HEIGHT;
+    const maxHeight = Number.isFinite(parsedHeight) && Number(parsedHeight) > 0 ? Math.floor(Number(parsedHeight)) : null;
+    return { defaultHeight: Math.min(maxHeight ?? DIRECT_DEFAULT_MAX_HEIGHT, DIRECT_DEFAULT_MAX_HEIGHT), maxHeight };
+  }
+
+  async function formatSelector(userId: number): Promise<string> {
+    const height = (await directHeightLimits(userId)).defaultHeight;
     return `bestvideo[ext=mp4][vcodec^=avc1][protocol^=http][height<=${height}]+bestaudio[ext=m4a][acodec^=mp4a][protocol^=http]`;
   }
 
@@ -927,11 +933,16 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     userId: number,
     videoId: string,
     signal?: AbortSignal,
-  ): Promise<{ kind: "qualities"; qualities: DirectVideoQuality[]; audioTracks: DirectAudioTrack[] } | { kind: "failed" }> {
+  ): Promise<{ kind: "qualities"; qualities: DirectVideoQuality[]; audioTracks: DirectAudioTrack[]; defaultHeight: number; maxHeight: number | null } | { kind: "failed" }> {
     if (!await videoAvailable(videoId)) return { kind: "failed" };
     const resolution = await resolveSources(userId, videoId, signal);
     if (resolution.kind !== "sources") return { kind: "failed" };
-    return { kind: "qualities", qualities: directVideoQualities(resolution.sources), audioTracks: directAudioTracks(resolution.sources) };
+    return {
+      kind: "qualities",
+      qualities: directVideoQualities(resolution.sources),
+      audioTracks: directAudioTracks(resolution.sources),
+      ...await directHeightLimits(userId),
+    };
   }
 
   function requestedRange(value: string | null): { start: number; end: number } | null {
