@@ -32,6 +32,8 @@ The gear menu holds:
 - **Subtitles**, with language and style (size, colour, background, live sample). The CC button switches captions on and off.
 - **Quality** up to 4K: your preferred or Auto, and choose AV1 or H.264 (MP4). The list only offers what your browser can decode. Auto picks AV1 only when your browser can play it smoothly; when no quality plays smoothly, Auto uses the server's default stream.
 
+Playback starts fast: YT Zero looks the video up when you hover a card or open its page, and the player shares that one lookup. The default stream is H.264 up to 1080p, never above your profile's quality limit, and Auto stays within that limit too.
+
 If direct playback fails, the player never falls back to the embed silently. You get an explanation, a YouTube link and a button to use the embed if you want.
 
 ### Settings
@@ -122,14 +124,14 @@ On 2026-10-04 `bun audit` listed **42 known advisories** for the dependency vers
 | @simplewebauthn/browser | 13.3.0 | 14.0.0 |
 | openid-client | 6.8.4 | 6.8.8 |
 | sharp | 0.35.4 | 0.35.5 |
-| react, react-dom | 18.3.1 | 19.3.0 |
-| react-router | 6.30.4 | 8.4.0 |
-| vite | 6.4.3 | 8.3.2 |
-| @vitejs/plugin-react | 4.7.0 | 6.1.1 |
+| react, react-dom | 18.3.1 | 19.3.1 |
+| react-router | 6.30.4 | 8.5.0 |
+| vite | 6.4.3 | 8.3.5 |
+| @vitejs/plugin-react | 4.7.0 | 6.1.2 |
 | typescript | 5.9.3 | 7.0.2 |
 | hls.js | 1.6.16 | 1.7.3 |
-| emoji-picker-react | 4.19.1 | 4.22.3 |
-| lucide-react | 1.18.0 | 1.52.0 |
+| emoji-picker-react | 4.19.1 | 5.1.0 |
+| lucide-react | 1.18.0 | 1.61.0 |
 
 
 ## License
