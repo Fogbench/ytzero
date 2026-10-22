@@ -131,7 +131,7 @@ tools.lock  (the pinned tool list, one per release)
   you install it fresh or reach it with update.sh, so two people on the same
   release have the same tools. The tools are:
 
-    bun      1.4.2        deno     2.9.7
+    bun      1.4.3        deno     2.9.8
     yt-dlp   2026.10.21   ffmpeg   7.0.2 (static build, johnvansickle.com)
 
   If johnvansickle.com does not answer, ffmpeg is downloaded from a backup

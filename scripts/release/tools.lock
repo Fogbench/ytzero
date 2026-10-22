@@ -10,9 +10,9 @@
 # moves), uploaded by hand once per ffmpeg version. It has the same sha256 as
 # the johnvansickle.com lines and is only used when those hosts fail. When the
 # ffmpeg version changes, upload the new files under a new tag tools-ffmpeg-<version>.
-bun 1.4.2 x86_64 https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64.zip 36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913
-bun 1.4.2 x86_64-baseline https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64-baseline.zip c678040f14fe0440eb839d37cbd0ce4c051a32da72806ac97de6a6aab6bf728f
-bun 1.4.2 aarch64 https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-aarch64.zip 54328bbc2d9c8e0c9f892c544d66c57a83b84139e34909e5ee81758f1ac8fda7
+bun 1.4.3 x86_64 https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-linux-x64.zip 3e730528d89775f03f87f05c06787c4df4099d0a37f3f252e7b829cb23816e18
+bun 1.4.3 x86_64-baseline https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-linux-x64-baseline.zip 1fc2edac843102909e3a1be1d8d9802cc6071cf074e67e88231f4ffe0f8b397b
+bun 1.4.3 aarch64 https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-linux-aarch64.zip efa9813da5ed72423bf847f916e8d2c47c0d776add972354026a75e10da9aa21
 deno 2.9.8 x86_64 https://github.com/denoland/deno/releases/download/v2.9.8/deno-x86_64-unknown-linux-gnu.zip e890975bc2549807bbcc0b584ffafda72cc7c93349dd99c80483dd784f6c4609
 deno 2.9.8 aarch64 https://github.com/denoland/deno/releases/download/v2.9.8/deno-aarch64-unknown-linux-gnu.zip d49596c20b9788cf8f5d8ddf644103d4bde56ed239753f0bdb92ba9361d51905
 yt-dlp 2026.10.21 x86_64 https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp_linux d8bd33fca9d5b23bd5b9952b3fca36db5c46331933fda9f598a3da14ce2c243f
