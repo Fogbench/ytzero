@@ -2,11 +2,20 @@ import type { Context, Hono } from "hono";
 import { database } from "../database";
 import { isChildUser } from "../childTime";
 import { ytdlpStatus } from "../downloadConfig";
+import { dlSettings, profileDownloadsEnabled } from "../downloadSettingsStore";
 import { directVideoStreaming } from "../directVideoStreaming";
 import { DIRECT_QUALITY_PATTERN } from "../downloadVideoDirectStreaming";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type VideoState = { live_status: string; members_only: number; is_private: number; is_unavailable: number };
+
+/** Mirrors the watch page: the embed preference, or a download-first watch mode, never opens the direct player. */
+async function opensDirectPlayer(userId: number): Promise<boolean> {
+  const settings = await dlSettings(userId);
+  if (settings.default_player === "youtube") return false;
+  if (!["ask", "download"].includes(String(settings.watch_source_mode))) return true;
+  return !await profileDownloadsEnabled(userId);
+}
 
 export function registerDirectVideoRoutes(
   api: Hono<ApiEnvironment>,
@@ -31,11 +40,13 @@ export function registerDirectVideoRoutes(
   // Warm the yt-dlp lookup (watch page opened, card hovered) so the player's
   // first request finds it cached or in flight. Answers at once; the lookup
   // runs without the request's signal so a disconnect does not cancel it.
+  // Fired blindly by the UI, so anything that would not open the direct
+  // player answers 204 (nothing to do) rather than an error.
   api.post("/videos/:id/direct-hls/prefetch", async (context) => {
     const userId = currentUserId(context);
     const videoId = context.req.param("id");
-    const refused = await refusal(context, userId, videoId);
-    if (refused) return refused;
+    if (await refusal(context, userId, videoId)) return context.body(null, 204);
+    if (!await opensDirectPlayer(userId)) return context.body(null, 204);
     void directVideoStreaming.prefetchDirectSources(userId, videoId).catch(() => {});
     return context.json({ ok: true }, 202);
   });
