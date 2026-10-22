@@ -17,6 +17,28 @@ const base = {
 };
 
 describe("resolvePlayerKind", () => {
+  describe("direct player never yields to the embed on its own", () => {
+    const direct = { ...base, defaultPlayer: "direct" as const };
+
+    test("plays direct when the video row is there", () => {
+      expect(resolvePlayerKind(direct)).toBe("direct");
+    });
+
+    test("waits for a video that is still being imported instead of mounting the embed", () => {
+      expect(resolvePlayerKind({ ...direct, hasVideo: false })).toBe("loading");
+    });
+
+    test("shows the direct failure (not the embed) when the video cannot be loaded", () => {
+      expect(resolvePlayerKind({ ...direct, hasVideo: false, videoLoadFailed: true })).toBe("direct");
+    });
+
+    test("uses the embed only when asked for", () => {
+      expect(resolvePlayerKind({ ...direct, hasVideo: false, playerSource: "youtube" })).toBe("youtube");
+      expect(resolvePlayerKind({ ...direct, playerSource: "youtube" })).toBe("youtube");
+      expect(resolvePlayerKind({ ...base, hasVideo: false })).toBe("youtube");
+    });
+  });
+
   test("does not mount YouTube before the download policy is loaded", () => {
     expect(resolvePlayerKind({ ...base, playbackPolicyReady: false })).toBe("loading");
   });
@@ -57,7 +79,7 @@ describe("resolvePlayerKind", () => {
       expect(resolvePlayerKind({ ...base, hasVideo: false })).toBe("youtube");
       expect(resolvePlayerKind({ ...base, hasVideo: false, streamingEnabled: true, playerSource: "youtube" })).toBe("youtube");
       expect(resolvePlayerKind({ ...base, hasVideo: false, streamingEnabled: true, sourceChoice: "remote" })).toBe("youtube");
-      expect(resolvePlayerKind({ ...base, hasVideo: false, streamingEnabled: true, defaultPlayer: "direct" })).toBe("youtube");
+      expect(resolvePlayerKind({ ...base, hasVideo: false, streamingEnabled: true, defaultPlayer: "direct" })).toBe("loading");
     });
 
     test("prefers streaming over the wait/ask panels", () => {

@@ -36,6 +36,19 @@ import { useYouTubeMediaSession } from "./useYouTubeMediaSession";
 import { resolveShortcutBindings, SHORTCUT_CLOSE_EVENT, shortcutActionMatches } from "../keyboardShortcuts";
 import { normalizeWatchCommentsMode } from "../../../shared/watchComments";
 
+/** Loads the download settings, retrying a few times so one failed request
+ *  (server restart, network blip) does not pick the wrong player. */
+async function loadDownloadConfig(isCancelled: () => boolean) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    if (isCancelled()) return null;
+    try {
+      return await api.downloadConfig();
+    } catch {}
+  }
+  return null;
+}
+
 const CINEMA_MODE_KEY = "watchCinemaMode";
 export function useWatchPageController(audioModeRequested: boolean = false) {
   const { t, language } = useI18n();
@@ -198,6 +211,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const [directFallback, setDirectFallback] = useState(false);
   const [directProgressive, setDirectProgressive] = useState(false);
   const [directFailed, setDirectFailed] = useState(false);
+  const [videoLoadFailedId, setVideoLoadFailedId] = useState<string | null>(null);
   const downloadPollGenerationRef = useRef(0);
   // Path to the next playlist video, read by the player's onStateChange when a
   // video ends. A ref keeps the player effect free of playlist dependencies.
@@ -298,7 +312,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     void (async () => {
       const [childStatus, downloadConfig] = await Promise.all([
         api.childStatus().catch(() => null),
-        api.downloadConfig().catch(() => null),
+        loadDownloadConfig(() => cancelled),
       ]);
       const downloadsEnabled = downloadConfig?.enabled ?? false;
       const subtitleLanguages = String(downloadConfig?.settings.sub_langs ?? "")
@@ -311,8 +325,10 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
         if (configuredMode === "ask" || configuredMode === "download") downloadWatchMode = configuredMode;
       }
       const experimentalStreaming = downloadsEnabled && Number(downloadConfig?.settings.experimental_streaming) === 1;
-      // Direct needs yt-dlp on the server; without it the YouTube embed is the only thing that can play.
-      const defaultPlayer = downloadConfig?.settings.default_player === "direct" && downloadConfig.ytdlp?.version ? "direct" : "youtube";
+      // The built-in player always wins unless the profile explicitly chose the
+      // YouTube embed. A failed request or a missing yt-dlp must not silently
+      // switch to the embed; the direct player shows its own error instead.
+      const defaultPlayer = downloadConfig?.settings.default_player === "youtube" ? "youtube" : "direct";
       if (cancelled) return;
       setPrefetchNextPlaylistVideo(downloadsEnabled && Number(downloadConfig?.settings.prefetch_next_playlist_video) === 1);
       setDownloadSubtitleLanguages(subtitleLanguages);
@@ -344,6 +360,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     playerSource,
     defaultPlayer,
     directFallback,
+    videoLoadFailed: videoLoadFailedId === id,
     playbackPolicyReady,
     childDownloadsOnly,
     sourceChoice,
@@ -700,6 +717,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     let cancelled = false;
     setVideo(null);
     setMissingVideoId(null);
+    setVideoLoadFailedId(null);
     setVideoInfo(null);
     setPlayerSource("auto");
     setSourceChoice("undecided");
@@ -730,7 +748,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
           api.videoInfo(id)
             .then((r) => {
               if (cancelled) return;
-              if (!r.info) return;
+              if (!r.info) { setVideoLoadFailedId(id); return; }
               setVideoInfo(r.info);
               // Video was just inserted as external — fetch the full Video object
               return api.video(id).then((full) => {
@@ -741,9 +759,10 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
                 setVideoInfo(null);
               });
             })
-            .catch(() => {});
+            .catch(() => { if (!cancelled) setVideoLoadFailedId(id); });
         } else {
           console.error(e);
+          setVideoLoadFailedId(id);
         }
       });
     // React StrictMode re-runs effects in development. Record one visit per
@@ -1585,7 +1604,8 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     dismissUpNextVideo,
     exitDirectStream,
     directProgressive,
-    directFailed,
+    // Direct without a video row means the video could not be loaded at all.
+    directFailed: directFailed || (playerKind === "direct" && !matchingVideo),
     switchToYoutubeEmbed,
     exitStreaming,
     goToUpNextVideo,

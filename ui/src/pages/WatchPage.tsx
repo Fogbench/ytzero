@@ -340,13 +340,13 @@ export default function WatchPage() {
                   showScreenshotButton={settings?.player_show_screenshot !== "0"}
                   showPipButton={settings?.player_show_pip !== "0"}
                 />
-              ) : playerKind === "direct" && directFailed && video ? (
-                <div className="wp-panel" style={{ backgroundImage: `url(${videoThumbnail(video.thumbnail)})` }}>
+              ) : playerKind === "direct" && directFailed && id ? (
+                <div className="wp-panel" style={video ? { backgroundImage: `url(${videoThumbnail(video.thumbnail)})` } : undefined}>
                   <div className="wp-panel-scrim" />
                   <div className="wp-panel-content">
                     <h3>{t("directPlaybackFailed")}</h3>
                     <p className="wp-panel-sub">
-                      <a href={markYouTubeUrl(`https://www.youtube.com/watch?v=${video.video_id}`)} target="_blank" rel="noreferrer">
+                      <a href={markYouTubeUrl(`https://www.youtube.com/watch?v=${id}`)} target="_blank" rel="noreferrer">
                         {t("directPlaybackFailedOpen")}
                       </a>
                     </p>

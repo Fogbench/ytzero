@@ -24,6 +24,8 @@ export function resolvePlayerKind(input: {
   playerSource: "auto" | "youtube";
   defaultPlayer: "youtube" | "direct";
   directFallback: boolean;
+  /** The video's library row could not be loaded or imported. */
+  videoLoadFailed?: boolean;
   playbackPolicyReady: boolean;
   childDownloadsOnly: boolean;
   sourceChoice: SourceChoice;
@@ -49,6 +51,11 @@ export function resolvePlayerKind(input: {
   // the short gap before its library row arrives: it can only claim that the
   // video is unavailable, while streaming will take over as soon as it does.
   if (!input.hasVideo && streamEligible) return "loading";
+  // Same for the direct player: wait for the library row instead of showing
+  // the YouTube embed meanwhile. If the row never arrives, "direct" without a
+  // video shows the "Direct playback failed" panel, never the embed.
+  const wantsDirect = input.defaultPlayer === "direct" && !remoteForcedToYouTube && input.sourceChoice !== "remote";
+  if (!input.hasVideo && wantsDirect) return input.videoLoadFailed ? "direct" : "loading";
   if (input.hasVideo && input.childDownloadsOnly) return "blocked";
   // Experimental: play-while-downloading. Holds the stream while the file is
   // still downloading; the viewer can still fall back to YouTube (which flips

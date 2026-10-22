@@ -1,3 +1,43 @@
 {
-  "releases": []
+  "releases": [
+    {
+      "version": "2026.10.1",
+      "name": "2026.10.1",
+      "publishedAt": "2026-10-04T21:46:40Z",
+      "url": "https://github.com/Fogbench/ytzero/releases/tag/2026.10.1",
+      "notes": [
+        "The default player is Direct: it streams through your own server with yt-dlp and saves nothing. The YouTube embed stays an option and is used when yt-dlp is missing.",
+        "If direct playback fails, it no longer switches to the embed silently. You get an error, a YouTube link and a button to use the embed.",
+        "New gear menu with:",
+        "Autoplay switch. With no queue or playlist it continues with \"More like this\".",
+        "SponsorBlock switch. A segment you deliberately seek into is not skipped.",
+        "Stable volume and Voice boost (browser audio engine, direct player only).",
+        "Audio track, for the language of dubbed videos.",
+        "Sleep timer, 5 to 60 minutes or at the end of the video.",
+        "Playback speed slider, 0.25x to 2x in 0.05 steps.",
+        "Subtitles, with language and style (size, colour, background, live sample).",
+        "Quality, up to 4K.",
+        "Quality: your preferred or Auto, and choose AV1 or H.264 (MP4). Auto picks AV1 only when it plays smoothly and otherwise uses the server's default stream. A failing quality retries the default stream first. Switching keeps your position. Portrait videos are named by their short side (1080p).",
+        "The CC button switches captions on and off.",
+        "Other player fixes: sound is restored on your first click or key after the browser mutes autoplay (if your audio keeps muting on new videos it's a browser permission); the theater button leaves fullscreen; the up-next banner draws inside fullscreen; keyboard focus moves into the gear menu and Escape returns to the gear button.",
+        "Subtitles: auto-generated captions are offered when a video has no uploader subtitles, in the app language and your browser's languages, and are marked \"(auto-generated)\". Fixed the CC button spinning forever and a failed lookup when yt-dlp reports no subtitles.",
+        "Fixed age-restricted videos (a bare \"null\" from yt-dlp) and an empty quality request in direct streaming.",
+        "Shorts use the youtube-nocookie.com embed.",
+        "Hide \"Continue watching\" (Settings > Experience > Navigation).",
+        "Hide the player's Download, Screenshot and Picture-in-picture buttons (Settings > Experience > Playback).",
+        "Auto-generated captions: show, only as a fallback, or hide (Settings > Experience > Subtitles).",
+        "The 42 known advisories reported by bun audit at fork time (12 in app, 30 in ui) are fixed; bun audit now reports 0.",
+        "Upgraded to the latest major versions: React 19.3.0, react-router 8.4.0, vite 8.3.2, TypeScript 7.0.2, @simplewebauthn 14, plus hono, fast-xml-parser, openid-client, sharp, hls.js, emoji-picker-react and lucide-react. Removed the unused vite-plugin-pwa.",
+        "New Linux release package (this file) with install-linux.sh, start.sh, update.sh and uninstall.sh. Bun, yt-dlp, Deno and ffmpeg are pinned by checksum and installed into the package's own ./bin folder; system copies are ignored. update.sh backs up your data first.",
+        "\"bun run setup\" (running from source) now downloads yt-dlp, Deno and ffmpeg into ./bin.",
+        "The in-app update check looks at this fork's releases, not Pelski's. Links to Pelski's releases, issues and wiki are removed from the app. This release's in-app changelog shows only the current version, with no notes.",
+        "Docker files and images, docker-compose, cloud deploy files (Render, Railway, Heroku, Fly, DigitalOcean, Zeabur, Kubernetes, Gitea), the Unraid template, the Proxmox script, community scripts and the old installer.",
+        "The tvOS app, the project website, the wiki folder, the promo-video script, and the docs about the browser extension, the TV app and local network discovery. The TV pairing page in the app is kept.",
+        "Issue and pull request templates, CODEOWNERS, CODE_OF_CONDUCT and the funding file.",
+        "README, SECURITY and CONTRIBUTING rewritten for a personal fork with no support promised. The README keeps only this fork's additions and links Pelski's project and wiki.",
+        "Logo and app icons now have a green background.",
+        "Linux x86_64: the automated install/update/uninstall on a Proxmox container."
+      ]
+    }
+  ]
 }
