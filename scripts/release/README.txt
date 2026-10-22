@@ -15,7 +15,7 @@ repository above (every release also has a source archive).
 
 This archive is a ready-built copy. Nothing needs compiling.
 
-PORTABLE: install-linux.sh, start.sh, update.sh and uninstall.sh makes no
+PORTABLE: install-linux.sh, start.sh, update.sh and uninstall.sh make no
 changes to your PC outside this folder. Nothing is written to your home
 directory (no ~/.bashrc edit, no ~/.cache, no ~/.bun), to /usr, /etc or /opt,
 and no system service or scheduled job is created. Bun, yt-dlp, Deno, ffmpeg
@@ -251,9 +251,11 @@ update.sh  (update to the latest release)
     as long as no update is running.
   - If an update stops partway (for example the library install fails
     because there is no internet), your data is untouched and the folder
-    still counts as the old version. Program folders are put back to the
-    old ones, but top-level files such as README.txt may already be the new
-    ones until you run "bash update.sh" again, which finishes the update.
+    still counts as the old version. If it stopped while the files were
+    being swapped, the program folders are put back to the old ones; if it
+    stopped later (the library install), the new program files stay. Either
+    way, run "bash update.sh" again: it does the whole update again and
+    finishes it.
     A temporary folder left by an update that was killed is removed the
     next time update.sh runs.
   - It keeps the newest 5 database copies in ./backups and removes older

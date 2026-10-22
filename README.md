@@ -7,7 +7,7 @@
   </p>
 </div>
 
-This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream). A first release exists (see [Releases](https://github.com/Fogbench/ytzero/releases)); no support or further releases are promised for now, and that may change. For everything this README does not cover (features, settings, authentication, TubeArchivist, public sharing, child profiles and more), see upstream and its [wiki](https://github.com/Pelski/ytzero/wiki) (upstream). This fork has upgraded every dependency to its latest major version (React 19, react-router 8, vite 8, TypeScript 7 and more); see [Security and upgrades](#security-and-upgrades). All credit for YT Zero itself goes to Pelski and the contributors listed at https://github.com/Pelski/ytzero/
+This is a personal fork of [Pelski/ytzero](https://github.com/Pelski/ytzero) (upstream). Releases are on the [Releases](https://github.com/Fogbench/ytzero/releases) page; no support or further releases are promised for now, and that may change. For everything this README does not cover (features, settings, authentication, TubeArchivist, public sharing, child profiles and more), see upstream and its [wiki](https://github.com/Pelski/ytzero/wiki) (upstream). This fork has upgraded every dependency to its latest major version (React 19, react-router 8, vite 8, TypeScript 7 and more); see [Security and upgrades](#security-and-upgrades). All credit for YT Zero itself goes to Pelski and the contributors listed at https://github.com/Pelski/ytzero/
 
 ## What this fork adds
 
